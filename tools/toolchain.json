@@ -26,6 +26,13 @@
       }
     }
   },
+  "appleBuild": {
+    "runnerLabel": "macos-26",
+    "architecture": "arm64",
+    "xcodeVersion": "26.6",
+    "xcodeDeveloperDir": "/Applications/Xcode_26.6.app/Contents/Developer",
+    "iosSdkVersion": "26.5"
+  },
   "windowsPackages": {
     "core": [
       {

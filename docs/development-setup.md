@@ -70,6 +70,22 @@ export PATH="$PWD/.tools/bin:$PATH"
 Krita and Audacity are unnecessary on a macOS CI runner. Pass
 `--include-gui-editors` only when configuring an interactive Mac workstation.
 
+Install the pinned export templates when the Mac must export a project:
+
+```bash
+./scripts/setup-unix.sh --install-export-templates
+export PATH="$PWD/.tools/bin:$PATH"
+```
+
+GitHub-hosted runners already contain the system tools needed by the iOS
+workflows. Those workflows use the narrower setup mode:
+
+```bash
+./scripts/setup-unix.sh --skip-system-tools --install-export-templates
+```
+
+Do not use `--skip-system-tools` on an unprepared workstation.
+
 ## Copilot CLI on another host
 
 Copilot CLI automatically reads `.github/copilot-instructions.md`. A new
@@ -110,7 +126,9 @@ The later macOS release workflow will require:
 
 The export-template filename and checksum are already recorded in
 `tools/toolchain.json`, but templates are not installed on ordinary Windows or
-Linux development hosts.
+Linux development hosts. The GitHub Actions release configuration and its
+required Apple account setup are documented in
+[`ios-release.md`](ios-release.md).
 
 ## Toolchain upgrades
 
@@ -121,8 +139,10 @@ Upgrade deliberately rather than following `latest` automatically:
 2. Update the version, release tag, download filenames, and checksums in
    `tools/toolchain.json`.
 3. Update WinGet package versions for the supporting tools.
-4. Run both setup and verification on a clean host.
-5. Update this document and the GitHub Actions workflows in the same change.
+4. Update `appleBuild` when the stable macOS runner, Xcode, or iOS SDK changes.
+5. Update the literal runner, Xcode path, and cache keys in the workflows.
+6. Run both setup and verification on a clean host.
+7. Update this document and the GitHub Actions workflows in the same change.
 
 Pinning the engine prevents one host or CI job from silently rewriting project
 files with a different Godot format.

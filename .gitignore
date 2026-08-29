@@ -4,9 +4,19 @@
 # Repository-local tool downloads
 .tools/
 
+# Generated export configuration and credentials
+export_presets.cfg
+.godot/export_credentials.cfg
+
 # Build and export output
 build/
 exports/
+
+# Apple signing material
+*.cer
+*.mobileprovision
+*.p12
+*.p8
 
 # Operating system files
 .DS_Store
