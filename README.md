@@ -6,6 +6,7 @@ Native iOS game.
 
 - [Game stack decision guide](docs/game-stack-decision-guide.md)
 - [Development toolchain setup](docs/development-setup.md)
+- [Clean-room environment rebuild runbook](docs/environment-rebuild-runbook.md)
 - [iOS build and TestFlight setup](docs/ios-release.md)
 
 ## Quick start on Windows
@@ -15,6 +16,7 @@ Install the pinned Godot toolchain and the optional graphical asset editors:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1 -IncludeGuiEditors
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-windows.ps1 -RequireGuiEditors
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-project-windows.ps1
 ```
 
 Godot is pinned in [`tools/toolchain.json`](tools/toolchain.json). Routine game

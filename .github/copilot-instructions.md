@@ -10,11 +10,19 @@
 
 ## Environment setup
 
+- When recreating this environment for a separate game repository, follow
+  `docs/environment-rebuild-runbook.md` as the authoritative clean-room
+  procedure.
 - On Windows, run `scripts/setup-windows.ps1` when required tools are missing.
+- On Windows, use `scripts/check-project-windows.ps1` for blocking headless
+  import and startup checks; do not rely on the GUI Godot executable preserving
+  `$LASTEXITCODE`.
 - On Linux or macOS, run `scripts/setup-unix.sh`.
 - Run the matching verification script after setup.
 - Keep generated downloads and installations under `.tools/` when the setup
   script uses repository-local tooling. Never commit `.tools/`.
+- Do not configure Godot, Krita, Audacity, ImageMagick, FFmpeg, or Git LFS to
+  run automatically at sign-in or computer startup.
 
 ## Development workflow
 

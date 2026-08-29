@@ -28,6 +28,7 @@ From the repository root, install the core command-line toolchain:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-project-windows.ps1
 ```
 
 For a development workstation, also install and verify Krita and Audacity:
@@ -35,10 +36,17 @@ For a development workstation, also install and verify Krita and Audacity:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-windows.ps1 -IncludeGuiEditors
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-windows.ps1 -RequireGuiEditors
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-project-windows.ps1
 ```
 
 Open a new terminal after installation so application aliases and `PATH`
 updates are available.
+
+If Krita's WinGet installer cannot obtain elevation, the setup script downloads
+the official portable archive pinned in `tools/toolchain.json`, verifies its
+SHA-256 checksum, and installs it under the ignored `.tools/` directory. The
+verification script accepts either the exact WinGet package or that pinned
+portable installation.
 
 ## Linux setup
 
@@ -91,11 +99,13 @@ Do not use `--skip-system-tools` on an unprepared workstation.
 Copilot CLI automatically reads `.github/copilot-instructions.md`. A new
 session should:
 
-1. Read `tools/toolchain.json`.
-2. Run the setup script for its operating system.
-3. Run the matching verification script.
-4. Keep normal game work on Windows or Linux.
-5. Use macOS only for Apple-specific build and release steps.
+1. Read the
+   [clean-room environment rebuild runbook](environment-rebuild-runbook.md).
+2. Read `tools/toolchain.json`.
+3. Run the setup script for its operating system.
+4. Run the matching verification script.
+5. Keep normal game work on Windows or Linux.
+6. Use macOS only for Apple-specific build and release steps.
 
 This allows a new session to reproduce the tool set without relying on previous
 conversation history.
@@ -108,14 +118,15 @@ The planned validation split is:
 |---|---|---|
 | During development | Local Windows | Editor, gameplay, assets, GDScript checks |
 | Pull request | Linux runner | Headless import, script checks, and automated tests |
-| Manual release or release tag | macOS runner | iOS export, Xcode archive, signing, and TestFlight |
+| Manual smoke or release | macOS runner | iOS export, Xcode compilation, archive, signing, and TestFlight |
 
 Do not configure macOS jobs to run for every push or pull request. The iOS job
-will be added after the Godot project and Apple bundle identifiers exist.
+is manual for credential-free smoke builds and manual or tag-driven for
+protected TestFlight releases.
 
 ## iOS release prerequisites
 
-The later macOS release workflow will require:
+The macOS release workflow requires:
 
 - Godot export templates matching version 4.7.2.
 - A Godot iOS export preset.

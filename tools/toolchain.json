@@ -34,6 +34,7 @@
     "iosSdkVersion": "26.5"
   },
   "windowsPackages": {
+    "architecture": "x64",
     "core": [
       {
         "name": "Godot Engine",
@@ -63,7 +64,15 @@
       {
         "name": "Krita",
         "id": "KDE.Krita",
-        "version": "5.3.3.0"
+        "version": "5.3.3.0",
+        "portableWindows": {
+          "asset": "krita-x64-5.3.3.zip",
+          "url": "https://download.kde.org/stable/krita/5.3.3/krita-x64-5.3.3.zip",
+          "sha256": "87278594fac0267680303280e410578388d606aec5a290f2b0d009909f4254f0",
+          "installDirectory": ".tools/krita-5.3.3",
+          "relativeExecutable": "krita-x64-5.3.3/bin/krita.exe",
+          "commandVersion": "5.3.3"
+        }
       },
       {
         "name": "Audacity",
