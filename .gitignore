@@ -1,0 +1,17 @@
+# Godot generated state
+.godot/
+
+# Repository-local tool downloads
+.tools/
+
+# Build and export output
+build/
+exports/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
