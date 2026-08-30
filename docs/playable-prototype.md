@@ -71,9 +71,9 @@ The prototype includes:
   actions, safely resets failed guided struggles, and returns to the city after
   required belly actions;
 - a Skip action that marks the tutorial complete and restores normal play;
-- a persistent, per-profile Frog Field Guide covering all 19 target IDs in the
-  prototype, including Golden Cake, both destructible-building sequences, and
-  Animal Control;
+- a persistent, per-profile Frog Field Guide covering all 23 target IDs in the
+  prototype, including Golden Cake, all three destructible-building sequences,
+  and Animal Control;
 - first-swallow discovery credit that never adds score or growth, cannot be
   farmed by returning and re-eating a target, and is saved immediately;
 - useful hints for unknown Field Guide entries, including the unusual
@@ -108,6 +108,14 @@ The prototype includes:
   - remove its exterior banner;
   - reach maximum growth and win a struggle against the weakened shop; and
   - digest the whole structure or restore it with all three parts still gone;
+- an ordered destructible-building sequence for Leap Café:
+  - eat its Sidewalk Menu Board from outside;
+  - grow once, enter the still-open café, and win a struggle with the Rear
+    Espresso Counter;
+  - remove the Front Awning without changing doorway collision;
+  - reach maximum growth and win a struggle against the weakened café; and
+  - digest the whole structure or restore it in a clear footprint with all
+    three parts still absent and the Loose Phone bar unchanged;
 - an always-available End Game action, including from the belly screen; and
 - local player profiles with independent high scores and a device-wide best
   score. Ending the game before finishing or skipping the tutorial does not
@@ -238,13 +246,13 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, busy daytime, maximum growth, Field Guide, or options | 218 game-subtree nodes, 30 collision objects and shapes, 18 targets, 4 buildings |
-| Pursuit or gameplay peak | 220 nodes, 31 collision objects and shapes, 1 pursuer |
-| Populated Belly sample | 64 items and rows, 474 nodes; this is a stress sample, not a gameplay capacity limit |
+| Baseline, busy daytime, maximum growth, Field Guide, or options | 228 game-subtree nodes, 31 collision objects and shapes, 22 targets, 4 buildings |
+| Pursuit or gameplay peak | 230 nodes, 32 collision objects and shapes, 1 pursuer |
+| Populated Belly sample | 64 items and rows, 484 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 pedestrians plus 5 secondary vehicles, all draw-only |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 19 rows, matching the fixed catalog |
+| Populated Field Guide | 23 rows, matching the fixed catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -277,7 +285,7 @@ device build.
 
 The manual `iOS unsigned smoke build` workflow is verified on the pinned
 `macos-26` arm64 runner. Run
-[`33314224588`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33314224588)
+[`33327784555`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327784555)
 successfully installed Godot 4.7.2 and its export templates, passed the Xcode
 26.6/iOS 26.5 preflight, generated the Xcode project, and compiled a Release
 build for a generic iOS device with code signing disabled.
@@ -292,11 +300,13 @@ test. Windows and Linux can verify workflow wiring, toolchain pins, the arm64
 project-only preset, secret absence, and signing overrides, but cannot perform
 the Apple export or Xcode build. The macOS workflow remains authoritative.
 
-The successful remote run built committed state through `fa5523f`. The later
-gameplay, accessibility, performance, and release-pipeline changes in the
-current repository state require another manual smoke run after this state is
-pushed. Known non-fatal generated-project warnings are recorded in
-[`ios-release.md`](ios-release.md).
+The successful remote run built exact audio commit
+`73cfb5ef1cbc8d3d5e9eb71dbec44a4455d8fd76`. Godot CI run
+[`33327743256`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327743256)
+also passed on that commit. Later gameplay changes, including the Leap Café
+destruction slice, are not covered by either remote run until a separately
+authorized workflow is run on their eventual commit. Known non-fatal
+generated-project warnings are recorded in [`ios-release.md`](ios-release.md).
 
 ## Prototype boundaries
 

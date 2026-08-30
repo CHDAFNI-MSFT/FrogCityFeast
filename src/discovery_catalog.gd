@@ -23,6 +23,26 @@ const ENTRIES := [
 		"hint": "Visit Leap Cafe after growing once.",
 	},
 	{
+		"id": "leap_cafe_menu_board",
+		"name": "Sidewalk Menu Board",
+		"hint": "Start outside Leap Cafe at its sidewalk menu.",
+	},
+	{
+		"id": "leap_cafe_espresso_counter",
+		"name": "Rear Espresso Counter",
+		"hint": "Remove the menu board, grow once, and enter the cafe.",
+	},
+	{
+		"id": "leap_cafe_awning",
+		"name": "Front Awning",
+		"hint": "Wrestle out the counter before stripping the awning.",
+	},
+	{
+		"id": "leap_cafe_building",
+		"name": "Leap Cafe",
+		"hint": "Remove all three cafe parts and reach maximum size.",
+	},
+	{
 		"id": "park_chair",
 		"name": "Park Chair",
 		"hint": "Explore River Park after growing once.",

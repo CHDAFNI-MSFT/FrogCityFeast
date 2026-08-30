@@ -146,6 +146,47 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 			"color": Color("a78bc4"),
 		},
 	},
+	"leap_cafe": {
+		"ordered": true,
+		"parts": [
+			{
+				"part_id": "sign",
+				"id": "leap_cafe_menu_board",
+				"name": "Sidewalk Menu Board",
+				"value": 36,
+				"radius": 32.0,
+				"color": Color("f2d28b"),
+			},
+			{
+				"part_id": "counter",
+				"id": "leap_cafe_espresso_counter",
+				"name": "Rear Espresso Counter",
+				"value": 92,
+				"tier": 1,
+				"radius": 40.0,
+				"resistant": true,
+				"taps": 9,
+				"color": Color("82533f"),
+			},
+			{
+				"part_id": "door",
+				"id": "leap_cafe_awning",
+				"name": "Front Awning",
+				"value": 58,
+				"tier": 1,
+				"radius": 36.0,
+				"color": Color("e8a596"),
+			},
+		],
+		"whole": {
+			"id": "leap_cafe_building",
+			"name": "Leap Cafe",
+			"value": 440,
+			"radius": 150.0,
+			"taps": 16,
+			"color": Color("ca8d77"),
+		},
+	},
 }
 
 @onready var _world: Node2D = $World
@@ -764,6 +805,8 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 			building_was_weakened = building.remove_part(target.building_part_id)
 			if building.is_ready_to_swallow():
 				_activate_building_target(building.building_id)
+			elif building_was_weakened:
+				_activate_next_ordered_building_part(building)
 		elif target.kind == "building":
 			building.consume()
 	_belly.append(item)
@@ -1841,6 +1884,44 @@ func _activate_building_target(building_id: String) -> void:
 			return
 
 
+func _activate_next_ordered_building_part(
+	building: PrototypeBuilding
+) -> void:
+	var configuration := (
+		DESTRUCTIBLE_BUILDING_TARGETS.get(building.building_id, {})
+		as Dictionary
+	)
+	if not bool(configuration.get("ordered", false)):
+		return
+	for part_configuration in configuration.get("parts", []):
+		var part_data := part_configuration as Dictionary
+		var part_id := str(part_data.get("part_id", ""))
+		if part_id.is_empty():
+			push_error(
+				"Ordered destruction part is missing an ID for %s."
+				% building.building_id
+			)
+			return
+		if building.is_part_removed(part_id):
+			continue
+		var target_id := str(part_data.get("id", ""))
+		var next_target := _find_target_by_id(target_id)
+		if next_target == null:
+			push_error(
+				"Ordered destruction target %s is missing for %s."
+				% [target_id, building.building_id]
+			)
+			return
+		next_target.visible = true
+		next_target.selectable = true
+		return
+	if not building.is_ready_to_swallow():
+		push_error(
+			"No remaining ordered part could be activated for %s."
+			% building.building_id
+		)
+
+
 func _on_pursuer_caught(source_position: Vector2) -> void:
 	_apply_damage(source_position, 25, "Animal Control caught you! You lost some points.")
 
@@ -2733,9 +2814,10 @@ func _build_prototype_city() -> void:
 		"south",
 		Color("ca8d77"),
 		"leap_cafe",
-		false,
+		true,
 		Vector2(0, -120),
-		cafe_props
+		cafe_props,
+		PrototypeBuilding.ENTRANCE_PART_AWNING
 	)
 	var apartments := _spawn_building(
 		Vector2(-610, 1210),
@@ -2761,6 +2843,7 @@ func _build_prototype_city() -> void:
 		Vector2(150, 64)
 	)
 	_spawn_destruction_targets(market)
+	_spawn_destruction_targets(cafe)
 
 	_spawn_target({
 		"id": "street_donut",
@@ -2885,7 +2968,8 @@ func _spawn_building(
 	building_id: String,
 	destructible_parts: bool = false,
 	counter_position: Vector2 = Vector2(0, 64),
-	interior_props: Array[Rect2] = []
+	interior_props: Array[Rect2] = [],
+	entrance_part_style: String = PrototypeBuilding.ENTRANCE_PART_DOOR
 ) -> PrototypeBuilding:
 	var building := BUILDING_SCRIPT.new() as PrototypeBuilding
 	building.position = building_position
@@ -2897,6 +2981,7 @@ func _spawn_building(
 	building.destructible_parts = destructible_parts
 	building.counter_position = counter_position
 	building.interior_props = interior_props.duplicate()
+	building.entrance_part_style = entrance_part_style
 	_world.add_child(building)
 	_buildings.append(building)
 	_building_by_id[building_id] = building
@@ -2913,16 +2998,28 @@ func _spawn_destruction_targets(building: PrototypeBuilding) -> void:
 			% building.building_id
 		)
 		return
+	var ordered := bool(configuration.get("ordered", false))
+	var part_index := 0
 	for part_configuration in configuration.get("parts", []):
 		var target_data := (part_configuration as Dictionary).duplicate(true)
 		var part_id := str(target_data.get("part_id", ""))
+		if part_id.is_empty():
+			push_error(
+				"Destruction target configuration is missing a part ID for %s."
+				% building.building_id
+			)
+			return
 		target_data.erase("part_id")
 		target_data["position"] = building.part_world_position(part_id)
 		target_data["kind"] = "building_part"
 		target_data["restockable"] = false
 		target_data["building_id"] = building.building_id
 		target_data["building_part_id"] = part_id
+		if ordered and part_index > 0:
+			target_data["hidden"] = true
+			target_data["selectable"] = false
 		_spawn_target(target_data)
+		part_index += 1
 
 	var whole_data := (
 		(configuration.get("whole", {}) as Dictionary).duplicate(true)

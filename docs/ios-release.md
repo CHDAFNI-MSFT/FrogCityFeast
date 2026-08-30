@@ -9,8 +9,9 @@ submission.
 The credential-free pipeline is verified through
 [`iOS unsigned smoke build`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/workflows/ios-smoke.yml).
 Manual run
-[`33314224588`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33314224588)
-completed successfully on August 30, 2026 for commit `fa5523f`:
+[`33327784555`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327784555)
+completed successfully on August 30, 2026 for audio commit
+`73cfb5ef1cbc8d3d5e9eb71dbec44a4455d8fd76`:
 
 - the pinned Godot 4.7.2 editor and export templates installed on `macos-26`;
 - the Xcode 26.6 and iOS 26.5 preflight passed;
@@ -27,18 +28,17 @@ toolchain, absence of secrets, generated project-only arm64 preset, temporary
 `export_presets.cfg` cleanup, and the explicit Xcode signing overrides. It does
 not replace the macOS integration run.
 
-The successful workflow run covers committed state through `fa5523f`. The
-later gameplay, accessibility, performance, and iOS release-pipeline changes in
-the current repository state pass local checks but are not included in a remote
-iOS build. The new generated-project validator, iPad-only target, explicit
-icon, privacy declarations, and warning sanitation require a new
-credential-free macOS smoke run after this state is pushed. Do not approve a
-signed release until that run passes on the intended release commit.
+Godot CI run
+[`33327743256`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327743256)
+also passed on that exact commit. The successful unsigned run includes the
+generated-project validator, iPad-only target, explicit icon, privacy
+declarations, warning sanitation, original audio files,
+`default_bus_layout.tres`, and the audio autoload.
 
-Original audio files, `default_bus_layout.tres`, and the audio autoload are also
-exported project resources. After the audio vertical slice is committed and
-pushed with approval, rerun the credential-free unsigned smoke workflow on that
-exact commit before considering any signed release.
+Later gameplay changes are not included in either remote run until a separately
+authorized workflow is run on their eventual commit. Do not approve a signed
+release until Godot CI and the credential-free unsigned smoke both pass on the
+intended release commit.
 
 The successful build retains non-fatal Godot/Xcode warnings for a legacy boot
 splash property, empty camera/photo-library/microphone purpose strings emitted

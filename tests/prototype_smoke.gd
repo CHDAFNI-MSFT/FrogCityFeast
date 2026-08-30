@@ -31,8 +31,8 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 18,
-		"Prototype targets, interiors, and both destruction sequences are created."
+		game._targets.size() == 22,
+		"Prototype targets, interiors, and all three destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
 	_check(game._belly.is_empty(), "A new game starts with an empty belly.")
@@ -94,7 +94,10 @@ func _run() -> void:
 	while game._growth_tier < 2 and progression_steps < 12:
 		var eligible_target: EdibleTarget
 		for target in game._targets:
-			if target.can_be_swallowed(game._growth_tier):
+			if (
+				target.selectable
+				and target.can_be_swallowed(game._growth_tier)
+			):
 				eligible_target = target
 				break
 		if eligible_target == null:
@@ -104,6 +107,12 @@ func _run() -> void:
 		progression_steps += 1
 	_check(game._growth_tier == 2, "Digesting enough value reaches the maximum prototype growth tier.")
 	_check(game._frog.growth_tier == 2, "Frog presentation and abilities receive the growth tier.")
+	if game._flight_time_left <= 0.0:
+		var cake := _find_target(game, "golden_cake")
+		_check(cake != null, "The rare golden cake remains available for its flight test.")
+		if cake != null:
+			game._swallow_target(cake, 1.0)
+			game._digest_item(0)
 	_check(game._flight_time_left > 0.0, "Digesting the rare golden cake activates flight.")
 	_check(game._frog.is_flying, "Flight changes the frog's movement state.")
 
@@ -334,6 +343,7 @@ func _run() -> void:
 	await process_frame
 
 	await _test_oddities_shop_sequence(game_scene)
+	await _test_leap_cafe_sequence(game_scene)
 	await _test_building_interiors(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_accessibility(game_scene)
@@ -1117,7 +1127,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity is one draw-only layer with no physics bodies."
 	)
 	_check(
-		game._targets.size() == 18 and DiscoveryCatalog.count() == 19,
+		game._targets.size() == 22 and DiscoveryCatalog.count() == 23,
 		"Ambient city life does not add gameplay targets or Field Guide entries."
 	)
 	var expected_daylight := (
@@ -1305,7 +1315,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		if not catalog_ids.has(target_id):
 			catalog_matches_targets = false
 	_check(
-		catalog_matches_targets and DiscoveryCatalog.count() == 19,
+		catalog_matches_targets and DiscoveryCatalog.count() == 23,
 		"Field Guide catalog exactly matches every swallowable prototype target."
 	)
 	_check(
@@ -1851,6 +1861,306 @@ func _test_oddities_shop_sequence(game_scene: PackedScene) -> void:
 	await process_frame
 
 
+func _test_leap_cafe_sequence(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.configure("leap_cafe_test", "Leap Cafe Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	var cafe := (
+		game._building_by_id.get("leap_cafe") as PrototypeBuilding
+	)
+	var menu_board := _find_target(game, "leap_cafe_menu_board")
+	var espresso_counter := _find_target(
+		game,
+		"leap_cafe_espresso_counter"
+	)
+	var awning := _find_target(game, "leap_cafe_awning")
+	var building_target := _find_target(game, "leap_cafe_building")
+	_check(
+		is_instance_valid(cafe)
+		and cafe.destructible_parts
+		and cafe.weakness_count() == 0
+		and cafe.entrance_part_style
+		== PrototypeBuilding.ENTRANCE_PART_AWNING
+		and not is_instance_valid(cafe._door_body)
+		and game._circle_position_clear(
+			Vector2(610, -450),
+			44.0,
+			true
+		),
+		"Leap Cafe starts intact, destructible, and enterable at maximum size."
+	)
+	_check(
+		menu_board.visible
+		and menu_board.selectable
+		and not espresso_counter.visible
+		and not espresso_counter.selectable
+		and not awning.visible
+		and not awning.selectable
+		and not building_target.selectable,
+		"Only the Sidewalk Menu Board is active at the start of the ordered sequence."
+	)
+
+	game._frog.global_position = Vector2(475, -280)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* menu_board.global_position
+	)
+	_check(
+		cafe.weakness_count() == 1
+		and espresso_counter.visible
+		and espresso_counter.selectable
+		and not awning.visible
+		and game._status_label.text.contains(
+			"Leap Café is weakened to 1/3"
+		),
+		"Removing the menu board adds one weakness and unlocks only the Espresso Counter."
+	)
+	game._digest_item(0)
+
+	game._frog.global_position = Vector2(610, -330)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* espresso_counter.global_position
+	)
+	_check(
+		not is_instance_valid(game._struggle_target)
+		and game._status_label.text.contains(
+			"Enter Leap Café before reaching for Rear Espresso Counter"
+		),
+		"The Rear Espresso Counter explicitly requires entering the cafe."
+	)
+
+	game._growth_tier = 0
+	game._frog.set_growth_tier(0)
+	game._frog.global_position = Vector2(610, -535)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* espresso_counter.global_position
+	)
+	_check(
+		game._pull_target == espresso_counter
+		and game._status_label.text.contains("is too big and pulls"),
+		"The interior counter requires the first growth tier."
+	)
+	game._cancel_pull()
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* espresso_counter.global_position
+	)
+	_check(
+		game._struggle_target == espresso_counter,
+		"The grown frog starts a rapid-tap struggle with the Rear Espresso Counter."
+	)
+	game._fail_struggle()
+	_check(
+		espresso_counter.global_position
+		== cafe.part_world_position(PrototypeBuilding.PART_COUNTER)
+		and espresso_counter.velocity == Vector2.ZERO
+		and not espresso_counter.unpredictable,
+		"A failed counter struggle returns the fixture to the rear of the cafe."
+	)
+	if is_instance_valid(game._pursuer):
+		game._pursuer.queue_free()
+		game._pursuer = null
+		await process_frame
+
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* espresso_counter.global_position
+	)
+	for _tap in espresso_counter.taps_required:
+		game._register_struggle_tap()
+	_check(
+		cafe.weakness_count() == 2
+		and cafe._counter_body.collision_layer == 0
+		and awning.visible
+		and awning.selectable
+		and not building_target.selectable,
+		"Winning the counter struggle removes its collision and unlocks only the Front Awning."
+	)
+	game._digest_item(0)
+
+	var phone := _find_target(game, "shop_phone")
+	game._frog.global_position = Vector2(566, -620)
+	game._swallow_target(phone, 1.0)
+	game._digest_item(0)
+
+	game._frog.global_position = Vector2(610, -290)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* awning.global_position
+	)
+	_check(
+		cafe.weakness_count() == 3
+		and cafe.is_ready_to_swallow()
+		and building_target.selectable
+		and game._circle_position_clear(
+			Vector2(610, -450),
+			44.0,
+			true
+		),
+		"Removing the awning fully weakens the cafe without ever blocking its entrance."
+	)
+	game._digest_item(0)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* building_target.global_position
+	)
+	_check(
+		game._pull_target == building_target
+		and game._status_label.text.contains(
+			"Leap Café is weak, but the frog must reach maximum growth"
+		),
+		"The fully weakened cafe still requires maximum growth."
+	)
+	game._cancel_pull()
+
+	game._growth_tier = 2
+	game._frog.set_growth_tier(2)
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* building_target.global_position
+	)
+	_check(
+		game._struggle_target == building_target,
+		"The maximum-size frog starts the whole-cafe struggle through the open entrance."
+	)
+	game._fail_struggle()
+	_check(
+		building_target.global_position == cafe.global_position
+		and not cafe.consumed
+		and game._status_label.text.contains(
+			"Leap Cafe shook the frog off"
+		),
+		"A failed whole-cafe struggle stays anchored and summons pursuit."
+	)
+	if is_instance_valid(game._pursuer):
+		game._pursuer.queue_free()
+		game._pursuer = null
+		await process_frame
+
+	var score_before_capture := game._score
+	var growth_before_capture := game._growth_points
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* building_target.global_position
+	)
+	for _tap in building_target.taps_required:
+		game._register_struggle_tap()
+	_check(
+		cafe.consumed
+		and game._building_footprint_clear(cafe)
+		and game._belly.size() == 1
+		and game._belly[0].target_id == "leap_cafe_building"
+		and game._score == score_before_capture
+		and game._growth_points == growth_before_capture,
+		"Swallowing the whole cafe creates one Belly item without immediate score or growth."
+	)
+	_check(
+		game._discoveries.has("leap_cafe_menu_board")
+		and game._discoveries.has("leap_cafe_espresso_counter")
+		and game._discoveries.has("leap_cafe_awning")
+		and game._discoveries.has("leap_cafe_building"),
+		"Every Leap Cafe part and the whole building records its first discovery."
+	)
+
+	var footprint_blocker := EdibleTarget.new()
+	footprint_blocker.position = cafe.global_position
+	footprint_blocker.pick_radius = 30.0
+	game._world.add_child(footprint_blocker)
+	game._targets.append(footprint_blocker)
+	game._spit_item(0)
+	_check(
+		cafe.consumed and game._belly.size() == 1,
+		"An occupied Leap Cafe footprint prevents unsafe restoration."
+	)
+	game._targets.erase(footprint_blocker)
+	footprint_blocker.queue_free()
+	game._spit_item(0)
+	var restored_building_target := _find_target(
+		game,
+		"leap_cafe_building"
+	)
+	_check(
+		not cafe.consumed
+		and cafe.weakness_count() == 3
+		and cafe._counter_body.collision_layer == 0
+		and not is_instance_valid(cafe._door_body)
+		and restored_building_target.selectable
+		and game._circle_position_clear(
+			Vector2(610, -450),
+			44.0,
+			true
+		)
+		and not game._circle_position_clear(
+			Vector2(469, -535),
+			24.0,
+			true
+		),
+		"Restoration keeps all three parts absent while preserving the doorway and Loose Phone bar."
+	)
+
+	var restored_target_count := 0
+	for target in game._targets:
+		if target.target_id == "leap_cafe_building":
+			restored_target_count += 1
+	_check(
+		restored_target_count == 1,
+		"Restoring the cafe creates exactly one whole-building target."
+	)
+
+	game._swallow_target(restored_building_target, 1.0)
+	var score_before_digest := game._score
+	game._digest_item(0)
+	_check(
+		game._score > score_before_digest and cafe.consumed,
+		"Digesting the restored cafe awards score once and leaves its geometry consumed."
+	)
+
+	await create_timer(9.2, false).timeout
+	var restocked_phone := _find_target(game, "shop_phone")
+	_check(
+		is_instance_valid(restocked_phone)
+		and cafe.interior_rect().has_point(restocked_phone.global_position)
+		and cafe.consumed
+		and game._circle_position_clear(
+			Vector2(469, -535),
+			24.0,
+			true
+		),
+		"An ordinary cafe target restocks safely without recreating consumed building geometry."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
 func _test_building_interiors(game_scene: PackedScene) -> void:
 	var game := game_scene.instantiate() as FrogGame
 	game.configure("interior_test", "Interior Tester", false)
@@ -1900,7 +2210,7 @@ func _test_building_interiors(game_scene: PackedScene) -> void:
 		and apartments.interior_props.size() == 3
 		and market.interior_props.is_empty()
 		and shop.interior_props.is_empty(),
-		"Furniture stays limited to the two ordinary buildings."
+		"Authored furniture stays limited to Leap Cafe and Canal Apartments."
 	)
 
 	var phone := _find_target(game, "shop_phone")

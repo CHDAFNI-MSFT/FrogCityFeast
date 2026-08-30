@@ -4,6 +4,8 @@ extends Node2D
 const PART_SIGN := "sign"
 const PART_DOOR := "door"
 const PART_COUNTER := "counter"
+const ENTRANCE_PART_DOOR := "door"
+const ENTRANCE_PART_AWNING := "awning"
 const REQUIRED_WEAKNESS := 3
 const WALL_THICKNESS := 24.0
 
@@ -15,6 +17,7 @@ const WALL_THICKNESS := 24.0
 @export var building_id := ""
 @export var destructible_parts := false
 @export var counter_position := Vector2(0, 64)
+@export_enum("door", "awning") var entrance_part_style := ENTRANCE_PART_DOOR
 
 var consumed := false
 var interior_props: Array[Rect2] = []
@@ -31,7 +34,19 @@ var _counter_body: StaticBody2D
 func _ready() -> void:
 	_build_collision_walls()
 	if destructible_parts:
-		_door_body = _add_wall(_door_local_position(), _door_collision_size())
+		match entrance_part_style:
+			ENTRANCE_PART_DOOR:
+				_door_body = _add_wall(
+					_door_local_position(),
+					_door_collision_size()
+				)
+			ENTRANCE_PART_AWNING:
+				pass
+			_:
+				push_error(
+					"Unknown entrance part style '%s' for %s."
+					% [entrance_part_style, building_id]
+				)
 		_counter_body = _add_wall(counter_position, Vector2(140, 52))
 	for prop in interior_props:
 		_add_wall(prop.get_center(), prop.size)
@@ -112,11 +127,7 @@ func _draw() -> void:
 			floor_color.darkened(0.12)
 		)
 	if destructible_parts and not is_part_removed(PART_DOOR):
-		var door_size := _door_collision_size()
-		draw_rect(
-			Rect2(_door_local_position() - door_size / 2.0, door_size),
-			floor_color.darkened(0.42)
-		)
+		_draw_entrance_part()
 
 
 func contains_world_point(world_point: Vector2) -> bool:
@@ -145,7 +156,16 @@ func part_world_position(part_id: String) -> Vector2:
 				_:
 					return global_position + Vector2(-135, half.y + 38)
 		PART_DOOR:
-			return global_position + _door_local_position() + _door_outward_direction() * 22.0
+			var outward_offset := (
+				32.0
+				if entrance_part_style == ENTRANCE_PART_AWNING
+				else 22.0
+			)
+			return (
+				global_position
+				+ _door_local_position()
+				+ _door_outward_direction() * outward_offset
+			)
 		PART_COUNTER:
 			return global_position + counter_position
 	return global_position
@@ -223,6 +243,40 @@ func _draw_door_opening() -> void:
 			draw_rect(Rect2(half.x - WALL_THICKNESS - 2, -door_width / 2.0, WALL_THICKNESS + 4, door_width), opening_color)
 		"west":
 			draw_rect(Rect2(-half.x - 2, -door_width / 2.0, WALL_THICKNESS + 4, door_width), opening_color)
+
+
+func _draw_entrance_part() -> void:
+	if entrance_part_style == ENTRANCE_PART_AWNING:
+		var outward := _door_outward_direction()
+		var awning_center := _door_local_position() + outward * 32.0
+		var awning_size := (
+			Vector2(door_width + 28.0, 34.0)
+			if door_side == "north" or door_side == "south"
+			else Vector2(34.0, door_width + 28.0)
+		)
+		var awning_color := floor_color.lightened(0.24)
+		draw_rect(
+			Rect2(awning_center - awning_size / 2.0, awning_size),
+			awning_color
+		)
+		var stripe_offset := (
+			Vector2(awning_size.x * 0.22, 0)
+			if door_side == "north" or door_side == "south"
+			else Vector2(0, awning_size.y * 0.22)
+		)
+		draw_line(
+			awning_center - stripe_offset,
+			awning_center + stripe_offset,
+			floor_color.darkened(0.18),
+			6.0
+		)
+		return
+
+	var door_size := _door_collision_size()
+	draw_rect(
+		Rect2(_door_local_position() - door_size / 2.0, door_size),
+		floor_color.darkened(0.42)
+	)
 
 
 func _build_collision_walls() -> void:
