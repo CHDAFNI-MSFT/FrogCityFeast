@@ -3,6 +3,14 @@
 
 config_version=5
 
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
+
+[autoload]
+
+AudioService="*res://src/audio_director.gd"
+
 [application]
 
 config/name="Frog City Feast"

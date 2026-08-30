@@ -35,6 +35,11 @@ icon, privacy declarations, and warning sanitation require a new
 credential-free macOS smoke run after this state is pushed. Do not approve a
 signed release until that run passes on the intended release commit.
 
+Original audio files, `default_bus_layout.tres`, and the audio autoload are also
+exported project resources. After the audio vertical slice is committed and
+pushed with approval, rerun the credential-free unsigned smoke workflow on that
+exact commit before considering any signed release.
+
 The successful build retains non-fatal Godot/Xcode warnings for a legacy boot
 splash property, empty camera/photo-library/microphone purpose strings emitted
 by the generated project, a generated header pragma, and skipped App Intents

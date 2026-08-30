@@ -212,6 +212,10 @@ func _update_overlay() -> void:
 			structure.get("active_effects", 0),
 			structure.get("touch_feedback", 0),
 		],
+		"audio: %d players  %d active effect voices" % [
+			structure.get("audio_players", 0),
+			structure.get("audio_active_effect_voices", 0),
+		],
 		"UI data: %d belly items  %d guide rows" % [
 			structure.get("belly_items", 0),
 			structure.get("guide_rows", 0),

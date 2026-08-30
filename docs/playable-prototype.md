@@ -113,7 +113,17 @@ The prototype includes:
   score. Ending the game before finishing or skipping the tutorial does not
   mark that profile's tutorial complete;
 - per-profile **Reduce motion** and **Larger text & controls** choices available
-  before starting and from an in-game Accessibility panel;
+  before starting and from the in-game Options panel;
+- per-profile **Master**, **Music & ambience**, and **Effects** volume controls,
+  with 80%, 45%, and 80% defaults for older version 1 profiles;
+- an original, reproducibly generated soft arcade-like audio slice with
+  restrained menu and gameplay music, day and night city ambience, and
+  semantic feedback for interface actions, tongue outcomes, struggles,
+  swallowing, digestion, spitting, growth, damage, discoveries, and challenge
+  completion;
+- centralized Music and Effects bus routing with one music player, one
+  ambience player, four reusable effect voices, per-event cooldowns, and
+  deterministic pitch variation that never consumes gameplay randomness;
 - immediate reduced-motion behavior that removes camera shake, scale and
   wobble pulses, tongue travel, tutorial-marker pulsing, struggle-width pulses,
   and decorative city movement while retaining informational text, color
@@ -140,7 +150,7 @@ The prototype includes:
 | Win a struggle | Tap rapidly until the struggle bar fills |
 | Manage swallowed targets | Tap **Belly** |
 | View discoveries | Tap **Guide** |
-| Change accessibility | Tap **Options** |
+| Change accessibility or audio | Tap **Options** |
 | Finish the score session | Tap **End Game** |
 
 ### Windows development
@@ -175,10 +185,12 @@ traffic, deterministic city-activity levels and routes, pursuit, flight,
 profile persistence, Field Guide catalog and overlay behavior, legacy discovery
 saves, per-profile accessibility persistence and legacy defaults, touch-target
 sizing, safe-area layout, touch feedback, reduced-motion transitions,
-deterministic session challenges, performance structure and stress budgets,
-the credential-free iOS pipeline configuration, tutorial sequence, action
-restrictions, guided struggle recovery, Skip behavior, and tutorial completion
-persistence.
+deterministic session challenges, original audio resources and provenance,
+audio buses and semantic event wiring, bounded player/cooldown behavior,
+per-profile audio persistence and legacy defaults, loop lifecycle, gameplay RNG
+isolation, performance structure and stress budgets, the credential-free iOS
+pipeline configuration, tutorial sequence, action restrictions, guided
+struggle recovery, Skip behavior, and tutorial completion persistence.
 
 ## Performance instrumentation and budgets
 
@@ -226,11 +238,12 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, busy daytime, maximum growth, Field Guide, or accessibility options | 216 game-subtree nodes, 30 collision objects and shapes, 18 targets, 4 buildings |
-| Pursuit or gameplay peak | 218 nodes, 31 collision objects and shapes, 1 pursuer |
-| Populated Belly sample | 64 items and rows, 472 nodes; this is a stress sample, not a gameplay capacity limit |
+| Baseline, busy daytime, maximum growth, Field Guide, or options | 218 game-subtree nodes, 30 collision objects and shapes, 18 targets, 4 buildings |
+| Pursuit or gameplay peak | 220 nodes, 31 collision objects and shapes, 1 pursuer |
+| Populated Belly sample | 64 items and rows, 474 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 pedestrians plus 5 secondary vehicles, all draw-only |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
+| Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
 | Populated Field Guide | 19 rows, matching the fixed catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
@@ -301,18 +314,27 @@ The following parts of the full design are not implemented yet:
 - rain, storms, festivals, shops with schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
-- final art, authored animation, sound, music, and any accessibility work beyond
-  the implemented motion, interface-size, contrast, touch-feedback, and
-  safe-area controls; and
+- final art, authored animation, expanded audio content and target-device mix
+  validation, and any accessibility work beyond the implemented motion,
+  interface-size, contrast, touch-feedback, safe-area, and volume controls; and
 - the first signed TestFlight upload, A16 iPad validation, and App Store
   release.
 
 Each player can change **Reduce motion** and **Larger text & controls** from the
-main menu or the in-game **Options** panel. The settings are stored in the
-existing version 1 profile save without changing score, tutorial, or Field
-Guide semantics; older saves deterministically use both options as off. The
-`frog_city/reduced_motion` Godot project setting remains a fallback for direct
-scene runs that are not configured through a player profile.
+main menu or the in-game **Options** panel. The same panels provide **Master**,
+**Music & ambience**, and **Effects** controls. These optional settings are
+stored in the existing version 1 profile save without changing score, tutorial,
+or Field Guide semantics. Older saves deterministically use accessibility off
+and audio levels of 80%, 45%, and 80%. The `frog_city/reduced_motion` Godot
+project setting remains a fallback for direct scene runs that are not
+configured through a player profile; it is not a mute control.
+
+The audio assets are generated entirely by
+[`scripts/generate-audio.ps1`](../scripts/generate-audio.ps1). Provenance,
+reproduction instructions, and licensing status are recorded in
+[`assets/audio/README.md`](../assets/audio/README.md). No external samples or
+licensed commercial music are included, and the complete asset set remains
+below 2 MiB without Git LFS.
 
 An Apple Developer Program membership is not required for local gameplay
 development or the repository's unsigned checks. It becomes necessary before
@@ -322,16 +344,19 @@ signed TestFlight or App Store distribution.
 
 Continue the prototype one reviewed priority at a time:
 
-1. Push the combined prototype and release-preparation commit, then run the
-   credential-free `iOS unsigned smoke build` against that exact commit.
+1. After this audio slice is reviewed, committed, and pushed with explicit
+   approval, run the credential-free `iOS unsigned smoke build` against that
+   exact commit. Audio files, bus layout, and autoload wiring affect the
+   exported iOS project, so the older successful smoke run is not sufficient.
 2. After the smoke build passes and the release is explicitly approved, run
    the first internal-only TestFlight workflow and install it on the target
    A16 iPad.
-3. Validate touch controls, safe-area presentation, both accessibility modes,
-   gameplay regressions, and the documented hardware performance budgets on
-   the device. Fix every material issue before expanding the prototype.
-4. After device validation, the next candidate feature priority is original or
-   clearly licensed sound effects, ambience, and restrained music.
+3. Validate touch controls, safe-area presentation, accessibility and audio
+   controls, loop transitions, mix balance, gameplay regressions, and the
+   documented hardware performance budgets on the device. Fix every material
+   issue before expanding the prototype.
+4. After device validation, select the next bounded priority from the remaining
+   prototype backlog rather than beginning multiple systems together.
 
 The broader unimplemented feature list above defines the remaining prototype
 boundaries. `docs/game-design.md` remains the source of truth for the intended

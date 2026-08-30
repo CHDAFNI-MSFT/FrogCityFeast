@@ -627,7 +627,7 @@ grow_vertical = 2
 mouse_filter = 1
 
 [node name="Panel" type="PanelContainer" parent="HUD/Root/OptionsOverlay/Center"]
-custom_minimum_size = Vector2(760, 610)
+custom_minimum_size = Vector2(960, 650)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBox_modal")
 
@@ -646,41 +646,121 @@ theme_override_constants/separation = 12
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 36
-text = "Accessibility"
+text = "Options"
 horizontal_alignment = 1
 
 [node name="Summary" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "These choices are saved for this player and apply immediately."
+text = "Accessibility and audio choices are saved for this player and apply immediately."
 horizontal_alignment = 1
 
-[node name="ReduceMotionToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+[node name="Columns" type="HBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="AccessibilityColumn" type="VBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="AccessibilityHeading" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 1, 0.7, 1)
+theme_override_font_sizes/font_size = 22
+text = "Accessibility"
+
+[node name="ReduceMotionToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Reduce motion: Off"
 
-[node name="ReduceMotionHelp" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+[node name="ReduceMotionHelp" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.77, 0.86, 0.84, 1)
 theme_override_font_sizes/font_size = 18
 text = "Stops camera shake, wobble, scale pulses, tongue travel, and decorative city movement. Informational flashes and text remain."
 autowrap_mode = 2
 
-[node name="LargerUiToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+[node name="LargerUiToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Larger text & controls: Off"
 
-[node name="LargerUiHelp" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+[node name="LargerUiHelp" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.77, 0.86, 0.84, 1)
 theme_override_font_sizes/font_size = 18
 text = "Increases interface text and touch-target height without changing the game world."
+autowrap_mode = 2
+
+[node name="ColumnSeparator" type="VSeparator" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns"]
+layout_mode = 2
+
+[node name="AudioColumn" type="VBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="AudioHeading" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.48, 1)
+theme_override_font_sizes/font_size = 22
+text = "Audio"
+
+[node name="MasterVolumeLabel" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Master volume: 80%"
+
+[node name="MasterVolumeSlider" type="HSlider" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+max_value = 100.0
+step = 5.0
+value = 80.0
+
+[node name="MusicVolumeLabel" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Music & ambience: 45%"
+
+[node name="MusicVolumeSlider" type="HSlider" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+max_value = 100.0
+step = 5.0
+value = 45.0
+
+[node name="EffectsVolumeLabel" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Effects volume: 80%"
+
+[node name="EffectsVolumeSlider" type="HSlider" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+max_value = 100.0
+step = 5.0
+value = 80.0
+
+[node name="AudioHelp" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AudioColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.77, 0.86, 0.84, 1)
+theme_override_font_sizes/font_size = 17
+text = "Music also controls the gentle day and night city ambience."
 autowrap_mode = 2
 
 [node name="Separator" type="HSeparator" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]

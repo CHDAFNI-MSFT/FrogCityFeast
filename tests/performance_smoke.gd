@@ -20,7 +20,7 @@ func _run() -> void:
 		_failures.append(
 			"Rendered performance measurement cannot run in headless mode."
 		)
-		_finish()
+		await _finish()
 		return
 
 	_check(
@@ -38,6 +38,14 @@ func _run() -> void:
 	_check(
 		BUDGETS.FIELD_GUIDE_ROWS == DiscoveryCatalog.count(),
 		"The Field Guide budget matches the catalog."
+	)
+	_check(
+		BUDGETS.MAX_AUDIO_NODES == 1 + FrogAudioDirector.TOTAL_PLAYER_COUNT
+			and BUDGETS.MAX_AUDIO_PLAYERS
+			== FrogAudioDirector.TOTAL_PLAYER_COUNT
+			and BUDGETS.MAX_AUDIO_EFFECT_VOICES
+			== FrogAudioDirector.EFFECT_VOICE_LIMIT,
+		"The global audio budgets match the fixed reusable player pool."
 	)
 	await _test_instrumentation_component()
 
@@ -108,7 +116,7 @@ func _run() -> void:
 		)
 	for scenario in scenarios:
 		await _run_scenario(scenario)
-	_finish()
+	await _finish()
 
 
 func _run_scenario(scenario: Dictionary) -> void:
@@ -252,8 +260,14 @@ func _check_scenario_expectations(
 				and int(snapshot["buildings"]) == BUDGETS.MAX_BUILDINGS
 				and int(snapshot["pursuers"]) == 0
 				and int(snapshot["active_effects"]) == 0
+				and int(snapshot["audio_nodes"])
+				== BUDGETS.MAX_AUDIO_NODES
+				and int(snapshot["audio_players"])
+				== BUDGETS.MAX_AUDIO_PLAYERS
+				and int(snapshot["audio_effect_voices"])
+				== BUDGETS.MAX_AUDIO_EFFECT_VOICES
 				and not bool(snapshot["performance_instrumentation"]),
-				"Baseline contains the documented fixed prototype structure."
+				"Baseline contains the documented fixed gameplay and audio structure."
 			)
 		"busy_daytime":
 			_check(
@@ -438,6 +452,11 @@ func _check(condition: bool, description: String) -> void:
 
 func _finish() -> void:
 	paused = false
+	AudioDirector.reset_for_tests()
+	await create_timer(0.2).timeout
+	AudioDirector.shutdown_for_tests()
+	for _frame in 2:
+		await process_frame
 	if _failures.is_empty():
 		print("Performance structural checks passed.")
 		quit(0)

@@ -19,6 +19,9 @@ const MAX_PURSUERS := 1
 const MAX_VISUAL_EFFECTS := 24
 const MAX_TOUCH_FEEDBACK := 3
 const MAX_CITY_ACTORS := 15
+const MAX_AUDIO_NODES := 7
+const MAX_AUDIO_PLAYERS := 6
+const MAX_AUDIO_EFFECT_VOICES := 4
 const FIELD_GUIDE_ROWS := 19
 const BELLY_STRESS_ITEMS := 64
 const STRESS_RANDOM_SEED := 0xF06C2026
@@ -26,9 +29,15 @@ const LOCAL_WARMUP_SECONDS := 1.25
 const LOCAL_SAMPLE_SECONDS := 2.5
 const TRANSIENT_SAMPLE_SECONDS := 0.75
 
+const GLOBAL_STRUCTURAL_LIMITS := {
+	"audio_nodes": MAX_AUDIO_NODES,
+	"audio_players": MAX_AUDIO_PLAYERS,
+	"audio_effect_voices": MAX_AUDIO_EFFECT_VOICES,
+	"audio_active_effect_voices": MAX_AUDIO_EFFECT_VOICES,
+}
 const STRUCTURAL_LIMITS := {
 	"baseline": {
-		"game_nodes": 216,
+		"game_nodes": 218,
 		"collision_objects": 30,
 		"collision_shapes": 30,
 		"targets": MAX_TARGETS,
@@ -37,28 +46,28 @@ const STRUCTURAL_LIMITS := {
 		"active_effects": 0,
 	},
 	"busy_daytime": {
-		"game_nodes": 216,
+		"game_nodes": 218,
 		"collision_objects": 30,
 		"collision_shapes": 30,
 		"targets": MAX_TARGETS,
 		"active_city_actors": MAX_CITY_ACTORS,
 	},
 	"pursuit": {
-		"game_nodes": 218,
+		"game_nodes": 220,
 		"collision_objects": 31,
 		"collision_shapes": 31,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 	},
 	"maximum_growth": {
-		"game_nodes": 216,
+		"game_nodes": 218,
 		"collision_objects": 30,
 		"collision_shapes": 30,
 		"targets": MAX_TARGETS,
 		"active_effects": MAX_VISUAL_EFFECTS,
 	},
 	"presentation_peak": {
-		"game_nodes": 216,
+		"game_nodes": 218,
 		"collision_objects": 30,
 		"collision_shapes": 30,
 		"targets": MAX_TARGETS,
@@ -66,7 +75,7 @@ const STRUCTURAL_LIMITS := {
 		"touch_feedback": MAX_TOUCH_FEEDBACK,
 	},
 	"belly_overlay": {
-		"game_nodes": 472,
+		"game_nodes": 474,
 		"collision_objects": 30,
 		"collision_shapes": 30,
 		"targets": MAX_TARGETS,
@@ -74,21 +83,21 @@ const STRUCTURAL_LIMITS := {
 		"belly_rows": BELLY_STRESS_ITEMS,
 	},
 	"field_guide_overlay": {
-		"game_nodes": 216,
+		"game_nodes": 218,
 		"collision_objects": 30,
 		"collision_shapes": 30,
 		"targets": MAX_TARGETS,
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"accessibility_options": {
-		"game_nodes": 216,
+		"game_nodes": 218,
 		"collision_objects": 30,
 		"collision_shapes": 30,
 		"targets": MAX_TARGETS,
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"gameplay_peak": {
-		"game_nodes": 218,
+		"game_nodes": 220,
 		"collision_objects": 31,
 		"collision_shapes": 31,
 		"targets": MAX_TARGETS,
@@ -113,6 +122,13 @@ static func structural_violations(
 	for metric in limits:
 		var actual := int(snapshot.get(metric, 0))
 		var maximum := int(limits[metric])
+		if actual > maximum:
+			violations.append(
+				"%s is %d; budget is %d." % [metric, actual, maximum]
+			)
+	for metric in GLOBAL_STRUCTURAL_LIMITS:
+		var actual := int(snapshot.get(metric, 0))
+		var maximum := int(GLOBAL_STRUCTURAL_LIMITS[metric])
 		if actual > maximum:
 			violations.append(
 				"%s is %d; budget is %d." % [metric, actual, maximum]

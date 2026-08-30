@@ -21,7 +21,7 @@ func _run() -> void:
 	var game_scene := load("res://scenes/game.tscn") as PackedScene
 	_check(game_scene != null, "Game scene loads.")
 	if game_scene == null:
-		_finish()
+		await _finish()
 		return
 
 	var game := game_scene.instantiate() as FrogGame
@@ -566,7 +566,7 @@ func _run() -> void:
 	if FileAccess.file_exists(preservation_path):
 		DirAccess.remove_absolute(absolute_preservation_path)
 
-	_finish()
+	await _finish()
 
 
 func _test_accessibility(game_scene: PackedScene) -> void:
@@ -2099,7 +2099,7 @@ func _all_interactive_controls_at_least(
 	minimum_height: float
 ) -> bool:
 	if (
-		(node is BaseButton or node is LineEdit)
+		(node is BaseButton or node is LineEdit or node is Slider)
 		and (node as Control).custom_minimum_size.y < minimum_height
 	):
 		return false
@@ -2152,6 +2152,12 @@ func _push_mouse_click(viewport: Viewport, position: Vector2) -> void:
 
 
 func _finish() -> void:
+	paused = false
+	AudioDirector.reset_for_tests()
+	await create_timer(0.2).timeout
+	AudioDirector.shutdown_for_tests()
+	for _frame in 2:
+		await process_frame
 	if _failures.is_empty():
 		print("Prototype smoke tests passed.")
 		quit(0)

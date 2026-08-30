@@ -94,6 +94,9 @@ Invoke-GodotCheck `
     -Label "startup" `
     -Arguments "--headless --path `"$repoRoot`" --quit-after 2"
 Invoke-GodotCheck `
+    -Label "audio-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/audio_smoke.gd"
+Invoke-GodotCheck `
     -Label "prototype-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/prototype_smoke.gd"
 Invoke-GodotCheck `

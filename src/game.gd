@@ -14,6 +14,7 @@ signal accessibility_changed(
 	reduce_motion: bool,
 	larger_text_controls: bool
 )
+signal audio_changed(preferences: Dictionary)
 
 const EDIBLE_SCRIPT := preload("res://src/edible.gd")
 const BUILDING_SCRIPT := preload("res://src/building.gd")
@@ -38,6 +39,7 @@ const TONGUE_RETRACT_DURATION := 0.12
 const TONGUE_COLOR := Color(0.96, 0.42, 0.56, 1.0)
 const STRUGGLE_DURATION := 3.1
 const DAMAGE_COOLDOWN := 1.4
+const NIGHT_AUDIO_THRESHOLD := 0.38
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
 const DISCOVERY_BANNER_DURATION := 2.2
@@ -198,6 +200,12 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _options_center: CenterContainer = $HUD/Root/OptionsOverlay/Center
 @onready var _reduce_motion_toggle: CheckButton = %ReduceMotionToggle
 @onready var _larger_ui_toggle: CheckButton = %LargerUiToggle
+@onready var _master_volume_label: Label = %MasterVolumeLabel
+@onready var _master_volume_slider: HSlider = %MasterVolumeSlider
+@onready var _music_volume_label: Label = %MusicVolumeLabel
+@onready var _music_volume_slider: HSlider = %MusicVolumeSlider
+@onready var _effects_volume_label: Label = %EffectsVolumeLabel
+@onready var _effects_volume_slider: HSlider = %EffectsVolumeSlider
 @onready var _end_game_options_button: Button = %EndGameOptionsButton
 @onready var _close_options_button: Button = %CloseOptionsButton
 @onready var _discovery_banner: PanelContainer = %DiscoveryBanner
@@ -227,6 +235,7 @@ var _damage_cooldown := 0.0
 var _status_time := 0.0
 var _flight_time_left := 0.0
 var _day_clock := 0.23
+var _current_daylight := 0.0
 var _last_safe_ground_position := Vector2.ZERO
 var _rare_respawn_pending: Dictionary = {}
 var _pending_growth_tier := -1
@@ -265,6 +274,9 @@ var _reduce_motion_enabled := false
 var _larger_text_controls_enabled := false
 var _accessibility_configured := false
 var _refreshing_accessibility_controls := false
+var _audio_preferences := AudioPreferences.defaults()
+var _refreshing_audio_controls := false
+var _audio_dragging := false
 var _tutorial_panel_was_visible_before_options := false
 var _performance_instrumentation: CanvasLayer
 
@@ -284,6 +296,10 @@ func _ready() -> void:
 	_close_guide_button.pressed.connect(_close_guide)
 	_reduce_motion_toggle.toggled.connect(_on_accessibility_toggled)
 	_larger_ui_toggle.toggled.connect(_on_accessibility_toggled)
+	for slider in _audio_sliders():
+		slider.value_changed.connect(_on_audio_value_changed)
+		slider.drag_started.connect(_on_audio_drag_started)
+		slider.drag_ended.connect(_on_audio_drag_ended)
 	_end_game_options_button.pressed.connect(_end_game)
 	_close_options_button.pressed.connect(_close_options)
 	_skip_tutorial_button.pressed.connect(_skip_tutorial)
@@ -308,6 +324,7 @@ func _ready() -> void:
 	_apply_accessibility_presentation()
 	_apply_safe_area()
 	_update_accessibility_controls()
+	_update_audio_controls()
 	_last_safe_ground_position = _frog.global_position
 	_profile_label.text = _display_name
 	_rebuild_guide()
@@ -322,12 +339,17 @@ func _ready() -> void:
 	_enable_requested_performance_instrumentation()
 
 
+func _exit_tree() -> void:
+	AudioDirector.leave_context(self)
+
+
 func configure(
 	profile_id: String,
 	display_name: String,
 	tutorial_required: bool,
 	discovered_ids: PackedStringArray = PackedStringArray(),
-	accessibility_preferences: Dictionary = {}
+	accessibility_preferences: Dictionary = {},
+	audio_preferences: Dictionary = {}
 ) -> void:
 	_profile_id = profile_id
 	_display_name = display_name
@@ -349,7 +371,19 @@ func configure(
 			sanitized["larger_text_controls"]
 		)
 		_accessibility_configured = true
+	if not audio_preferences.is_empty():
+		_audio_preferences = AudioPreferences.sanitize_preferences(
+			audio_preferences
+		)
 	_configured = true
+
+
+func activate_audio_context() -> void:
+	AudioDirector.enter_game(
+		self,
+		_audio_preferences,
+		_current_daylight < NIGHT_AUDIO_THRESHOLD
+	)
 
 
 func _process(delta: float) -> void:
@@ -539,6 +573,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 			% [entry_building.display_name, target.display_name]
 		)
 		return
+	AudioDirector.play_effect(FrogAudioDirector.TONGUE_LAUNCH)
 	var shot_offset := world_position - _frog.global_position
 	if shot_offset.length() > _frog.tongue_range():
 		var limited_end := (
@@ -552,6 +587,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 			else limited_end
 		)
 		_tongue_recovery = TONGUE_RECOVERY
+		AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
 		_show_status("That spot is out of tongue range.")
 		return
 
@@ -563,10 +599,12 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 	if not obstruction.is_empty():
 		_show_tongue(obstruction["position"] as Vector2)
 		_tongue_recovery = TONGUE_RECOVERY
+		AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
 		_show_status("The tongue bounced off a wall.")
 		return
 
 	if pursuer_hit != null:
+		AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
 		if _growth_tier < 2:
 			_show_tongue(world_position)
 			_tongue_recovery = TONGUE_RECOVERY
@@ -579,9 +617,11 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 	if target == null:
 		_show_tongue(world_position)
 		_tongue_recovery = TONGUE_RECOVERY
+		AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
 		_show_status("Miss! Aim directly at something you can eat.")
 		return
 
+	AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
 	if target.kind == "building":
 		var building := _building_by_id.get(target.building_id) as PrototypeBuilding
 		if is_instance_valid(building) and (
@@ -636,6 +676,7 @@ func _begin_struggle(target: EdibleTarget, accuracy: float, hit_offset: Vector2)
 func _register_struggle_tap() -> void:
 	if not is_instance_valid(_struggle_target):
 		return
+	AudioDirector.play_effect(FrogAudioDirector.STRUGGLE_TAP)
 	_struggle_taps += 1
 	_struggle_kick = 1.0
 	_struggle_target.pulse_feedback(_motion_scale)
@@ -728,6 +769,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	_belly.append(item)
 	_targets.erase(target)
 	target.queue_free()
+	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
 	_effects.emit_swallow(effect_position, effect_color, swallowed_building)
 	if swallowed_building:
 		_trigger_camera_shake(6.0, 0.22)
@@ -780,6 +822,7 @@ func _open_belly() -> void:
 	)
 	_belly_overlay.visible = true
 	_sync_overlay_pause()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _close_belly() -> void:
@@ -789,6 +832,7 @@ func _close_belly() -> void:
 	_sync_overlay_pause()
 	if _pending_hud_pulse:
 		_start_hud_pulse()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _open_guide() -> void:
@@ -809,12 +853,14 @@ func _open_guide() -> void:
 	_hide_discovery_banner()
 	_guide_overlay.visible = true
 	_sync_overlay_pause()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _close_guide() -> void:
 	_guide_overlay.visible = false
 	_reset_touch_input_state()
 	_sync_overlay_pause()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _open_options() -> void:
@@ -828,6 +874,7 @@ func _open_options() -> void:
 	_tutorial_panel.visible = false
 	_options_overlay.visible = true
 	_sync_overlay_pause()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _close_options() -> void:
@@ -841,6 +888,7 @@ func _close_options() -> void:
 	_tutorial_panel_was_visible_before_options = false
 	_reset_touch_input_state()
 	_sync_overlay_pause()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _overlay_blocking() -> bool:
@@ -967,6 +1015,7 @@ func _update_challenge_row(label: Label, challenge_id: String) -> void:
 func _on_challenge_completed(_challenge_id: String) -> void:
 	_challenge_pulse_times[_challenge_id] = HUD_PULSE_DURATION
 	_update_challenge_hud()
+	AudioDirector.play_effect(FrogAudioDirector.CHALLENGE_COMPLETE)
 
 
 func _record_discovery(
@@ -979,6 +1028,7 @@ func _record_discovery(
 	if entry.is_empty():
 		return
 	_discoveries[target_id] = true
+	AudioDirector.play_effect(FrogAudioDirector.DISCOVERY)
 	_rebuild_guide()
 	_update_hud()
 	target_discovered.emit(target_id)
@@ -1077,6 +1127,7 @@ func _digest_item(index: int) -> void:
 		and _tutorial.allows_digest(item.target_id)
 	)
 	_belly.remove_at(index)
+	AudioDirector.play_effect(FrogAudioDirector.DIGEST)
 	var points := item.score_value()
 	_score += points
 	var growth_gain := maxi(1, item.base_value + (60 if item.rare else 0))
@@ -1099,6 +1150,7 @@ func _digest_all() -> void:
 		_rebuild_belly_list()
 		return
 	_disable_belly_actions()
+	var had_items := not _belly.is_empty()
 	var total_points := 0
 	var total_growth := 0
 	while not _belly.is_empty():
@@ -1116,6 +1168,8 @@ func _digest_all() -> void:
 	_update_hud()
 	if total_points > 0:
 		_show_digest_reward(total_points, total_growth)
+	if had_items:
+		AudioDirector.play_effect(FrogAudioDirector.DIGEST)
 	_rebuild_belly_list()
 
 
@@ -1137,6 +1191,7 @@ func _spit_item(index: int) -> void:
 			_rebuild_belly_list()
 			return
 		_belly.remove_at(index)
+		AudioDirector.play_effect(FrogAudioDirector.SPIT)
 		_show_status(
 			"%s was restored with its removed parts still missing."
 			% item.display_name
@@ -1165,6 +1220,7 @@ func _spit_item(index: int) -> void:
 		).intersection(WORLD_RECT.grow(-80))
 	_world.add_child(target)
 	_targets.append(target)
+	AudioDirector.play_effect(FrogAudioDirector.SPIT)
 	_show_status("%s was returned safely." % item.display_name)
 	_update_hud()
 	_rebuild_belly_list()
@@ -1206,6 +1262,7 @@ func _apply_growth_tier(tier: int) -> void:
 	_frog.set_growth_tier(_growth_tier)
 	_frog.celebrate_growth(_motion_scale)
 	_effects.emit_growth(_frog.global_position)
+	AudioDirector.play_effect(FrogAudioDirector.GROWTH)
 	_show_status("Growth tier %d! The frog and tongue are larger." % (_growth_tier + 1))
 	growth_tier_applied.emit(_growth_tier)
 
@@ -1245,6 +1302,7 @@ func performance_structure_snapshot() -> Dictionary:
 	if is_instance_valid(_city_activity):
 		active_pedestrians = _city_activity.active_pedestrian_count()
 		active_vehicles = _city_activity.active_vehicle_count()
+	var audio_structure := AudioDirector.structure_snapshot()
 	return {
 		"game_nodes": counts["game_nodes"],
 		"canvas_items": counts["canvas_items"],
@@ -1283,6 +1341,12 @@ func performance_structure_snapshot() -> Dictionary:
 		"performance_instrumentation": is_instance_valid(
 			_performance_instrumentation
 		),
+		"audio_nodes": audio_structure["audio_nodes"],
+		"audio_players": audio_structure["audio_players"],
+		"audio_effect_voices": audio_structure["audio_effect_voices"],
+		"audio_active_effect_voices": audio_structure[
+			"audio_active_effect_voices"
+		],
 	}
 
 
@@ -1703,6 +1767,7 @@ func _apply_damage(source_position: Vector2, penalty: int, message: String) -> v
 	_frog.knock_back_from(source_position)
 	_effects.emit_damage(_frog.global_position)
 	_trigger_camera_shake(8.0, 0.24)
+	AudioDirector.play_effect(FrogAudioDirector.DAMAGE)
 	score_changed.emit(_score)
 	_update_hud()
 	_show_status(message)
@@ -1816,6 +1881,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	pursuer.active = false
 	pursuer.queue_free()
 	_pursuer = null
+	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
 	_effects.emit_swallow(effect_position, item.target_color)
 	_tongue_recovery = TONGUE_RECOVERY
 	_update_hud()
@@ -2035,10 +2101,15 @@ func _update_power_label() -> void:
 func _update_day_night(delta: float) -> void:
 	_day_clock = fmod(_day_clock + delta / 180.0, 1.0)
 	var daylight := (sin(_day_clock * TAU - PI / 2.0) + 1.0) * 0.5
+	_current_daylight = daylight
 	var night_color := Color(0.44, 0.56, 0.78)
 	_world_tint.color = night_color.lerp(Color.WHITE, 0.38 + daylight * 0.62)
 	if is_instance_valid(_city_activity):
 		_city_activity.set_daylight(daylight)
+	AudioDirector.set_game_ambience(
+		self,
+		daylight < NIGHT_AUDIO_THRESHOLD
+	)
 
 
 func _disable_belly_actions() -> void:
@@ -2073,6 +2144,7 @@ func _on_accessibility_toggled(_pressed: bool) -> void:
 		_reduce_motion_enabled,
 		_larger_text_controls_enabled
 	)
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _update_accessibility_controls() -> void:
@@ -2086,6 +2158,80 @@ func _update_accessibility_controls() -> void:
 		"On" if _larger_text_controls_enabled else "Off"
 	)
 	_refreshing_accessibility_controls = false
+
+
+func _on_audio_drag_started() -> void:
+	_audio_dragging = true
+
+
+func _on_audio_drag_ended(value_changed: bool) -> void:
+	_audio_dragging = false
+	if not value_changed:
+		return
+	_emit_audio_preferences()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+
+
+func _on_audio_value_changed(_value: float) -> void:
+	if _refreshing_audio_controls:
+		return
+	_audio_preferences = _audio_preferences_from_controls()
+	_update_audio_labels()
+	AudioDirector.apply_preferences(_audio_preferences)
+	if not _audio_dragging:
+		_emit_audio_preferences()
+		AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+
+
+func _emit_audio_preferences() -> void:
+	audio_changed.emit(_audio_preferences.duplicate())
+
+
+func _update_audio_controls() -> void:
+	_audio_preferences = AudioPreferences.sanitize_preferences(
+		_audio_preferences
+	)
+	_refreshing_audio_controls = true
+	_master_volume_slider.value = (
+		float(_audio_preferences["master"]) * 100.0
+	)
+	_music_volume_slider.value = (
+		float(_audio_preferences["music"]) * 100.0
+	)
+	_effects_volume_slider.value = (
+		float(_audio_preferences["effects"]) * 100.0
+	)
+	_refreshing_audio_controls = false
+	_update_audio_labels()
+	AudioDirector.apply_preferences(_audio_preferences)
+
+
+func _audio_preferences_from_controls() -> Dictionary:
+	return AudioPreferences.sanitize_preferences({
+		"master": _master_volume_slider.value / 100.0,
+		"music": _music_volume_slider.value / 100.0,
+		"effects": _effects_volume_slider.value / 100.0,
+	})
+
+
+func _audio_sliders() -> Array[HSlider]:
+	return [
+		_master_volume_slider,
+		_music_volume_slider,
+		_effects_volume_slider,
+	]
+
+
+func _update_audio_labels() -> void:
+	_master_volume_label.text = "Master volume: %d%%" % roundi(
+		_master_volume_slider.value
+	)
+	_music_volume_label.text = "Music & ambience: %d%%" % roundi(
+		_music_volume_slider.value
+	)
+	_effects_volume_label.text = "Effects volume: %d%%" % roundi(
+		_effects_volume_slider.value
+	)
 
 
 func _apply_accessibility_presentation() -> void:
@@ -2486,6 +2632,7 @@ func _set_tutorial_hotdog_motion(
 
 func _skip_tutorial() -> void:
 	if _tutorial != null:
+		AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 		if is_instance_valid(_struggle_target):
 			_clear_struggle()
 		if is_instance_valid(_pull_target):
@@ -2555,6 +2702,7 @@ func _find_target_by_id(target_id: String) -> EdibleTarget:
 func _end_game() -> void:
 	if is_instance_valid(_struggle_target):
 		_clear_struggle()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 	get_tree().paused = false
 	end_requested.emit(_score)
 

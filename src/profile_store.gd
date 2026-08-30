@@ -71,6 +71,12 @@ func get_accessibility_preferences(profile_id: String) -> Dictionary:
 	)
 
 
+func get_audio_preferences(profile_id: String) -> Dictionary:
+	return AudioPreferences.sanitize_preferences(
+		_config.get_value("audio", profile_id, {})
+	)
+
+
 func set_accessibility_preferences(
 	profile_id: String,
 	reduce_motion: bool,
@@ -86,6 +92,20 @@ func set_accessibility_preferences(
 	if get_accessibility_preferences(profile_id) == preferences:
 		return
 	_config.set_value("accessibility", profile_id, preferences)
+	_save()
+
+
+func set_audio_preferences(
+	profile_id: String,
+	preferences: Dictionary
+) -> void:
+	if not _config.has_section_key("profiles", profile_id):
+		push_warning("Cannot save audio preferences for an unknown profile.")
+		return
+	var sanitized := AudioPreferences.sanitize_preferences(preferences)
+	if get_audio_preferences(profile_id) == sanitized:
+		return
+	_config.set_value("audio", profile_id, sanitized)
 	_save()
 
 

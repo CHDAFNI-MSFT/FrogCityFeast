@@ -12,6 +12,12 @@ signal start_requested(profile_id: String, display_name: String)
 @onready var _start_button: Button = %StartButton
 @onready var _reduce_motion_toggle: CheckButton = %ReduceMotionToggle
 @onready var _larger_ui_toggle: CheckButton = %LargerUiToggle
+@onready var _master_volume_label: Label = %MasterVolumeLabel
+@onready var _master_volume_slider: HSlider = %MasterVolumeSlider
+@onready var _music_volume_label: Label = %MusicVolumeLabel
+@onready var _music_volume_slider: HSlider = %MusicVolumeSlider
+@onready var _effects_volume_label: Label = %EffectsVolumeLabel
+@onready var _effects_volume_slider: HSlider = %EffectsVolumeSlider
 @onready var _center: CenterContainer = $Center
 
 var _profile_store: ProfileStore
@@ -20,7 +26,10 @@ var _new_profile_preferences := {
 	"reduce_motion": false,
 	"larger_text_controls": false,
 }
+var _new_profile_audio_preferences := AudioPreferences.defaults()
 var _refreshing_preferences := false
+var _refreshing_audio_controls := false
+var _audio_dragging := false
 var _clearing_name_for_selection := false
 
 
@@ -30,9 +39,17 @@ func _ready() -> void:
 	_start_button.pressed.connect(_on_start_pressed)
 	_reduce_motion_toggle.toggled.connect(_on_accessibility_toggled)
 	_larger_ui_toggle.toggled.connect(_on_accessibility_toggled)
+	for slider in _audio_sliders():
+		slider.value_changed.connect(_on_audio_value_changed)
+		slider.drag_started.connect(_on_audio_drag_started)
+		slider.drag_ended.connect(_on_audio_drag_ended)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	AccessibilityPresentation.apply(self, false)
 	_apply_safe_area()
+
+
+func _exit_tree() -> void:
+	AudioDirector.leave_context(self)
 
 
 func configure(profile_store: ProfileStore, last_score: int) -> void:
@@ -76,6 +93,9 @@ func _show_profile_preview(profile_id: String) -> void:
 	_show_accessibility_preferences(
 		_profile_store.get_accessibility_preferences(profile_id)
 	)
+	_show_audio_preferences(
+		_profile_store.get_audio_preferences(profile_id)
+	)
 
 
 func _on_new_name_changed(new_text: String) -> void:
@@ -96,6 +116,7 @@ func _on_new_name_changed(new_text: String) -> void:
 	_start_button.text = "Start Tutorial"
 	_guide_label.text = "Field Guide: 0 / %d" % DiscoveryCatalog.count()
 	_show_accessibility_preferences(_new_profile_preferences)
+	_show_audio_preferences(_new_profile_audio_preferences)
 
 
 func _on_start_pressed() -> void:
@@ -115,6 +136,11 @@ func _on_start_pressed() -> void:
 		_reduce_motion_toggle.button_pressed,
 		_larger_ui_toggle.button_pressed
 	)
+	_profile_store.set_audio_preferences(
+		profile_id,
+		_audio_preferences_from_controls()
+	)
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 	start_requested.emit(profile_id, _profile_store.get_profile_name(profile_id))
 
 
@@ -138,6 +164,7 @@ func _on_accessibility_toggled(_pressed: bool) -> void:
 		self,
 		_larger_ui_toggle.button_pressed
 	)
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _show_accessibility_preferences(preferences: Dictionary) -> void:
@@ -161,6 +188,92 @@ func _update_accessibility_labels() -> void:
 	)
 	_larger_ui_toggle.text = "Larger text & controls: %s" % (
 		"On" if _larger_ui_toggle.button_pressed else "Off"
+	)
+
+
+func activate_audio_context() -> void:
+	AudioDirector.enter_menu(
+		self,
+		_audio_preferences_from_controls()
+	)
+
+
+func _show_audio_preferences(preferences: Dictionary) -> void:
+	var sanitized := AudioPreferences.sanitize_preferences(preferences)
+	_refreshing_audio_controls = true
+	_master_volume_slider.value = float(sanitized["master"]) * 100.0
+	_music_volume_slider.value = float(sanitized["music"]) * 100.0
+	_effects_volume_slider.value = float(sanitized["effects"]) * 100.0
+	_refreshing_audio_controls = false
+	_update_audio_labels()
+	AudioDirector.apply_preferences(sanitized)
+
+
+func _on_audio_drag_started() -> void:
+	_audio_dragging = true
+
+
+func _on_audio_drag_ended(value_changed: bool) -> void:
+	_audio_dragging = false
+	if not value_changed:
+		return
+	_persist_audio_preferences()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+
+
+func _on_audio_value_changed(_value: float) -> void:
+	if _refreshing_audio_controls:
+		return
+	_update_audio_labels()
+	var preferences := _audio_preferences_from_controls()
+	AudioDirector.apply_preferences(preferences)
+	if _preview_profile_id.is_empty():
+		_new_profile_audio_preferences = preferences
+	elif not _audio_dragging:
+		_profile_store.set_audio_preferences(
+			_preview_profile_id,
+			preferences
+		)
+	if not _audio_dragging:
+		AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+
+
+func _persist_audio_preferences() -> void:
+	var preferences := _audio_preferences_from_controls()
+	if _preview_profile_id.is_empty():
+		_new_profile_audio_preferences = preferences
+	else:
+		_profile_store.set_audio_preferences(
+			_preview_profile_id,
+			preferences
+		)
+
+
+func _audio_preferences_from_controls() -> Dictionary:
+	return AudioPreferences.sanitize_preferences({
+		"master": _master_volume_slider.value / 100.0,
+		"music": _music_volume_slider.value / 100.0,
+		"effects": _effects_volume_slider.value / 100.0,
+	})
+
+
+func _audio_sliders() -> Array[HSlider]:
+	return [
+		_master_volume_slider,
+		_music_volume_slider,
+		_effects_volume_slider,
+	]
+
+
+func _update_audio_labels() -> void:
+	_master_volume_label.text = "Master volume: %d%%" % roundi(
+		_master_volume_slider.value
+	)
+	_music_volume_label.text = "Music & ambience: %d%%" % roundi(
+		_music_volume_slider.value
+	)
+	_effects_volume_label.text = "Effects volume: %d%%" % roundi(
+		_effects_volume_slider.value
 	)
 
 

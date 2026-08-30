@@ -12,7 +12,7 @@ func _run() -> void:
 	_test_profile_persistence()
 	await _test_game_integration()
 	await _test_skip_and_early_end()
-	_finish()
+	await _finish()
 
 
 func _test_controller_sequence() -> void:
@@ -439,6 +439,12 @@ func _check(condition: bool, description: String) -> void:
 
 
 func _finish() -> void:
+	paused = false
+	AudioDirector.reset_for_tests()
+	await create_timer(0.2).timeout
+	AudioDirector.shutdown_for_tests()
+	for _frame in 2:
+		await process_frame
 	if _failures.is_empty():
 		print("Tutorial smoke tests passed.")
 		quit(0)

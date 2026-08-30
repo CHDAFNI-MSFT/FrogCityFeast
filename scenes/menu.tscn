@@ -193,14 +193,84 @@ theme_override_font_sizes/font_size = 17
 text = "Makes interface text and touch targets easier to read and tap."
 autowrap_mode = 2
 
-[node name="StartButton" type="Button" parent="Center/Panel/Margin/Content"]
+[node name="AudioSeparator" type="HSeparator" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
+layout_mode = 2
+
+[node name="AudioHeading" type="Label" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.48, 1)
+theme_override_font_sizes/font_size = 22
+text = "Audio"
+
+[node name="AudioGrid" type="GridContainer" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 4
+columns = 2
+
+[node name="MasterVolumeLabel" type="Label" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn/AudioGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(172, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Master volume: 80%"
+
+[node name="MasterVolumeSlider" type="HSlider" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn/AudioGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 100.0
+step = 5.0
+value = 80.0
+
+[node name="MusicVolumeLabel" type="Label" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn/AudioGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(172, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Music & ambience: 45%"
+
+[node name="MusicVolumeSlider" type="HSlider" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn/AudioGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 100.0
+step = 5.0
+value = 45.0
+
+[node name="EffectsVolumeLabel" type="Label" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn/AudioGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(172, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Effects volume: 80%"
+
+[node name="EffectsVolumeSlider" type="HSlider" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn/AudioGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 100.0
+step = 5.0
+value = 80.0
+
+[node name="AudioHelp" type="Label" parent="Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.77, 0.85, 0.83, 1)
+theme_override_font_sizes/font_size = 16
+text = "Music also controls the gentle day and night city ambience."
+autowrap_mode = 2
+
+[node name="StartButton" type="Button" parent="Center/Panel/Margin/Content/Columns/ProfileColumn"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 68)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Start New Game"
 
-[node name="Help" type="Label" parent="Center/Panel/Margin/Content"]
+[node name="Help" type="Label" parent="Center/Panel/Margin/Content/Columns/ProfileColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.68, 0.76, 0.74, 1)
 theme_override_font_sizes/font_size = 17

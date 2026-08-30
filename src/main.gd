@@ -20,6 +20,7 @@ func _show_menu() -> void:
 	var menu := _current_screen as MainMenu
 	menu.configure(_profile_store, _last_score)
 	menu.start_requested.connect(_start_game)
+	menu.activate_audio_context()
 
 
 func _start_game(profile_id: String, display_name: String) -> void:
@@ -29,7 +30,8 @@ func _start_game(profile_id: String, display_name: String) -> void:
 		display_name,
 		not _profile_store.is_tutorial_complete(profile_id),
 		_profile_store.get_discoveries(profile_id),
-		_profile_store.get_accessibility_preferences(profile_id)
+		_profile_store.get_accessibility_preferences(profile_id),
+		_profile_store.get_audio_preferences(profile_id)
 	)
 	game.score_changed.connect(_on_score_changed.bind(profile_id))
 	game.end_requested.connect(_on_game_ended.bind(profile_id))
@@ -38,7 +40,9 @@ func _start_game(profile_id: String, display_name: String) -> void:
 	game.accessibility_changed.connect(
 		_on_accessibility_changed.bind(profile_id)
 	)
+	game.audio_changed.connect(_on_audio_changed.bind(profile_id))
 	_replace_screen(game)
+	game.activate_audio_context()
 
 
 func _on_score_changed(score: int, profile_id: String) -> void:
@@ -69,6 +73,13 @@ func _on_accessibility_changed(
 		reduce_motion,
 		larger_text_controls
 	)
+
+
+func _on_audio_changed(
+	preferences: Dictionary,
+	profile_id: String
+) -> void:
+	_profile_store.set_audio_preferences(profile_id, preferences)
 
 
 func _replace_screen(next_screen: Node) -> void:

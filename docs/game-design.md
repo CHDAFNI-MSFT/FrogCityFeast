@@ -39,6 +39,18 @@ Accessibility choices are stored independently for each local player profile:
 Both controls are available from player selection and during play. Older
 version 1 saves that do not contain accessibility data use both choices as off.
 
+Each profile also stores three audio controls:
+
+- **Master volume**, defaulting to 80%;
+- **Music & ambience**, defaulting to 45%; and
+- **Effects volume**, defaulting to 80%.
+
+The first audio direction is soft, playful arcade-like synthesis with gentle
+city texture. It is non-vocal, unobtrusive, and original to the project. Music
+and ambience share one control while gameplay and interface effects remain
+independently adjustable. A zero setting mutes its bus. Reduce Motion remains
+independent and never changes audio volume.
+
 ### Performance requirements
 
 The fixed 1280×960 prototype targets 60 FPS on an A16 iPad. Performance
@@ -66,12 +78,13 @@ profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
 prototype permits 18 gameplay targets, 4 buildings, 1 pursuer, 15 draw-only city
-actors, 24 capped world effects, and 3 touch cues. Baseline states permit up to
-216 game-subtree nodes and 30 collision objects/shapes; pursuit and the
-reachable gameplay peak permit 218 nodes and 31 collision objects/shapes. The
-performance Belly scenario renders 64 item rows within 472 nodes without
-changing the belly's unlimited gameplay semantics. The populated Field Guide
-contains exactly 19 rows.
+actors, 24 capped world effects, 3 touch cues, and 6 fixed audio players
+including 4 reusable effect voices. Baseline states permit up to 218
+game-subtree nodes and 30 collision objects/shapes; pursuit and the reachable
+gameplay peak permit 220 nodes and 31 collision objects/shapes. The performance
+Belly scenario renders 64 item rows within 474 nodes without changing the
+belly's unlimited gameplay semantics. The populated Field Guide contains
+exactly 19 rows.
 
 Reproducible stress coverage includes busy daytime city activity, pursuit,
 maximum growth, a finite simultaneous presentation burst, a 64-item Belly,
@@ -234,10 +247,10 @@ The city can change through:
 
 The fixed-city prototype now implements the first small dynamic-city slice:
 the day and night cycle changes the visible pedestrian crowd, secondary traffic
-level, and streetlight glow. These ambient pedestrians and vehicles use
-authored routes and are decorative rather than targets, hazards, or persistent
-world state. The labeled Delivery Van remains the prototype's interactive
-traffic target.
+level, streetlight glow, and a restrained synthesized ambience layer. These
+ambient pedestrians and vehicles use authored routes and are decorative rather
+than targets, hazards, or persistent world state. The labeled Delivery Van
+remains the prototype's interactive traffic target.
 
 ### Target locations
 
@@ -325,8 +338,9 @@ These points were not fully resolved in the interview:
   that is permanently attached to the city.
 - The point values, growth thresholds, tongue range, tongue recovery duration,
   struggle difficulty, and caught-score penalty.
-- The final visual art style, sound style, story, and remaining menu or
-  onboarding polish.
+- The final visual art style, expanded audio direction beyond the approved
+  soft arcade-like synth slice, story, and remaining menu or onboarding
+  polish.
 - Whether the camera needs additional automatic assistance while the player is
   using one finger to move and a second finger to rotate it.
 - Which temporary powers should exist in addition to one-minute flight.

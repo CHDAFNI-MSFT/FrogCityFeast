@@ -134,7 +134,11 @@ static func _apply_control(
 			)
 		)
 
-	if control is BaseButton or control is LineEdit:
+	if (
+		control is BaseButton
+		or control is LineEdit
+		or control is Slider
+	):
 		var base_minimum := control.get_meta(
 			META_BASE_MINIMUM_SIZE
 		) as Vector2
