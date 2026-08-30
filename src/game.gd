@@ -10,10 +10,17 @@ signal target_swallowed(target_id: String)
 signal target_discovered(target_id: String)
 signal item_digested(target_id: String)
 signal growth_tier_applied(tier: int)
+signal accessibility_changed(
+	reduce_motion: bool,
+	larger_text_controls: bool
+)
 
 const EDIBLE_SCRIPT := preload("res://src/edible.gd")
 const BUILDING_SCRIPT := preload("res://src/building.gd")
 const PURSUER_SCRIPT := preload("res://src/pursuer.gd")
+const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
+	"res://src/performance_instrumentation.gd"
+)
 
 enum TonguePhase {
 	HIDDEN,
@@ -141,11 +148,13 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 
 @onready var _world: Node2D = $World
 @onready var _city: CityBackdrop = $World/City
+@onready var _city_activity: CityActivity = $World/CityActivity
 @onready var _frog: PlayerFrog = $World/Frog
 @onready var _camera: Camera2D = $World/Camera
 @onready var _tongue: Line2D = $World/Tongue
 @onready var _effects: FeelEffects = $World/Effects
 @onready var _world_tint: CanvasModulate = $World/WorldTint
+@onready var _top_background: ColorRect = $HUD/Root/TopBackground
 @onready var _top_margin: MarginContainer = %TopMargin
 @onready var _profile_label: Label = %ProfileLabel
 @onready var _score_label: Label = %ScoreLabel
@@ -153,8 +162,13 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _power_label: Label = %PowerLabel
 @onready var _guide_button: Button = %GuideButton
 @onready var _belly_button: Button = %BellyButton
+@onready var _options_button: Button = %OptionsButton
 @onready var _end_button: Button = %EndButton
+@onready var _status_panel: PanelContainer = $HUD/Root/StatusPanel
 @onready var _status_label: Label = %StatusLabel
+@onready var _control_legend: PanelContainer = $HUD/Root/ControlLegendBackground
+@onready var _instructions_label: Label = %Instructions
+@onready var _touch_feedback: TouchFeedback = %TouchFeedback
 @onready var _challenge_panel: PanelContainer = %ChallengePanel
 @onready var _challenge_sharp_aim: Label = %ChallengeSharpAim
 @onready var _challenge_hold_on: Label = %ChallengeHoldOn
@@ -180,6 +194,12 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _guide_list: VBoxContainer = %GuideList
 @onready var _end_game_guide_button: Button = %EndGameGuideButton
 @onready var _close_guide_button: Button = %CloseGuideButton
+@onready var _options_overlay: Control = %OptionsOverlay
+@onready var _options_center: CenterContainer = $HUD/Root/OptionsOverlay/Center
+@onready var _reduce_motion_toggle: CheckButton = %ReduceMotionToggle
+@onready var _larger_ui_toggle: CheckButton = %LargerUiToggle
+@onready var _end_game_options_button: Button = %EndGameOptionsButton
+@onready var _close_options_button: Button = %CloseOptionsButton
 @onready var _discovery_banner: PanelContainer = %DiscoveryBanner
 @onready var _discovery_banner_label: Label = %DiscoveryBannerLabel
 
@@ -241,6 +261,12 @@ var _reward_time := 0.0
 var _pending_hud_pulse := false
 var _discovery_banner_time := 0.0
 var _challenge_pulse_times: Dictionary = {}
+var _reduce_motion_enabled := false
+var _larger_text_controls_enabled := false
+var _accessibility_configured := false
+var _refreshing_accessibility_controls := false
+var _tutorial_panel_was_visible_before_options := false
+var _performance_instrumentation: CanvasLayer
 
 
 func _ready() -> void:
@@ -249,23 +275,39 @@ func _ready() -> void:
 		return
 	_belly_button.pressed.connect(_open_belly)
 	_guide_button.pressed.connect(_open_guide)
+	_options_button.pressed.connect(_open_options)
 	_end_button.pressed.connect(_end_game)
 	_digest_all_button.pressed.connect(_digest_all)
 	_end_game_belly_button.pressed.connect(_end_game)
 	_close_belly_button.pressed.connect(_close_belly)
 	_end_game_guide_button.pressed.connect(_end_game)
 	_close_guide_button.pressed.connect(_close_guide)
+	_reduce_motion_toggle.toggled.connect(_on_accessibility_toggled)
+	_larger_ui_toggle.toggled.connect(_on_accessibility_toggled)
+	_end_game_options_button.pressed.connect(_end_game)
+	_close_options_button.pressed.connect(_close_options)
 	_skip_tutorial_button.pressed.connect(_skip_tutorial)
 	_frog.move_reached.connect(_on_frog_move_reached)
 	_challenges.challenge_completed.connect(_on_challenge_completed)
+	get_viewport().size_changed.connect(_apply_safe_area)
 	_build_prototype_city()
-	var reduced_motion := (
-		DisplayServer.get_name().to_lower() == "headless"
-		or bool(ProjectSettings.get_setting("frog_city/reduced_motion", false))
-	)
+	_update_day_night(0.0)
+	if not _accessibility_configured:
+		_reduce_motion_enabled = (
+			DisplayServer.get_name().to_lower() == "headless"
+			or bool(
+				ProjectSettings.get_setting(
+					"frog_city/reduced_motion",
+					false
+				)
+			)
+		)
 	if not _motion_scale_configured:
-		_motion_scale = 0.0 if reduced_motion else 1.0
+		_motion_scale = 0.0 if _reduce_motion_enabled else 1.0
 	_apply_motion_scale(_motion_scale)
+	_apply_accessibility_presentation()
+	_apply_safe_area()
+	_update_accessibility_controls()
 	_last_safe_ground_position = _frog.global_position
 	_profile_label.text = _display_name
 	_rebuild_guide()
@@ -277,13 +319,15 @@ func _ready() -> void:
 		_tutorial_marker.active = false
 		_begin_session_challenges()
 	_update_hud()
+	_enable_requested_performance_instrumentation()
 
 
 func configure(
 	profile_id: String,
 	display_name: String,
 	tutorial_required: bool,
-	discovered_ids: PackedStringArray = PackedStringArray()
+	discovered_ids: PackedStringArray = PackedStringArray(),
+	accessibility_preferences: Dictionary = {}
 ) -> void:
 	_profile_id = profile_id
 	_display_name = display_name
@@ -296,6 +340,15 @@ func configure(
 			and not DiscoveryCatalog.entry_for(normalized_id).is_empty()
 		):
 			_discoveries[normalized_id] = true
+	if not accessibility_preferences.is_empty():
+		var sanitized := AccessibilityPresentation.sanitize_preferences(
+			accessibility_preferences
+		)
+		_reduce_motion_enabled = bool(sanitized["reduce_motion"])
+		_larger_text_controls_enabled = bool(
+			sanitized["larger_text_controls"]
+		)
+		_accessibility_configured = true
 	_configured = true
 
 
@@ -367,7 +420,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		_handle_mouse_button(event)
 	elif event is InputEventMouseMotion and _mouse_rotating:
-		_rotate_camera(event.relative.x)
+		_rotate_camera(event.relative.x, event.position)
 
 
 func _handle_screen_touch(event: InputEventScreenTouch) -> void:
@@ -408,7 +461,7 @@ func _handle_screen_drag(event: InputEventScreenDrag) -> void:
 	if _active_touches.has(event.index):
 		_active_touches[event.index]["position"] = event.position
 	if _camera_gesture and event.index == _camera_driver_id:
-		_rotate_camera(event.screen_relative.x)
+		_rotate_camera(event.screen_relative.x, event.position)
 
 
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
@@ -450,13 +503,16 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 		and _tutorial.step == TutorialController.Step.MOVE
 	):
 		movement_destination = _tutorial.marker_position
-	_frog.move_to(_clamp_circle_to_world(
+	var final_destination := _clamp_circle_to_world(
 		movement_destination,
 		_frog.collision_radius()
-	))
+	)
+	_frog.move_to(final_destination)
+	_touch_feedback.show_move(final_destination)
 
 
 func _try_tongue_at_screen(screen_position: Vector2) -> void:
+	_touch_feedback.show_tongue(screen_position)
 	if is_instance_valid(_pull_target):
 		_show_status("Finish being pulled before shooting again.")
 		return
@@ -704,7 +760,7 @@ func _open_belly() -> void:
 	if is_instance_valid(_pull_target):
 		_show_status("Finish being pulled before opening the belly.")
 		return
-	if _guide_overlay.visible:
+	if _guide_overlay.visible or _options_overlay.visible:
 		return
 	if (
 		_tutorial != null
@@ -745,7 +801,7 @@ func _open_guide() -> void:
 	if is_instance_valid(_pull_target):
 		_show_status("Finish being pulled before opening the Field Guide.")
 		return
-	if _belly_overlay.visible:
+	if _belly_overlay.visible or _options_overlay.visible:
 		return
 	_rebuild_guide()
 	_reset_touch_input_state()
@@ -761,8 +817,38 @@ func _close_guide() -> void:
 	_sync_overlay_pause()
 
 
+func _open_options() -> void:
+	if _belly_overlay.visible or _guide_overlay.visible:
+		return
+	_update_accessibility_controls()
+	_reset_touch_input_state()
+	_clear_camera_shake()
+	_hide_discovery_banner()
+	_tutorial_panel_was_visible_before_options = _tutorial_panel.visible
+	_tutorial_panel.visible = false
+	_options_overlay.visible = true
+	_sync_overlay_pause()
+
+
+func _close_options() -> void:
+	_options_overlay.visible = false
+	if (
+		_tutorial_panel_was_visible_before_options
+		and _tutorial != null
+		and _tutorial.active
+	):
+		_tutorial_panel.visible = true
+	_tutorial_panel_was_visible_before_options = false
+	_reset_touch_input_state()
+	_sync_overlay_pause()
+
+
 func _overlay_blocking() -> bool:
-	return _belly_overlay.visible or _guide_overlay.visible
+	return (
+		_belly_overlay.visible
+		or _guide_overlay.visible
+		or _options_overlay.visible
+	)
 
 
 func _sync_overlay_pause() -> void:
@@ -819,6 +905,10 @@ func _rebuild_guide() -> void:
 			else "UNKNOWN - Hint: %s" % entry["hint"]
 		)
 		_guide_list.add_child(row)
+		AccessibilityPresentation.apply(
+			row,
+			_larger_text_controls_enabled
+		)
 
 
 func _known_discovery_count() -> int:
@@ -924,6 +1014,10 @@ func _rebuild_belly_list() -> void:
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_label.add_theme_font_size_override("font_size", 22)
 		_belly_list.add_child(empty_label)
+		AccessibilityPresentation.apply(
+			empty_label,
+			_larger_text_controls_enabled
+		)
 		_digest_all_button.disabled = true
 		return
 
@@ -958,6 +1052,10 @@ func _rebuild_belly_list() -> void:
 		row.add_child(spit_button)
 
 		_belly_list.add_child(row)
+		AccessibilityPresentation.apply(
+			row,
+			_larger_text_controls_enabled
+		)
 
 
 func _digest_item(index: int) -> void:
@@ -1131,12 +1229,116 @@ func set_motion_scale(value: float) -> void:
 	_apply_motion_scale(_motion_scale)
 
 
+func performance_structure_snapshot() -> Dictionary:
+	var counts := {
+		"game_nodes": 0,
+		"canvas_items": 0,
+		"controls": 0,
+		"collision_objects": 0,
+		"collision_shapes": 0,
+		"processing_nodes": 0,
+		"physics_processing_nodes": 0,
+	}
+	_count_performance_nodes(self, counts)
+	var active_pedestrians := 0
+	var active_vehicles := 0
+	if is_instance_valid(_city_activity):
+		active_pedestrians = _city_activity.active_pedestrian_count()
+		active_vehicles = _city_activity.active_vehicle_count()
+	return {
+		"game_nodes": counts["game_nodes"],
+		"canvas_items": counts["canvas_items"],
+		"controls": counts["controls"],
+		"collision_objects": counts["collision_objects"],
+		"collision_shapes": counts["collision_shapes"],
+		"processing_nodes": counts["processing_nodes"],
+		"physics_processing_nodes": counts["physics_processing_nodes"],
+		"targets": _targets.size(),
+		"buildings": _buildings.size(),
+		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
+		"belly_items": _belly.size(),
+		"belly_rows": _belly_list.get_child_count(),
+		"guide_rows": _guide_list.get_child_count(),
+		"known_discoveries": _known_discovery_count(),
+		"active_pedestrians": active_pedestrians,
+		"active_vehicles": active_vehicles,
+		"active_city_actors": active_pedestrians + active_vehicles,
+		"active_effects": (
+			_effects.active_effect_count()
+			if is_instance_valid(_effects)
+			else 0
+		),
+		"touch_feedback": (
+			_touch_feedback.active_feedback_count()
+			if is_instance_valid(_touch_feedback)
+			else 0
+		),
+		"growth_tier": _growth_tier,
+		"tongue_points": _tongue.points.size(),
+		"belly_overlay_visible": _belly_overlay.visible,
+		"guide_overlay_visible": _guide_overlay.visible,
+		"options_overlay_visible": _options_overlay.visible,
+		"reduce_motion": _reduce_motion_enabled,
+		"larger_text_controls": _larger_text_controls_enabled,
+		"performance_instrumentation": is_instance_valid(
+			_performance_instrumentation
+		),
+	}
+
+
 func _apply_motion_scale(value: float) -> void:
 	_motion_scale = clampf(value, 0.0, 1.0)
 	if is_instance_valid(_effects):
 		_effects.set_motion_scale(_motion_scale)
-	if _motion_scale <= 0.0 and is_instance_valid(_camera):
-		_camera.offset = Vector2.ZERO
+	if is_instance_valid(_city_activity):
+		_city_activity.set_motion_scale(_motion_scale)
+	if is_instance_valid(_frog):
+		_frog.set_presentation_motion_scale(_motion_scale)
+	for target in _targets:
+		if is_instance_valid(target):
+			target.set_presentation_motion_scale(_motion_scale)
+	if is_instance_valid(_touch_feedback):
+		_touch_feedback.set_motion_scale(_motion_scale)
+	if is_instance_valid(_tutorial_marker):
+		_tutorial_marker.set_motion_scale(_motion_scale)
+	if _motion_scale <= 0.0:
+		_clear_camera_shake()
+		_tongue.width = 12.0
+		if _tongue_phase == TonguePhase.RETRACTING:
+			_hide_tongue()
+		elif _tongue_phase != TonguePhase.HIDDEN:
+			_tongue_phase = TonguePhase.HOLDING
+			_tongue_phase_time = 0.0
+			_tongue_extension = 1.0
+			_apply_tongue_visual()
+
+
+func _count_performance_nodes(node: Node, counts: Dictionary) -> void:
+	counts["game_nodes"] = int(counts["game_nodes"]) + 1
+	if node is CanvasItem:
+		counts["canvas_items"] = int(counts["canvas_items"]) + 1
+	if node is Control:
+		counts["controls"] = int(counts["controls"]) + 1
+	if node is CollisionObject2D:
+		counts["collision_objects"] = int(counts["collision_objects"]) + 1
+	if node is CollisionShape2D:
+		counts["collision_shapes"] = int(counts["collision_shapes"]) + 1
+	if node.is_processing():
+		counts["processing_nodes"] = int(counts["processing_nodes"]) + 1
+	if node.is_physics_processing():
+		counts["physics_processing_nodes"] = (
+			int(counts["physics_processing_nodes"]) + 1
+		)
+	for child in node.get_children():
+		_count_performance_nodes(child, counts)
+
+
+func _enable_requested_performance_instrumentation() -> void:
+	if not PERFORMANCE_INSTRUMENTATION_SCRIPT.requested():
+		return
+	_performance_instrumentation = PERFORMANCE_INSTRUMENTATION_SCRIPT.new()
+	_performance_instrumentation.configure(self)
+	add_child(_performance_instrumentation)
 
 
 func _show_digest_reward(points: int, growth_gain: int) -> void:
@@ -1312,7 +1514,7 @@ func _apply_tongue_visual() -> void:
 	var start := _frog.global_position
 	var visible_end := start.lerp(_tongue_end, _tongue_extension)
 	_tongue.points = PackedVector2Array([start, visible_end])
-	_tongue.width = 12.0 + _struggle_kick * 5.0
+	_tongue.width = 12.0 + _struggle_kick * 5.0 * _motion_scale
 	_tongue.default_color = TONGUE_COLOR.lerp(
 		Color.WHITE,
 		_struggle_kick * 0.38
@@ -1410,7 +1612,10 @@ func _clamp_to_world(world_position: Vector2) -> Vector2:
 	)
 
 
-func _rotate_camera(screen_delta_x: float) -> void:
+func _rotate_camera(
+	screen_delta_x: float,
+	screen_position: Vector2 = Vector2.INF
+) -> void:
 	if (
 		_tutorial != null
 		and _tutorial.active
@@ -1418,8 +1623,15 @@ func _rotate_camera(screen_delta_x: float) -> void:
 	):
 		return
 	var radians := screen_delta_x * 0.006
+	if is_zero_approx(radians):
+		return
 	_camera.rotation -= radians
 	manual_camera_rotated.emit(absf(radians))
+	_touch_feedback.show_camera(
+		get_viewport_rect().size / 2.0
+		if screen_position == Vector2.INF
+		else screen_position
+	)
 
 
 func _update_camera() -> void:
@@ -1825,6 +2037,8 @@ func _update_day_night(delta: float) -> void:
 	var daylight := (sin(_day_clock * TAU - PI / 2.0) + 1.0) * 0.5
 	var night_color := Color(0.44, 0.56, 0.78)
 	_world_tint.color = night_color.lerp(Color.WHITE, 0.38 + daylight * 0.62)
+	if is_instance_valid(_city_activity):
+		_city_activity.set_daylight(daylight)
 
 
 func _disable_belly_actions() -> void:
@@ -1845,6 +2059,103 @@ func _touch_over_hud_action(screen_position: Vector2) -> bool:
 	):
 		return true
 	return _top_margin.get_global_rect().has_point(screen_position)
+
+
+func _on_accessibility_toggled(_pressed: bool) -> void:
+	if _refreshing_accessibility_controls:
+		return
+	_reduce_motion_enabled = _reduce_motion_toggle.button_pressed
+	_larger_text_controls_enabled = _larger_ui_toggle.button_pressed
+	_apply_motion_scale(0.0 if _reduce_motion_enabled else 1.0)
+	_apply_accessibility_presentation()
+	_update_accessibility_controls()
+	accessibility_changed.emit(
+		_reduce_motion_enabled,
+		_larger_text_controls_enabled
+	)
+
+
+func _update_accessibility_controls() -> void:
+	_refreshing_accessibility_controls = true
+	_reduce_motion_toggle.button_pressed = _reduce_motion_enabled
+	_larger_ui_toggle.button_pressed = _larger_text_controls_enabled
+	_reduce_motion_toggle.text = "Reduce motion: %s" % (
+		"On" if _reduce_motion_enabled else "Off"
+	)
+	_larger_ui_toggle.text = "Larger text & controls: %s" % (
+		"On" if _larger_text_controls_enabled else "Off"
+	)
+	_refreshing_accessibility_controls = false
+
+
+func _apply_accessibility_presentation() -> void:
+	AccessibilityPresentation.apply(
+		$HUD/Root,
+		_larger_text_controls_enabled
+	)
+
+
+func _apply_safe_area() -> void:
+	apply_safe_area_insets(
+		AccessibilityPresentation.current_safe_area_insets(
+			get_viewport_rect().size
+		)
+	)
+
+
+func apply_safe_area_insets(insets: Vector4) -> void:
+	var left := maxf(0.0, insets.x)
+	var top := maxf(0.0, insets.y)
+	var right := maxf(0.0, insets.z)
+	var bottom := maxf(0.0, insets.w)
+
+	_top_background.offset_bottom = 82.0 + top
+	_top_margin.offset_bottom = 82.0 + top
+	_top_margin.add_theme_constant_override(
+		"margin_left",
+		roundi(18.0 + left)
+	)
+	_top_margin.add_theme_constant_override(
+		"margin_top",
+		roundi(12.0 + top)
+	)
+	_top_margin.add_theme_constant_override(
+		"margin_right",
+		roundi(18.0 + right)
+	)
+
+	_status_panel.offset_top = 92.0 + top
+	_status_panel.offset_bottom = 150.0 + top
+	_challenge_panel.offset_left = 22.0 + left
+	_challenge_panel.offset_top = 94.0 + top
+	_challenge_panel.offset_right = 300.0 + left
+	_challenge_panel.offset_bottom = 286.0 + top
+	_discovery_banner.offset_top = 162.0 + top
+	_discovery_banner.offset_bottom = 222.0 + top
+
+	_control_legend.offset_left = -500.0 - right
+	_control_legend.offset_top = -104.0 - bottom
+	_control_legend.offset_right = -22.0 - right
+	_control_legend.offset_bottom = -18.0 - bottom
+	_instructions_label.offset_left = -488.0 - right
+	_instructions_label.offset_top = -96.0 - bottom
+	_instructions_label.offset_right = -34.0 - right
+	_instructions_label.offset_bottom = -26.0 - bottom
+	_tutorial_panel.offset_left = -610.0 - right
+	_tutorial_panel.offset_top = -258.0 - bottom
+	_tutorial_panel.offset_right = -24.0 - right
+	_tutorial_panel.offset_bottom = -24.0 - bottom
+
+	var safe_centers: Array[CenterContainer] = [
+		_belly_center,
+		$HUD/Root/GuideOverlay/Center,
+		_options_center,
+	]
+	for center in safe_centers:
+		center.offset_left = left
+		center.offset_top = top
+		center.offset_right = -right
+		center.offset_bottom = -bottom
 
 
 func _find_safe_spit_position(radius: float) -> Vector2:
@@ -2502,6 +2813,7 @@ func _spawn_target(data: Dictionary) -> EdibleTarget:
 	target.building_part_id = str(data.get("building_part_id", ""))
 	target.selectable = bool(data.get("selectable", true))
 	target.visible = not bool(data.get("hidden", false))
+	target.set_presentation_motion_scale(_motion_scale)
 	_world.add_child(target)
 	_targets.append(target)
 	return target

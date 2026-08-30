@@ -1,13 +1,44 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://src/game.gd" id="1_game"]
 [ext_resource type="Script" path="res://src/city_backdrop.gd" id="2_city"]
 [ext_resource type="PackedScene" path="res://scenes/frog.tscn" id="3_frog"]
 [ext_resource type="Script" path="res://src/tutorial_marker.gd" id="4_tutorial_marker"]
 [ext_resource type="Script" path="res://src/feel_effects.gd" id="5_feel_effects"]
+[ext_resource type="Script" path="res://src/city_activity.gd" id="6_city_activity"]
+[ext_resource type="Script" path="res://src/touch_feedback.gd" id="7_touch_feedback"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_status"]
-bg_color = Color(0.05, 0.12, 0.13, 0.88)
+bg_color = Color(0.025, 0.085, 0.09, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.25, 0.58, 0.52, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_modal"]
+bg_color = Color(0.02, 0.075, 0.085, 0.99)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.27, 0.64, 0.55, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_control_hint"]
+bg_color = Color(0.02, 0.07, 0.08, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.24, 0.5, 0.48, 1)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
 corner_radius_bottom_right = 12
@@ -23,6 +54,10 @@ process_mode = 1
 [node name="City" type="Node2D" parent="World"]
 z_index = -10
 script = ExtResource("2_city")
+
+[node name="CityActivity" type="Node2D" parent="World"]
+z_index = -4
+script = ExtResource("6_city_activity")
 
 [node name="WorldTint" type="CanvasModulate" parent="World"]
 color = Color(1, 1, 1, 1)
@@ -75,7 +110,7 @@ anchor_right = 1.0
 offset_bottom = 82.0
 grow_horizontal = 2
 mouse_filter = 2
-color = Color(0.025, 0.075, 0.08, 0.9)
+color = Color(0.015, 0.055, 0.06, 0.97)
 
 [node name="TopMargin" type="MarginContainer" parent="HUD/Root"]
 unique_name_in_owner = true
@@ -85,15 +120,16 @@ anchor_right = 1.0
 offset_bottom = 82.0
 grow_horizontal = 2
 theme_override_constants/margin_left = 22
-theme_override_constants/margin_top = 14
+theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 10
 
 [node name="TopBar" type="HBoxContainer" parent="HUD/Root/TopMargin"]
 layout_mode = 2
-theme_override_constants/separation = 18
+theme_override_constants/separation = 10
 
 [node name="ProfileSlot" type="Control" parent="HUD/Root/TopMargin/TopBar"]
-custom_minimum_size = Vector2(200, 0)
+custom_minimum_size = Vector2(150, 0)
 layout_mode = 2
 
 [node name="ProfileLabel" type="Label" parent="HUD/Root/TopMargin/TopBar/ProfileSlot"]
@@ -104,7 +140,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 20
 text = "Player"
 vertical_alignment = 1
 text_overrun_behavior = 3
@@ -114,21 +150,21 @@ clip_text = true
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.86, 0.32, 1)
-theme_override_font_sizes/font_size = 25
+theme_override_font_sizes/font_size = 22
 text = "Score: 0"
 
 [node name="GrowthLabel" type="Label" parent="HUD/Root/TopMargin/TopBar"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.52, 1, 0.55, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 20
 text = "Growth: 0 / 100"
 
 [node name="PowerLabel" type="Label" parent="HUD/Root/TopMargin/TopBar"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.85, 1, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = ""
 
 [node name="Spacer" type="Control" parent="HUD/Root/TopMargin/TopBar"]
@@ -137,23 +173,30 @@ size_flags_horizontal = 3
 
 [node name="GuideButton" type="Button" parent="HUD/Root/TopMargin/TopBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 58)
+custom_minimum_size = Vector2(106, 58)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 20
 text = "Guide"
 
 [node name="BellyButton" type="Button" parent="HUD/Root/TopMargin/TopBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 58)
+custom_minimum_size = Vector2(130, 58)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 20
 text = "Belly (0)"
+
+[node name="OptionsButton" type="Button" parent="HUD/Root/TopMargin/TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(118, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Options"
 
 [node name="EndButton" type="Button" parent="HUD/Root/TopMargin/TopBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 58)
+custom_minimum_size = Vector2(126, 58)
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 20
 text = "End Game"
 
 [node name="StatusPanel" type="PanelContainer" parent="HUD/Root"]
@@ -174,27 +217,60 @@ unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 theme_override_font_sizes/font_size = 20
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.9)
+theme_override_constants/outline_size = 3
 text = "Tap the ground to move. Double-tap a target to eat it."
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Instructions" type="Label" parent="HUD/Root"]
+[node name="ControlLegendBackground" type="PanelContainer" parent="HUD/Root"]
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -470.0
-offset_top = -92.0
-offset_right = -24.0
-offset_bottom = -22.0
+offset_left = -500.0
+offset_top = -104.0
+offset_right = -22.0
+offset_bottom = -18.0
 grow_horizontal = 0
 grow_vertical = 0
-theme_override_colors/font_color = Color(0.92, 0.96, 0.92, 0.88)
-theme_override_font_sizes/font_size = 17
-text = "Touch: tap ground to move • double-tap targets\nTwo fingers: drag second finger to turn camera"
-horizontal_alignment = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_control_hint")
+
+[node name="Instructions" type="Label" parent="HUD/Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -488.0
+offset_top = -96.0
+offset_right = -34.0
+offset_bottom = -26.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 1, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "MOVE  Tap ground    TONGUE  Double-tap target\nCAMERA  Hold one finger, drag a second"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TouchFeedback" type="Control" parent="HUD/Root"]
+unique_name_in_owner = true
+z_index = -1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("7_touch_feedback")
 
 [node name="StrugglePanel" type="PanelContainer" parent="HUD/Root"]
 unique_name_in_owner = true
@@ -341,6 +417,7 @@ mouse_filter = 1
 [node name="Panel" type="PanelContainer" parent="HUD/Root/BellyOverlay/Center"]
 custom_minimum_size = Vector2(760, 620)
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_modal")
 
 [node name="Margin" type="MarginContainer" parent="HUD/Root/BellyOverlay/Center/Panel"]
 layout_mode = 2
@@ -452,6 +529,7 @@ mouse_filter = 1
 [node name="Panel" type="PanelContainer" parent="HUD/Root/GuideOverlay/Center"]
 custom_minimum_size = Vector2(820, 680)
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_modal")
 
 [node name="Margin" type="MarginContainer" parent="HUD/Root/GuideOverlay/Center/Panel"]
 layout_mode = 2
@@ -518,6 +596,135 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 21
 text = "Return to City"
 
+[node name="OptionsOverlay" type="Control" parent="HUD/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Shade" type="ColorRect" parent="HUD/Root/OptionsOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0.02, 0.04, 0.05, 0.82)
+
+[node name="Center" type="CenterContainer" parent="HUD/Root/OptionsOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Panel" type="PanelContainer" parent="HUD/Root/OptionsOverlay/Center"]
+custom_minimum_size = Vector2(760, 610)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_modal")
+
+[node name="Margin" type="MarginContainer" parent="HUD/Root/OptionsOverlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 34
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 34
+theme_override_constants/margin_bottom = 28
+
+[node name="Content" type="VBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 36
+text = "Accessibility"
+horizontal_alignment = 1
+
+[node name="Summary" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "These choices are saved for this player and apply immediately."
+horizontal_alignment = 1
+
+[node name="ReduceMotionToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Reduce motion: Off"
+
+[node name="ReduceMotionHelp" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.77, 0.86, 0.84, 1)
+theme_override_font_sizes/font_size = 18
+text = "Stops camera shake, wobble, scale pulses, tongue travel, and decorative city movement. Informational flashes and text remain."
+autowrap_mode = 2
+
+[node name="LargerUiToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Larger text & controls: Off"
+
+[node name="LargerUiHelp" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.77, 0.86, 0.84, 1)
+theme_override_font_sizes/font_size = 18
+text = "Increases interface text and touch-target height without changing the game world."
+autowrap_mode = 2
+
+[node name="Separator" type="HSeparator" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+
+[node name="ControlsTitle" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 1, 0.7, 1)
+theme_override_font_sizes/font_size = 22
+text = "Touch controls"
+
+[node name="Controls" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "MOVE: tap open ground    TONGUE: double-tap a target\nCAMERA: hold one finger and drag a second    STRUGGLE: tap rapidly"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Spacer" type="Control" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Actions" type="HBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Spacer" type="Control" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EndGameOptionsButton" type="Button" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "End Game"
+
+[node name="CloseOptionsButton" type="Button" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(210, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "Return to City"
+
 [node name="TutorialPanel" type="PanelContainer" parent="HUD/Root"]
 unique_name_in_owner = true
 visible = false
@@ -534,6 +741,7 @@ offset_bottom = -24.0
 grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBox_modal")
 
 [node name="Margin" type="MarginContainer" parent="HUD/Root/TutorialPanel"]
 layout_mode = 2

@@ -1,14 +1,69 @@
 # iOS Build and TestFlight Setup
 
-SamuelIcecream exports from Godot on Windows during normal development and uses
-a GitHub-hosted macOS runner only for Apple-specific compilation, signing, and
+SamuelIcecream uses Windows for normal development and a GitHub-hosted macOS
+runner only for Apple-specific Godot export, Xcode compilation, signing, and
 submission.
+
+## Unsigned pipeline verification
+
+The credential-free pipeline is verified through
+[`iOS unsigned smoke build`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/workflows/ios-smoke.yml).
+Manual run
+[`33314224588`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33314224588)
+completed successfully on August 30, 2026 for commit `fa5523f`:
+
+- the pinned Godot 4.7.2 editor and export templates installed on `macos-26`;
+- the Xcode 26.6 and iOS 26.5 preflight passed;
+- Godot generated `SamuelIcecream.xcodeproj` with the `SamuelIcecream` scheme;
+- Xcode compiled the Release configuration for a generic arm64 iOS device with
+  signing disabled; and
+- no certificate, provisioning profile, App Store credential, or build artifact
+  was used or uploaded.
+
+The normal Windows/Linux project check also runs
+`tests/ios_pipeline_smoke.gd`. This deterministic regression check verifies the
+manual-only trigger, read-only permissions, pinned action commits and
+toolchain, absence of secrets, generated project-only arm64 preset, temporary
+`export_presets.cfg` cleanup, and the explicit Xcode signing overrides. It does
+not replace the macOS integration run.
+
+The successful workflow run covers committed state through `fa5523f`. The
+later gameplay, accessibility, performance, and iOS release-pipeline changes in
+the current repository state pass local checks but are not included in a remote
+iOS build. The new generated-project validator, iPad-only target, explicit
+icon, privacy declarations, and warning sanitation require a new
+credential-free macOS smoke run after this state is pushed. Do not approve a
+signed release until that run passes on the intended release commit.
+
+The successful build retains non-fatal Godot/Xcode warnings for a legacy boot
+splash property, empty camera/photo-library/microphone purpose strings emitted
+by the generated project, a generated header pragma, and skipped App Intents
+metadata. The shared export script now removes only the three empty, unused
+purpose-string keys and fails if any of them becomes non-empty. It also
+validates the generated AppIcon catalog, bundle/version build settings,
+encryption declaration, and Godot privacy manifest before either iOS workflow
+continues.
+
+The remaining warnings require no repository workaround:
+
+| Warning | Release disposition |
+|---|---|
+| `application/boot_splash/fullsize` property not found | Godot 4.7.2's iOS exporter still queries this legacy property. The project does not define it; adding an obsolete setting would hide rather than fix the exporter warning. |
+| Empty camera, microphone, and photo-library purpose strings | Removed from the generated project because the game uses none of these capabilities. Do not add inaccurate purpose text. |
+| `dummy.h` has `#pragma once` in the main file | Generated Godot template warning with no effect on the compiled application. Do not patch generated engine files. |
+| App Intents metadata extraction skipped | Expected because the game does not link `AppIntents.framework` or provide App Intents. |
+
+Godot 4.7.2 generates and embeds `PrivacyInfo.xcprivacy`. The export preset
+declares file timestamp access only inside the app container, system boot time
+only for on-device elapsed-time measurement, and disk-space access only for
+writing or deleting files. Tracking and data collection are disabled. The
+generated-project validator fails if those declarations drift.
 
 ## Workflow design
 
 | Workflow | Trigger | Credentials | Purpose |
 |---|---|---|---|
-| `Godot CI` | Push, pull request, manual | None | Import and start the project on Linux |
+| `Godot CI` | Push, pull request, manual | None | Import, start, and run deterministic project checks on Linux |
 | `iOS unsigned smoke build` | Manual | None | Export through Godot and compile an unsigned generic iOS device target |
 | `iOS TestFlight release` | Manual from `main` or a `v*` tag | Protected `testflight` environment | Archive, sign, and submit to App Store Connect |
 
@@ -22,27 +77,54 @@ iOS 26.5 SDK recorded in `tools/toolchain.json`. They download the Godot macOS
 editor and export templates from the official Godot release, then verify the
 SHA-512 checksums before use.
 
+The iOS preset explicitly targets iPad only, matching the documented product
+scope and 4:3 presentation. Supporting iPhone later requires a separately
+reviewed layout, device-testing, and export-preset change.
+
 ## Apple account prerequisites
 
-Complete these steps in the Apple Developer and App Store Connect portals:
+The selected release identity is:
 
-1. Enroll the publishing account in the Apple Developer Program.
-2. Register a unique explicit bundle identifier.
-3. Create the matching App Store Connect app record.
-4. Create an Apple Distribution certificate and export it as a password-
-   protected `.p12`.
-5. Create an App Store distribution provisioning profile for the exact bundle
-   identifier and download the `.mobileprovision` file.
-6. Create an App Store Connect API key with the minimum role and app access
-   required to upload builds. Save its Key ID, Issuer ID, and one-time `.p8`
-   download.
-7. Complete agreements, export-compliance answers, privacy details, age rating,
-   and TestFlight tester configuration before expecting a submitted build to
-   become testable.
+| Field | Selected value |
+|---|---|
+| Bundle identifier | `com.chdafni.frogcityfeast` |
+| App Store Connect name | `Frog City Feast` |
+| SKU | `FROGCITYFEAST-IOS-001` |
+| Primary language | English (U.S.) |
+| Apple Developer Team ID | `CV7JQ487YU` |
+| Initial testing | Internal TestFlight only |
+| Non-exempt encryption | No; `ITSAppUsesNonExemptEncryption` is `false` |
+
+The bundle identifier uses reverse-DNS syntax but does not require ownership of
+a matching internet domain. Treat it as permanent after creating the App Store
+Connect record. The Godot project and generated iPad application display name
+are also **Frog City Feast**.
+
+Current prerequisite status:
+
+| Prerequisite | Status |
+|---|---|
+| Explicit App ID | Created for `com.chdafni.frogcityfeast`. Apple automatically enables the immutable In-App Purchase feature for this Universal App ID; the game has no StoreKit integration, products, or purchase UI. No optional capability was requested. |
+| App Store Connect app record | Created for **Frog City Feast** with primary locale `en-US`, bundle ID `com.chdafni.frogcityfeast`, and SKU `FROGCITYFEAST-IOS-001`. |
+| Apple Distribution certificate | Created and valid through August 30, 2027. Its private key and randomly generated `.p12` password exist only in the protected GitHub environment secret set. |
+| App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
+| App Store Connect API key | A Developer-role team key is configured in the protected GitHub environment and passed authenticated app and TestFlight operations. The previous Admin key was confirmed revoked and its local file was deleted. |
+| Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
+| Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. App Store listing privacy, rating, contact, and marketing metadata remain later release work rather than blockers for internal-only TestFlight. |
+
+No remaining portal configuration blocks the first internal-only upload.
+Complete the app-specific privacy, age-rating, contact, category, and marketing
+metadata before external TestFlight testing or App Store submission. The
+Developer-role API key can upload builds and manage the internal group, but
+Apple rejected API creation of the optional beta-app localization with this
+role. That localization is not required for internal-only testing.
 
 The provisioning profile must use the same Team ID and exact bundle identifier
-configured in GitHub. The workflow rejects wildcard or mismatched profiles
-before importing the signing certificate.
+configured in GitHub. The workflow rejects development, Ad Hoc, enterprise,
+expired, wildcard, or mismatched profiles before importing the signing
+certificate. It also verifies that the profile includes the supplied,
+unexpired Apple Distribution certificate and that the certificate Team ID is
+`CV7JQ487YU`.
 
 ## GitHub environment
 
@@ -52,16 +134,33 @@ Configure its deployment branch and tag policy to allow only:
 - Branch `main`
 - Tags matching `v*`
 
-Require a trusted reviewer when another account is available to approve
-releases. Do not enable self-review prevention if it would make releases
-impossible for a single-owner personal repository.
+The environment is configured with `CHDAFNI-MSFT` as its required reviewer and
+self-review prevention disabled. A manual dispatch or `v*` tag can start the
+job, but the signing secrets remain unavailable until that environment approval
+is granted. Keep this gate in place while the repository has only one release
+operator.
 
 Add these environment variables:
 
 | Variable | Value |
 |---|---|
-| `APPLE_TEAM_ID` | The 10-character Apple Developer Team ID |
-| `IOS_BUNDLE_ID` | The explicit App ID, such as `com.example.samuelicecream` |
+| `APPLE_TEAM_ID` | `CV7JQ487YU` |
+| `IOS_BUNDLE_ID` | `com.chdafni.frogcityfeast` |
+
+Both variables are configured. Add the following values only through the
+`testflight` environment's **Environment secrets** controls; never use
+repository-level secrets for this workflow.
+
+All six required environment secret names contain configured values. The
+Developer-role App Store Connect team Key ID, Issuer ID, and private key passed
+an authenticated app lookup. The Apple Distribution `.p12`, its password, and
+the matching App Store provisioning profile were validated before being
+written directly to the protected environment. No local copy of the
+certificate private key, `.p12`, password, CSR, certificate, or profile was
+retained.
+
+The previous Admin API key is no longer stored in GitHub, was confirmed revoked
+by Apple, and its local `.p8` file was deleted.
 
 Add these environment secrets:
 
@@ -91,16 +190,18 @@ On Windows PowerShell:
 ```
 
 Repeat the PowerShell command for the provisioning profile and API private key.
-Delete unencrypted local copies when they are no longer needed. Never place
-certificate, profile, private-key, or password files inside the repository.
+Keep all source files outside the repository, enter the encoded values directly
+in GitHub, clear the clipboard, and delete local copies when they are no longer
+needed. Never place certificate, profile, private-key, or password files inside
+the repository.
 
 ## Release sequence
 
 1. Run `Godot CI` successfully on the intended commit.
-2. Run `iOS unsigned smoke build` and resolve all Godot export or Xcode compile
-   failures.
-3. Configure the `testflight` environment, variables, secrets, and deployment
-   policies.
+2. After the intended changes are committed, run `iOS unsigned smoke build` on
+   that exact commit. Do not proceed until the new generated-project validation
+   and unsigned Xcode compile both pass.
+3. Confirm the `testflight` environment approval gate is still enabled.
 4. Manually run `iOS TestFlight release` from `main` with a numeric version such
    as `0.1.0`.
 5. After the first successful submission, prefer annotated release tags such as
@@ -110,7 +211,37 @@ certificate, profile, private-key, or password files inside the repository.
 
 The workflow combines `github.run_number` and `github.run_attempt` for
 `CFBundleVersion`, so a new run or rerun does not reuse a submitted build
-number.
+number. Do not rename or recreate the workflow without first checking the last
+uploaded App Store Connect build number because GitHub's workflow run number
+would restart.
+
+### First internal TestFlight install
+
+The TestFlight path does not require registering an iPad UDID or adding the
+device to the provisioning profile.
+
+1. Commit the intended repository state and push that commit to `main`.
+2. In GitHub **Actions**, open **iOS unsigned smoke build**, choose **Run
+   workflow**, select `main`, and wait for the exact commit to pass.
+3. Open **iOS TestFlight release**, choose **Run workflow**, select `main`, and
+   enter a numeric marketing version such as `0.1.0`.
+4. Approve the protected `testflight` environment deployment. This approval is
+   the point after which the job can access signing and upload credentials.
+5. Wait for the workflow to finish and for Apple to process the uploaded build.
+   Resolve **Missing Compliance** if App Store Connect requests confirmation;
+   the app declares that it does not use non-exempt encryption.
+6. In App Store Connect, open **Frog City Feast > TestFlight > Internal
+   Testing > Frog City Feast Internal**, choose **Add Builds**, select the
+   processed build, and enter concise **What to Test** notes. Automatic
+   distribution remains disabled intentionally.
+7. On the iPad, install Apple's **TestFlight** app from the App Store and sign
+   in with the Apple Account belonging to the configured App Store Connect
+   internal tester.
+8. Accept the invitation email or open the available build in TestFlight, then
+   choose **Install**. Internal builds remain available for 90 days.
+
+The exported application is iPad-only and marked **TestFlight Internal Only**.
+It cannot be promoted to external testing or App Store review.
 
 ## Signing and cleanup behavior
 
@@ -118,19 +249,25 @@ The release job:
 
 1. Decodes signing files only into `$RUNNER_TEMP`.
 2. Validates the provisioning profile Team ID and application identifier.
-3. Creates a random-password temporary keychain.
-4. Imports only the Apple Distribution identity.
-5. Installs the profile into both current and legacy Xcode profile locations.
-6. exports the Godot project using manual profile overrides;
-7. archives with manual signing;
-8. uploads through `xcodebuild -exportArchive` using the App Store Connect API
-   key; and
-9. deletes the temporary keychain, profile copies, private key, archive, and
-   export output even when an earlier step fails.
+3. Rejects expired or non-App-Store profiles and verifies that the supplied
+   Apple Distribution certificate belongs to both the Team ID and profile.
+4. Creates a random-password temporary keychain.
+5. Imports only the Apple Distribution identity.
+6. Installs the profile into both current and legacy Xcode profile locations.
+7. Exports and validates the Godot-generated Xcode project.
+8. Archives with manual signing and no permission to create or update signing
+   assets in the Apple portal.
+9. Uploads through `xcodebuild -exportArchive` using the App Store Connect API
+   key and marks the build as **TestFlight Internal Only**.
+10. Deletes the temporary keychain, profile copies, private key, archive, and
+    DerivedData, export output, and build logs even when an earlier step fails.
 
 No signed IPA, Xcode archive, provisioning profile, or signing key is uploaded
 as a GitHub artifact. Workflows have read-only repository permissions and
-checkout does not persist Git credentials.
+checkout does not persist Git credentials. An internal-only build cannot later
+be promoted to external testing or App Store review; deliberately remove the
+`testFlightInternalTestingOnly` export option in a separately reviewed change
+when external distribution is approved.
 
 ## Maintenance
 
@@ -144,6 +281,8 @@ pinned because GitHub runner defaults change over time. Before updating them:
 4. Run the unsigned smoke workflow before allowing a TestFlight release.
 
 The macOS release path cannot be fully exercised from Windows. Local validation
-covers project import and startup, preset rendering, manifest structure, and
-script syntax; the manual smoke workflow is the authoritative integration test
-for Godot export and Xcode compilation.
+covers project import and startup plus deterministic workflow, manifest,
+preset, secret, and signing-override checks. The manual smoke workflow is the
+authoritative integration test for Godot export and Xcode compilation. Run it
+again after committing changes that affect project resources, scenes, scripts,
+icons, or export configuration.

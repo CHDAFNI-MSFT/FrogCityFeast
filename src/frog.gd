@@ -102,6 +102,14 @@ func celebrate_growth(motion_scale: float) -> void:
 	queue_redraw()
 
 
+func set_presentation_motion_scale(value: float) -> void:
+	_growth_celebration_motion_scale = clampf(value, 0.0, 1.0)
+	if _growth_celebration_motion_scale <= 0.0:
+		_growth_celebration_time = 0.0
+		_visual_scale = 1.0
+	queue_redraw()
+
+
 func tongue_range() -> float:
 	return TIER_TONGUE_RANGES[growth_tier]
 

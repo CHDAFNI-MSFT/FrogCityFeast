@@ -65,6 +65,30 @@ func get_device_best() -> int:
 	return int(_config.get_value("device", "best_score", 0))
 
 
+func get_accessibility_preferences(profile_id: String) -> Dictionary:
+	return AccessibilityPresentation.sanitize_preferences(
+		_config.get_value("accessibility", profile_id, {})
+	)
+
+
+func set_accessibility_preferences(
+	profile_id: String,
+	reduce_motion: bool,
+	larger_text_controls: bool
+) -> void:
+	if not _config.has_section_key("profiles", profile_id):
+		push_warning("Cannot save accessibility preferences for an unknown profile.")
+		return
+	var preferences := {
+		"reduce_motion": reduce_motion,
+		"larger_text_controls": larger_text_controls,
+	}
+	if get_accessibility_preferences(profile_id) == preferences:
+		return
+	_config.set_value("accessibility", profile_id, preferences)
+	_save()
+
+
 func is_tutorial_complete(profile_id: String) -> bool:
 	return bool(_config.get_value("tutorial", profile_id, false))
 

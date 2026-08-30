@@ -29,6 +29,7 @@ def main() -> None:
         "signingStyle": "manual",
         "stripSwiftSymbols": True,
         "teamID": args.team_id,
+        "testFlightInternalTestingOnly": True,
         "uploadSymbols": True,
     }
 

@@ -11,6 +11,7 @@ if [[ -n "$runner_temp" ]]; then
     2>/dev/null || true
   rm -f -- \
     "$runner_temp/samuelicecream-distribution.p12" \
+    "$runner_temp/samuelicecream-distribution.pem" \
     "$runner_temp/samuelicecream-app-store.mobileprovision" \
     "$runner_temp/samuelicecream-profile.plist" \
     "$runner_temp/TestFlightExportOptions.plist"
@@ -22,6 +23,6 @@ fi
 rm -f -- \
   "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$installed_profile_name" \
   "$HOME/Library/MobileDevice/Provisioning Profiles/$installed_profile_name"
-rm -rf -- "$repo_root/build/ios"
+rm -rf -- "$repo_root/build"
 
 echo "Temporary iOS signing material was removed."

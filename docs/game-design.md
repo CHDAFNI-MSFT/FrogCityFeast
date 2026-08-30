@@ -2,7 +2,7 @@
 
 This document records the durable gameplay decisions from the design interview.
 It describes the intended player experience rather than implementation details.
-The game's final title has not been chosen.
+The selected release title is **Frog City Feast**.
 
 ## Product and presentation
 
@@ -20,6 +20,66 @@ The repository's technical requirement remains a 2D game built with Godot
 the project's 2D visual style rather than changing the documented technology
 stack.
 
+The fixed prototype uses a safe-area-aware 1280×960 reference layout. Important
+HUD controls stay inside device-safe edges without resizing or repositioning the
+game world. Interface text and controls use high-contrast original vector
+presentation, explicit text labels, and touch actions that are at least 56
+pixels high in normal presentation.
+
+Accessibility choices are stored independently for each local player profile:
+
+- **Reduce motion** removes camera shake, scale and wobble pulses, tongue
+  travel, tutorial-marker pulsing, struggle-width pulses, and decorative city
+  movement while retaining informational text, color flashes, the tongue line,
+  city density changes, and streetlight state.
+- **Larger text & controls** modestly increases interface text and raises touch
+  actions to at least 64 pixels without changing world scale, collision,
+  targeting, or score behavior.
+
+Both controls are available from player selection and during play. Older
+version 1 saves that do not contain accessibility data use both choices as off.
+
+### Performance requirements
+
+The fixed 1280×960 prototype targets 60 FPS on an A16 iPad. Performance
+instrumentation is a developer-only local tool: it is off by default,
+input-transparent when enabled, writes no reports or save data, and performs no
+remote analytics, player tracking, or network telemetry.
+
+Hardware-dependent acceptance budgets for an A16 iPad release build are:
+
+- at least 58 sustained FPS over a 30-second sample, targeting 60 FPS;
+- frame-time p95 at or below 18 ms, against a 16.67 ms frame target;
+- main-thread process-time p95 at or below 8 ms;
+- physics-process-time p95 at or below 2 ms;
+- static memory at or below 192 MiB;
+- video memory at or below 256 MiB; and
+- no more than 450 draw calls, 1,800 rendered objects, and 50,000 rendered
+  primitives in the documented stress states.
+
+These measurements must not become CI pass/fail gates because frame scheduling,
+render-driver behavior, and GPU performance vary by host. Godot's runtime
+performance monitors do not provide GPU frame time, so final GPU acceptance
+requires Xcode's Metal profiling tools on the target iPad. The unsigned
+Godot-to-Xcode export and generic-device compile are verified; installing a
+profiling build on the device remains separate signed-device work.
+
+Deterministic structural budgets are enforced independently of hardware. The
+prototype permits 18 gameplay targets, 4 buildings, 1 pursuer, 15 draw-only city
+actors, 24 capped world effects, and 3 touch cues. Baseline states permit up to
+216 game-subtree nodes and 30 collision objects/shapes; pursuit and the
+reachable gameplay peak permit 218 nodes and 31 collision objects/shapes. The
+performance Belly scenario renders 64 item rows within 472 nodes without
+changing the belly's unlimited gameplay semantics. The populated Field Guide
+contains exactly 19 rows.
+
+Reproducible stress coverage includes busy daytime city activity, pursuit,
+maximum growth, a finite simultaneous presentation burst, a 64-item Belly,
+the fully populated Field Guide, both accessibility settings, and a reachable
+gameplay peak. Desktop measurements are advisory; the target iPad release build
+is authoritative. The exact commands and current local measurement notes are
+recorded in [`playable-prototype.md`](playable-prototype.md).
+
 ## Player character and touch controls
 
 The player controls a frog.
@@ -27,6 +87,8 @@ The player controls a frog.
 - Tap a location on the ground to make the frog run there.
 - Double-tap a target to shoot the frog's tongue at it.
 - Use a second finger to rotate the camera.
+- Brief draw-only cues confirm accepted movement, tongue attempts, and camera
+  rotation without participating in hit testing or changing the touched point.
 - The tongue has a fixed maximum range.
 - The tongue aims at the exact screen location touched by the player.
 - A hit anywhere on a valid target can succeed, but a hit nearer its center
@@ -170,6 +232,13 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
+The fixed-city prototype now implements the first small dynamic-city slice:
+the day and night cycle changes the visible pedestrian crowd, secondary traffic
+level, and streetlight glow. These ambient pedestrians and vehicles use
+authored routes and are decorative rather than targets, hazards, or persistent
+world state. The labeled Delivery Van remains the prototype's interactive
+traffic target.
+
 ### Target locations
 
 Targets may be found in:
@@ -256,8 +325,8 @@ These points were not fully resolved in the interview:
   that is permanently attached to the city.
 - The point values, growth thresholds, tongue range, tongue recovery duration,
   struggle difficulty, and caught-score penalty.
-- The game's name, visual art style, sound style, story, menus, profile setup,
-  accessibility options, and first-time tutorial.
+- The final visual art style, sound style, story, and remaining menu or
+  onboarding polish.
 - Whether the camera needs additional automatic assistance while the player is
   using one finger to move and a second finger to rotate it.
 - Which temporary powers should exist in addition to one-minute flight.

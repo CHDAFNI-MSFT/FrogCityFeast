@@ -1,6 +1,7 @@
-# SamuelIcecream
+# Frog City Feast
 
-Native iOS game.
+Godot 4.7.2 touch-first iPad game. The repository retains its original
+`SamuelIcecream` name.
 
 ## Development planning
 

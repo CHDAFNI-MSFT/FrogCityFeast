@@ -28,6 +28,7 @@ var _presentation_scale := 1.0
 var _feedback_time := 0.0
 var _feedback_amount := 0.0
 var _feedback_motion_scale := 1.0
+var _presentation_motion_scale := 1.0
 
 
 func _ready() -> void:
@@ -93,9 +94,21 @@ func set_latched(value: bool) -> void:
 
 
 func pulse_feedback(motion_scale: float) -> void:
-	_feedback_motion_scale = clampf(motion_scale, 0.0, 1.0)
+	_feedback_motion_scale = minf(
+		clampf(motion_scale, 0.0, 1.0),
+		_presentation_motion_scale
+	)
 	_feedback_time = 0.16
 	_feedback_amount = 0.01
+	queue_redraw()
+
+
+func set_presentation_motion_scale(value: float) -> void:
+	_presentation_motion_scale = clampf(value, 0.0, 1.0)
+	_feedback_motion_scale = minf(
+		_feedback_motion_scale,
+		_presentation_motion_scale
+	)
 	queue_redraw()
 
 
@@ -196,7 +209,12 @@ func _draw() -> void:
 	if rare:
 		draw_arc(Vector2.ZERO, pick_radius + 8.0, 0.0, TAU, 28, Color("ffe56b"), 5.0)
 	if highlighted:
-		var pulse := 5.0 + sin(Time.get_ticks_msec() * 0.008) * 3.0
+		var pulse := (
+			5.0
+			+ sin(Time.get_ticks_msec() * 0.008)
+			* 3.0
+			* _presentation_motion_scale
+		)
 		draw_arc(
 			Vector2.ZERO,
 			pick_radius + 13.0 + pulse,

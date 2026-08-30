@@ -335,6 +335,8 @@ func _run() -> void:
 
 	await _test_oddities_shop_sequence(game_scene)
 	await _test_building_interiors(game_scene)
+	await _test_city_activity(game_scene)
+	await _test_accessibility(game_scene)
 	await _test_game_feel(game_scene)
 	await _test_feel_effects_component()
 	await _test_discovery_collection(game_scene)
@@ -349,6 +351,8 @@ func _run() -> void:
 	var second_profile := store.ensure_profile("Frog Two")
 	store.update_high_scores(first_profile, 120)
 	store.update_high_scores(second_profile, 80)
+	store.set_accessibility_preferences(first_profile, true, false)
+	store.set_accessibility_preferences(second_profile, false, true)
 	_check(
 		store.mark_discovered(first_profile, "street_donut"),
 		"A new discovery is persisted once."
@@ -374,6 +378,17 @@ func _run() -> void:
 		"Discoveries survive reload and remain profile-specific."
 	)
 	_check(
+		reloaded_store.get_accessibility_preferences(first_profile) == {
+			"reduce_motion": true,
+			"larger_text_controls": false,
+		}
+		and reloaded_store.get_accessibility_preferences(second_profile) == {
+			"reduce_motion": false,
+			"larger_text_controls": true,
+		},
+		"Accessibility preferences survive reload and remain profile-specific."
+	)
+	_check(
 		reloaded_store.is_tutorial_complete(first_profile)
 		and ProfileStore.SAVE_VERSION == 1,
 		"Discovery persistence preserves tutorial state and save version 1."
@@ -390,11 +405,47 @@ func _run() -> void:
 		menu._guide_label.text == one_discovery_text,
 		"Main menu shows the selected profile's Field Guide progress."
 	)
+	_check(
+		menu._reduce_motion_toggle.button_pressed
+		and not menu._larger_ui_toggle.button_pressed,
+		"Main menu loads accessibility choices for the selected profile."
+	)
 	menu._on_new_name_changed("frog one")
 	_check(
 		menu._guide_label.text == one_discovery_text
 		and menu._start_button.text == "Start New Game",
 		"Typing an existing profile name previews its real saved state."
+	)
+	menu._on_new_name_changed("frog two")
+	_check(
+		not menu._reduce_motion_toggle.button_pressed
+		and menu._larger_ui_toggle.button_pressed,
+		"Typing an existing name loads that profile's accessibility choices."
+	)
+	var profiles_before_draft := reloaded_store.list_profiles().size()
+	menu._new_name.text = "Draft Frog"
+	await process_frame
+	menu._reduce_motion_toggle.button_pressed = true
+	menu._larger_ui_toggle.button_pressed = true
+	menu._on_accessibility_toggled(true)
+	_check(
+		reloaded_store.list_profiles().size() == profiles_before_draft,
+		"Changing a new player's accessibility draft does not create a profile."
+	)
+	var started_profile := {"id": ""}
+	menu.start_requested.connect(func(profile_id: String, _name: String) -> void:
+		started_profile["id"] = profile_id
+	)
+	menu._on_start_pressed()
+	_check(
+		not str(started_profile["id"]).is_empty()
+		and reloaded_store.get_accessibility_preferences(
+			str(started_profile["id"])
+		) == {
+			"reduce_motion": true,
+			"larger_text_controls": true,
+		},
+		"New-player accessibility choices are saved before gameplay starts."
 	)
 	var long_name := "Twenty Four Character Frogs Extra Text"
 	var normalized_long_name := ProfileStore.normalize_profile_name(long_name)
@@ -421,13 +472,25 @@ func _run() -> void:
 	legacy_config.set_value("scores", "legacy_player", 333)
 	legacy_config.set_value("tutorial", "legacy_player", true)
 	legacy_config.set_value("device", "best_score", 333)
+	legacy_config.set_value(
+		"accessibility",
+		"legacy_player",
+		{
+			"reduce_motion": "true",
+			"larger_text_controls": 1,
+		}
+	)
 	legacy_config.save(legacy_path)
 	var legacy_store := ProfileStore.new(legacy_path)
 	_check(
 		legacy_store.get_profile_best("legacy_player") == 333
 		and legacy_store.is_tutorial_complete("legacy_player")
-		and legacy_store.get_discoveries("legacy_player").is_empty(),
-		"Version 1 saves without discovery data load without losing progress."
+		and legacy_store.get_discoveries("legacy_player").is_empty()
+		and legacy_store.get_accessibility_preferences("legacy_player") == {
+			"reduce_motion": false,
+			"larger_text_controls": false,
+		},
+		"Version 1 saves use deterministic defaults for missing or malformed optional data."
 	)
 	if FileAccess.file_exists(legacy_path):
 		DirAccess.remove_absolute(absolute_legacy_path)
@@ -506,6 +569,286 @@ func _run() -> void:
 	_finish()
 
 
+func _test_accessibility(game_scene: PackedScene) -> void:
+	_check(
+		AccessibilityPresentation.sanitize_preferences({
+			"reduce_motion": "true",
+			"larger_text_controls": 1,
+		}) == {
+			"reduce_motion": false,
+			"larger_text_controls": false,
+		},
+		"Accessibility settings accept only explicit boolean save values."
+	)
+	var safe_insets := AccessibilityPresentation.safe_area_insets(
+		Rect2(124, 88, 1232, 920),
+		Rect2(100, 70, 1280, 960),
+		Vector2(1280, 960)
+	)
+	_check(
+		safe_insets == Vector4(24, 18, 24, 22)
+		and AccessibilityPresentation.safe_area_insets(
+			Rect2(100, 70, 1280, 960),
+			Rect2(100, 70, 1280, 960),
+			Vector2(1280, 960)
+		) == Vector4.ZERO,
+		"Safe-area conversion is deterministic and leaves containing desktop areas unchanged."
+	)
+
+	var game := game_scene.instantiate() as FrogGame
+	game.configure(
+		"accessibility_test",
+		"WWWWWWWWWWWWWWWWWWWWWWWW",
+		false,
+		PackedStringArray(),
+		{
+			"reduce_motion": false,
+			"larger_text_controls": false,
+		}
+	)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+	_check(
+		game._motion_scale == 1.0
+		and game._effects.motion_scale == 1.0
+		and game._city_activity.motion_scale == 1.0
+		and game._touch_feedback.motion_scale == 1.0,
+		"An explicit player preference overrides the headless reduced-motion fallback."
+	)
+	_check(
+		_all_interactive_controls_at_least(
+			game.get_node("HUD/Root"),
+			AccessibilityPresentation.NORMAL_TOUCH_HEIGHT
+		),
+		"Normal presentation keeps every interface action at least 56 pixels tall."
+	)
+
+	var move_world := game._frog.global_position + Vector2(-90, 0)
+	var move_screen := (
+		game.get_viewport().get_canvas_transform() * move_world
+	)
+	game._handle_world_tap(move_screen)
+	game._try_tongue_at_screen(Vector2(96, 250))
+	var rotation_before := game._camera.rotation
+	game._rotate_camera(18.0, Vector2(640, 420))
+	_check(
+		game._frog._has_move_target
+		and (
+			game._touch_feedback.feedback_snapshot("move")["world_position"]
+			as Vector2
+		).distance_to(game._frog._move_target) < 0.01,
+		"Accepted movement produces draw-only feedback at the final destination."
+	)
+	_check(
+		game._camera.rotation != rotation_before
+		and game._touch_feedback.active_feedback_count() == 3
+		and not _contains_collision_object(game._touch_feedback),
+		"Move, tongue, and camera cues are capped draw-only observers of input."
+	)
+
+	var baseline_score_font := game._score_label.get_theme_font_size("font_size")
+	game._frog.celebrate_growth(1.0)
+	game._frog._process(0.2)
+	var pulsing_target := _find_target(game, "running_hotdog")
+	pulsing_target.pulse_feedback(1.0)
+	game._show_tongue(
+		game._frog.global_position + Vector2.RIGHT * 160.0
+	)
+	game._trigger_camera_shake(8.0, 0.24)
+	game._update_camera_feedback(0.016)
+	var accessibility_events: Array[Dictionary] = []
+	game.accessibility_changed.connect(
+		func(reduce_motion: bool, larger_text_controls: bool) -> void:
+			accessibility_events.append({
+				"reduce_motion": reduce_motion,
+				"larger_text_controls": larger_text_controls,
+			})
+	)
+	game._refreshing_accessibility_controls = true
+	game._reduce_motion_toggle.button_pressed = true
+	game._larger_ui_toggle.button_pressed = true
+	game._refreshing_accessibility_controls = false
+	game._on_accessibility_toggled(true)
+	var large_score_font := game._score_label.get_theme_font_size("font_size")
+	game._apply_accessibility_presentation()
+	_check(
+		game._motion_scale == 0.0
+		and game._camera_shake_time == 0.0
+		and game._frog._growth_celebration_time == 0.0
+		and is_equal_approx(game._frog._visual_scale, 1.0)
+		and pulsing_target._presentation_motion_scale == 0.0
+		and game._tongue_phase == FrogGame.TonguePhase.HOLDING
+		and is_equal_approx(game._tongue_extension, 1.0)
+		and game._city_activity.motion_scale == 0.0,
+		"Turning on Reduce motion immediately settles active presentation movement."
+	)
+	var feedback_is_static := true
+	for kind in ["move", "tongue", "camera"]:
+		if (
+			float(
+				game._touch_feedback.feedback_snapshot(kind).get(
+					"motion_scale",
+					-1.0
+				)
+			)
+			!= 0.0
+		):
+			feedback_is_static = false
+	_check(
+		feedback_is_static
+		and accessibility_events == [{
+			"reduce_motion": true,
+			"larger_text_controls": true,
+		}],
+		"Accessibility changes retain static touch information and emit one exact save event."
+	)
+	game._struggle_kick = 1.0
+	game._apply_tongue_visual()
+	_check(
+		is_equal_approx(game._tongue.width, 12.0)
+		and game._tongue.default_color != FrogGame.TONGUE_COLOR,
+		"Reduced motion removes struggle width pulses while preserving its color flash."
+	)
+	_check(
+		_all_interactive_controls_at_least(
+			game.get_node("HUD/Root"),
+			AccessibilityPresentation.LARGE_TOUCH_HEIGHT
+		)
+		and large_score_font > baseline_score_font
+		and game._score_label.get_theme_font_size("font_size")
+		== large_score_font,
+		"Larger text and controls is idempotent and enforces 64-pixel actions."
+	)
+
+	game._score = 99999
+	game._growth_tier = 1
+	game._growth_points = 350
+	game._flight_time_left = 60.0
+	game._update_hud()
+	game._update_power_label()
+	game.apply_safe_area_insets(safe_insets)
+	await process_frame
+	var safe_rect := Rect2(24, 18, 1232, 920)
+	var top_bar_controls: Array[Control] = [
+		game._profile_label,
+		game._score_label,
+		game._growth_label,
+		game._power_label,
+		game._guide_button,
+		game._belly_button,
+		game._options_button,
+		game._end_button,
+	]
+	_check(
+		not _controls_overlap(top_bar_controls)
+		and safe_rect.encloses(game._control_legend.get_global_rect())
+		and game._profile_label.get_global_rect().position.x >= safe_rect.position.x
+		and game._end_button.get_global_rect().end.x <= safe_rect.end.x,
+		"Large worst-case top-bar and control legend fit the inset 1280x960 safe area."
+	)
+
+	game._begin_struggle(pulsing_target, 0.8, Vector2.ZERO)
+	var struggle_time := game._struggle_time_left
+	game._open_options()
+	var options_panel := game.get_node(
+		"HUD/Root/OptionsOverlay/Center/Panel"
+	) as Control
+	game._open_belly()
+	await process_frame
+	_check(
+		game._options_overlay.visible
+		and not game._belly_overlay.visible
+		and paused
+		and game._struggle_target == pulsing_target
+		and is_equal_approx(game._struggle_time_left, struggle_time),
+		"Accessibility options pause in-progress play without stacking or resetting it."
+	)
+	_check(
+		safe_rect.encloses(options_panel.get_global_rect()),
+		"Accessibility options remain inside the inset 4:3 safe area."
+	)
+	game._close_options()
+	_check(
+		not paused
+		and game._struggle_target == pulsing_target,
+		"Closing Accessibility resumes the exact in-progress gameplay state."
+	)
+	game._clear_struggle()
+	game.queue_free()
+	await process_frame
+
+	var menu_save_path := "user://accessibility_menu_smoke.cfg"
+	var absolute_menu_save_path := ProjectSettings.globalize_path(
+		menu_save_path
+	)
+	if FileAccess.file_exists(menu_save_path):
+		DirAccess.remove_absolute(absolute_menu_save_path)
+	var menu_store := ProfileStore.new(menu_save_path)
+	var menu_profile := menu_store.ensure_profile("Accessible Frog")
+	menu_store.set_accessibility_preferences(menu_profile, true, true)
+	var menu := (
+		load("res://scenes/menu.tscn") as PackedScene
+	).instantiate() as MainMenu
+	root.add_child(menu)
+	await process_frame
+	menu.configure(menu_store, 0)
+	menu.apply_safe_area_insets(safe_insets)
+	await process_frame
+	var menu_panel := menu.get_node("Center/Panel") as Control
+	_check(
+		menu._reduce_motion_toggle.button_pressed
+		and menu._larger_ui_toggle.button_pressed,
+		"Menu loads both saved accessibility choices."
+	)
+	_check(
+		_all_interactive_controls_at_least(
+			menu,
+			AccessibilityPresentation.LARGE_TOUCH_HEIGHT
+		),
+		"Menu large mode enforces 64-pixel interactive controls."
+	)
+	_check(
+		safe_rect.encloses(menu_panel.get_global_rect()),
+		"Menu large mode fits the inset 1280x960 safe area."
+	)
+	var profile_count_before_selection := menu_store.list_profiles().size()
+	menu._new_name.text = "Uncreated Draft Frog"
+	await process_frame
+	var menu_profile_index := -1
+	for index in menu._profile_select.item_count:
+		if (
+			str(menu._profile_select.get_item_metadata(index))
+			== menu_profile
+		):
+			menu_profile_index = index
+			break
+	menu._profile_select.select(menu_profile_index)
+	menu._on_profile_selected(menu_profile_index)
+	menu._reduce_motion_toggle.button_pressed = false
+	menu._on_accessibility_toggled(false)
+	var selected_start := {"id": ""}
+	menu.start_requested.connect(
+		func(profile_id: String, _name: String) -> void:
+			selected_start["id"] = profile_id
+	)
+	menu._on_start_pressed()
+	_check(
+		menu._new_name.text.is_empty()
+		and str(selected_start["id"]) == menu_profile
+		and menu_store.list_profiles().size() == profile_count_before_selection
+		and menu_store.get_accessibility_preferences(menu_profile) == {
+			"reduce_motion": false,
+			"larger_text_controls": true,
+		},
+		"Choosing a dropdown profile clears a typed draft and keeps Start and settings on that profile."
+	)
+	menu.queue_free()
+	await process_frame
+	if FileAccess.file_exists(menu_save_path):
+		DirAccess.remove_absolute(absolute_menu_save_path)
+
+
 func _test_game_feel(game_scene: PackedScene) -> void:
 	var game := game_scene.instantiate() as FrogGame
 	game.set_motion_scale(1.0)
@@ -523,7 +866,8 @@ func _test_game_feel(game_scene: PackedScene) -> void:
 	await physics_frame
 	_check(
 		game._motion_scale == 1.0
-		and game._effects.motion_scale == 1.0,
+		and game._effects.motion_scale == 1.0
+		and game._city_activity.motion_scale == 1.0,
 		"Pre-entry motion preference overrides the headless default after scene entry."
 	)
 
@@ -641,6 +985,7 @@ func _test_game_feel(game_scene: PackedScene) -> void:
 		game._power_label,
 		game._guide_button,
 		game._belly_button,
+		game._options_button,
 		game._end_button,
 	]
 	var top_bar_overlaps := false
@@ -742,11 +1087,193 @@ func _test_game_feel(game_scene: PackedScene) -> void:
 		"Reduced motion keeps tongue information but removes extension movement."
 	)
 	game._hide_tongue()
+	_check(
+		game._city_activity.motion_scale == 0.0
+		and not game._city_activity.is_processing(),
+		"Reduced motion freezes decorative city movement."
+	)
 
 	_check(
 		not _contains_collision_object(game._effects),
 		"World feedback contains no physics objects."
 	)
+	game.queue_free()
+	await process_frame
+
+
+func _test_city_activity(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("city_activity_test", "City Activity Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	var activity := game._city_activity
+	_check(
+		is_instance_valid(activity)
+		and activity.get_child_count() == 0
+		and not _contains_collision_object(activity),
+		"City activity is one draw-only layer with no physics bodies."
+	)
+	_check(
+		game._targets.size() == 18 and DiscoveryCatalog.count() == 19,
+		"Ambient city life does not add gameplay targets or Field Guide entries."
+	)
+	var expected_daylight := (
+		sin(game._day_clock * TAU - PI / 2.0) + 1.0
+	) * 0.5
+	_check(
+		is_equal_approx(activity.daylight, expected_daylight),
+		"The game forwards its initial day-night value to city activity."
+	)
+
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	var day_pedestrians := activity.active_pedestrian_count()
+	var day_vehicles := activity.active_vehicle_count()
+	var day_lights := activity.streetlight_intensity()
+	game._day_clock = 0.0
+	game._update_day_night(0.0)
+	var night_pedestrians := activity.active_pedestrian_count()
+	var night_vehicles := activity.active_vehicle_count()
+	var night_lights := activity.streetlight_intensity()
+	_check(
+		day_pedestrians == CityActivity.PEDESTRIAN_ROUTES.size()
+		and night_pedestrians == 5
+		and day_pedestrians > night_pedestrians,
+		"Daylight deterministically changes the visible pedestrian crowd."
+	)
+	_check(
+		day_vehicles == CityActivity.VEHICLE_ROUTES.size()
+		and night_vehicles == 2
+		and day_vehicles > night_vehicles,
+		"Daylight deterministically changes secondary traffic levels."
+	)
+	_check(
+		is_zero_approx(day_lights) and night_lights > 0.99,
+		"Streetlights switch on at night without changing the world tint."
+	)
+
+	var single_step := CityActivity.new()
+	var many_steps := CityActivity.new()
+	single_step.set_motion_scale(1.0)
+	many_steps.set_motion_scale(1.0)
+	single_step._advance_animation(12.0)
+	for step in 120:
+		many_steps._advance_animation(0.1)
+	var single_signature := single_step.activity_signature()
+	var many_signature := many_steps.activity_signature()
+	var deterministic_positions := single_signature.size() == many_signature.size()
+	for index in single_signature.size():
+		if single_signature[index].distance_to(many_signature[index]) > 0.001:
+			deterministic_positions = false
+			break
+	_check(
+		deterministic_positions,
+		"City actor positions depend on absolute deterministic time, not frame size."
+	)
+
+	var frozen_position := single_step.pedestrian_position(0)
+	single_step.set_motion_scale(0.0)
+	single_step._advance_animation(8.0)
+	single_step.set_daylight(0.0)
+	_check(
+		single_step.pedestrian_position(0) == frozen_position
+		and single_step.active_pedestrian_count() == 5
+		and single_step.streetlight_intensity() > 0.99,
+		"Reduced motion freezes actors while day-night density and lighting still update."
+	)
+
+	var loop_is_seamless := true
+	for route in (
+		CityActivity.PEDESTRIAN_ROUTES
+		+ CityActivity.VEHICLE_ROUTES
+	):
+		if not is_zero_approx(
+			fmod(CityActivity.LOOP_DURATION, float(route["duration"]))
+		):
+			loop_is_seamless = false
+	for index in CityActivity.PEDESTRIAN_ROUTES.size():
+		if (
+			single_step.pedestrian_position_at(index, 17.25)
+			.distance_to(
+				single_step.pedestrian_position_at(
+					index,
+					17.25 + CityActivity.LOOP_DURATION
+				)
+			)
+			> 0.001
+		):
+			loop_is_seamless = false
+	for index in CityActivity.VEHICLE_ROUTES.size():
+		if (
+			single_step.vehicle_position_at(index, 17.25)
+			.distance_to(
+				single_step.vehicle_position_at(
+					index,
+					17.25 + CityActivity.LOOP_DURATION
+				)
+			)
+			> 0.001
+		):
+			loop_is_seamless = false
+	_check(
+		loop_is_seamless,
+		"Every authored activity route loops without a visible teleport."
+	)
+
+	var forbidden_areas: Array[Rect2] = [
+		CityBackdrop.RIVER_RECT,
+	]
+	for building in game._buildings:
+		forbidden_areas.append(building.footprint_rect())
+	var routes_are_clear := true
+	for sample in 481:
+		var sample_time := float(sample) * 0.25
+		for index in CityActivity.PEDESTRIAN_ROUTES.size():
+			var pedestrian_position := (
+				single_step.pedestrian_position_at(index, sample_time)
+			)
+			for area in forbidden_areas:
+				if (area as Rect2).grow(CityActivity.ROUTE_CLEARANCE).has_point(
+					pedestrian_position
+				):
+					routes_are_clear = false
+		for index in CityActivity.VEHICLE_ROUTES.size():
+			var vehicle_position := (
+				single_step.vehicle_position_at(index, sample_time)
+			)
+			for area in forbidden_areas:
+				if (area as Rect2).grow(CityActivity.ROUTE_CLEARANCE).has_point(
+					vehicle_position
+				):
+					routes_are_clear = false
+		for restock_position in FrogGame.RESTOCK_POSITIONS:
+			for index in CityActivity.VEHICLE_ROUTES.size():
+				if (
+					single_step.vehicle_position_at(index, sample_time)
+					.distance_to(restock_position)
+					< 64.0
+				):
+					routes_are_clear = false
+		for target in game._targets:
+			if not is_instance_valid(target):
+				continue
+			for index in CityActivity.VEHICLE_ROUTES.size():
+				if (
+					single_step.vehicle_position_at(index, sample_time)
+					.distance_to(target.global_position)
+					< target.pick_radius + 22.0
+				):
+					routes_are_clear = false
+	_check(
+		routes_are_clear,
+		"Routes avoid structures and water; traffic avoids targets and restock points."
+	)
+
+	single_step.free()
+	many_steps.free()
 	game.queue_free()
 	await process_frame
 
@@ -1564,6 +2091,33 @@ func _contains_collision_object(node: Node) -> bool:
 	for child in node.get_children():
 		if _contains_collision_object(child):
 			return true
+	return false
+
+
+func _all_interactive_controls_at_least(
+	node: Node,
+	minimum_height: float
+) -> bool:
+	if (
+		(node is BaseButton or node is LineEdit)
+		and (node as Control).custom_minimum_size.y < minimum_height
+	):
+		return false
+	for child in node.get_children():
+		if not _all_interactive_controls_at_least(child, minimum_height):
+			return false
+	return true
+
+
+func _controls_overlap(controls: Array[Control]) -> bool:
+	for first_index in controls.size():
+		for second_index in range(first_index + 1, controls.size()):
+			if (
+				controls[first_index].get_global_rect().intersection(
+					controls[second_index].get_global_rect()
+				).has_area()
+			):
+				return true
 	return false
 
 

@@ -14,6 +14,16 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${APP_STORE_CONNECT_ISSUER_ID:?APP_STORE_CONNECT_ISSUER_ID is required.}"
 : "${APP_STORE_CONNECT_PRIVATE_KEY_BASE64:?APP_STORE_CONNECT_PRIVATE_KEY_BASE64 is required.}"
 
+if [[ ! "$APP_STORE_CONNECT_KEY_ID" =~ ^[A-Za-z0-9]{10}$ ]]; then
+  echo "APP_STORE_CONNECT_KEY_ID must contain 10 alphanumeric characters." >&2
+  exit 1
+fi
+
+if [[ ! "$APP_STORE_CONNECT_ISSUER_ID" =~ ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$ ]]; then
+  echo "APP_STORE_CONNECT_ISSUER_ID must be a UUID." >&2
+  exit 1
+fi
+
 archive_path="$repo_root/build/ios/SamuelIcecream.xcarchive"
 export_path="$RUNNER_TEMP/ios-upload"
 export_options_path="$RUNNER_TEMP/TestFlightExportOptions.plist"
@@ -28,6 +38,7 @@ xcodebuild \
   -sdk iphoneos \
   -destination "generic/platform=iOS" \
   -archivePath "$archive_path" \
+  -derivedDataPath "$repo_root/build/ios/DerivedData" \
   DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="Apple Distribution" \
@@ -48,8 +59,8 @@ except binascii.Error as error:
     > "$api_key_path"
 chmod 600 "$api_key_path"
 
-if ! grep -q -- "BEGIN PRIVATE KEY" "$api_key_path"; then
-  echo "The decoded App Store Connect key is not a PEM private key." >&2
+if ! openssl pkey -in "$api_key_path" -check -noout >/dev/null 2>&1; then
+  echo "The decoded App Store Connect key is not a valid private key." >&2
   exit 1
 fi
 
@@ -64,7 +75,6 @@ xcodebuild \
   -archivePath "$archive_path" \
   -exportOptionsPlist "$export_options_path" \
   -exportPath "$export_path" \
-  -allowProvisioningUpdates \
   -authenticationKeyPath "$api_key_path" \
   -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
   -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"

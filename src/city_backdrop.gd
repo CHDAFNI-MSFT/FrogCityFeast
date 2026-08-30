@@ -2,6 +2,7 @@ class_name CityBackdrop
 extends Node2D
 
 const WORLD_RECT := Rect2(-1800, -1400, 3600, 2800)
+const RIVER_RECT := Rect2(1210, -1320, 500, 920)
 
 
 func _ready() -> void:
@@ -29,7 +30,7 @@ func _draw() -> void:
 	draw_rect(Rect2(380, 290, 760, 330), Color("477d51"))
 	draw_circle(Vector2(600, 430), 78.0, Color("2e6742"))
 	draw_circle(Vector2(890, 470), 62.0, Color("2e6742"))
-	draw_rect(Rect2(1210, -1320, 500, 920), Color("4d91b5"))
+	draw_rect(RIVER_RECT, Color("4d91b5"))
 	for y in range(-1240, -430, 90):
 		draw_line(Vector2(1230, y), Vector2(1690, y + 28), Color(0.75, 0.9, 1.0, 0.35), 4.0)
 

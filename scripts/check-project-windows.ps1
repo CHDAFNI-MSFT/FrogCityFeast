@@ -85,11 +85,20 @@ Invoke-GodotCheck `
     -Label "import" `
     -Arguments "--headless --path `"$repoRoot`" --import"
 Invoke-GodotCheck `
+    -Label "ios-pipeline-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/ios_pipeline_smoke.gd"
+Invoke-GodotCheck `
+    -Label "ios-release-pipeline-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/ios_release_pipeline_smoke.gd"
+Invoke-GodotCheck `
     -Label "startup" `
     -Arguments "--headless --path `"$repoRoot`" --quit-after 2"
 Invoke-GodotCheck `
     -Label "prototype-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/prototype_smoke.gd"
+Invoke-GodotCheck `
+    -Label "performance-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/performance_smoke.gd"
 Invoke-GodotCheck `
     -Label "tutorial-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/tutorial_smoke.gd"

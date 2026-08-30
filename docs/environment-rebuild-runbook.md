@@ -700,12 +700,13 @@ current signing setup exports both the debug and release UUID overrides while
 the release profile specifier still uses the release value. Preserve that
 workaround until a deliberate Godot upgrade confirms it is no longer needed.
 
-This signed path is designed and statically validated but has not yet completed
-a real TestFlight submission from SamuelIcecream because app-specific Apple
-credentials have not been configured. The successful unsigned smoke build
-validates Godot export and Xcode compilation only. Treat the first signed run as
-the integration test for certificate import, provisioning, archive export, API
-authentication, and App Store Connect processing.
+SamuelIcecream now has its app-specific Apple records and protected GitHub
+credentials configured, but it has not yet completed a real TestFlight
+submission. Those account resources and secrets do not transfer when this
+runbook is used for another repository. The successful unsigned smoke build
+validates Godot export and Xcode compilation only. Treat each new repository's
+first signed run as the integration test for certificate import, provisioning,
+archive export, API authentication, and App Store Connect processing.
 
 ## 15. Items that cannot be copied from SamuelIcecream
 

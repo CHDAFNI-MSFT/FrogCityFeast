@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 : "${RUNNER_TEMP:?RUNNER_TEMP is required.}"
 : "${GITHUB_ENV:?GITHUB_ENV is required.}"
 : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required.}"
@@ -12,6 +14,7 @@ set -euo pipefail
 certificate_path="$RUNNER_TEMP/samuelicecream-distribution.p12"
 profile_path="$RUNNER_TEMP/samuelicecream-app-store.mobileprovision"
 profile_plist="$RUNNER_TEMP/samuelicecream-profile.plist"
+certificate_pem="$RUNNER_TEMP/samuelicecream-distribution.pem"
 keychain_path="$RUNNER_TEMP/samuelicecream-signing.keychain-db"
 installed_profile_name="SamuelIcecream-CI.mobileprovision"
 modern_profile_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
@@ -34,6 +37,7 @@ decode_base64 "$APPLE_PROVISIONING_PROFILE_BASE64" "$profile_path"
 chmod 600 "$certificate_path" "$profile_path"
 
 security cms -D -i "$profile_path" > "$profile_plist"
+chmod 600 "$profile_plist"
 profile_uuid="$(/usr/libexec/PlistBuddy -c "Print :UUID" "$profile_plist")"
 profile_name="$(/usr/libexec/PlistBuddy -c "Print :Name" "$profile_plist")"
 profile_team_id="$(
@@ -64,6 +68,24 @@ if [[ "$profile_application_id" != "$APPLE_TEAM_ID.$IOS_BUNDLE_ID" ]]; then
   exit 1
 fi
 
+if ! openssl pkcs12 \
+  -in "$certificate_path" \
+  -clcerts \
+  -nokeys \
+  -passin env:APPLE_CERTIFICATE_PASSWORD \
+  -out "$certificate_pem" \
+  >/dev/null 2>&1; then
+  echo "The Apple Distribution certificate could not be decoded." >&2
+  exit 1
+fi
+chmod 600 "$certificate_pem"
+
+python3 "$repo_root/scripts/validate-ios-signing-material.py" \
+  --profile-plist "$profile_plist" \
+  --certificate-pem "$certificate_pem" \
+  --team-id "$APPLE_TEAM_ID" \
+  --bundle-id "$IOS_BUNDLE_ID"
+
 mkdir -p "$modern_profile_dir" "$legacy_profile_dir"
 cp "$profile_path" "$modern_profile_dir/$installed_profile_name"
 cp "$profile_path" "$legacy_profile_dir/$installed_profile_name"
@@ -92,12 +114,13 @@ security import "$certificate_path" \
   -f pkcs12 \
   -T /usr/bin/codesign
 security set-key-partition-list \
-  -S apple-tool:,apple: \
+  -S apple-tool:,apple:,codesign: \
+  -s \
   -k "$keychain_password" \
   "$keychain_path"
 
 if ! security find-identity -v -p codesigning "$keychain_path" |
-  grep -q "Apple Distribution"; then
+  grep "Apple Distribution" >/dev/null; then
   echo "The certificate does not provide an Apple Distribution identity." >&2
   exit 1
 fi

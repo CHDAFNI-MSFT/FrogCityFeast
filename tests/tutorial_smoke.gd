@@ -101,6 +101,28 @@ func _test_game_integration() -> void:
 		game._tutorial_panel.mouse_filter == Control.MOUSE_FILTER_STOP,
 		"Tutorial instructions block touches from reaching hidden controls."
 	)
+	_check(
+		game._tutorial_marker.motion_scale == 0.0
+		and not game._tutorial_marker.is_processing(),
+		"Reduced motion freezes the continuous tutorial marker pulse."
+	)
+	var tutorial_step_before_options := game._tutorial.step
+	game._open_options()
+	_check(
+		game._options_overlay.visible
+		and not game._tutorial_panel.visible
+		and paused
+		and game._tutorial.step == tutorial_step_before_options,
+		"Accessibility options remain available during the tutorial without advancing it."
+	)
+	game._close_options()
+	_check(
+		not paused
+		and game._tutorial.active
+		and game._tutorial_panel.visible
+		and game._tutorial.step == tutorial_step_before_options,
+		"Closing Accessibility returns to the same tutorial step."
+	)
 	var hotdog := game._find_target_by_id("running_hotdog")
 	_check(hotdog.velocity == Vector2.ZERO, "The moving tutorial target waits for its lesson.")
 

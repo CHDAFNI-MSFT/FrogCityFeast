@@ -7,6 +7,7 @@ build_root="$repo_root/build/ios"
 export_target="$build_root/SamuelIcecream"
 xcode_project="$build_root/SamuelIcecream.xcodeproj"
 logs_dir="$repo_root/build/logs"
+ios_display_name="Frog City Feast"
 
 : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required.}"
 : "${IOS_BUNDLE_ID:?IOS_BUNDLE_ID is required.}"
@@ -54,6 +55,16 @@ if [[ ! -d "$xcode_project" ]]; then
   echo "Godot did not create the expected Xcode project: $xcode_project" >&2
   exit 1
 fi
+
+python3 "$repo_root/scripts/validate-ios-generated-project.py" \
+  --build-root "$build_root" \
+  --app-dir "$export_target" \
+  --xcode-project "$xcode_project" \
+  --team-id "$APPLE_TEAM_ID" \
+  --bundle-id "$IOS_BUNDLE_ID" \
+  --display-name "$ios_display_name" \
+  --short-version "$IOS_SHORT_VERSION" \
+  --build-number "$IOS_BUILD_NUMBER"
 
 xcode_list_json="$build_root/xcode-project.json"
 xcodebuild -list -project "$xcode_project" -json > "$xcode_list_json"

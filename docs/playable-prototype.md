@@ -1,8 +1,8 @@
 # Playable Prototype
 
-The repository contains a playable first prototype of the frog city game. The
-working title shown in the menu is **Frog City Feast**; it is not the confirmed
-final title.
+The repository contains a playable first prototype of **Frog City Feast**. The
+Godot project, on-device display name, bundle identifier, and App Store Connect
+record use this selected release title.
 
 The complete game vision remains in
 [`game-design.md`](game-design.md). This document describes only what is
@@ -19,6 +19,8 @@ The prototype includes:
 - double-tap tongue aiming at the exact touched location;
 - two-finger camera rotation;
 - equivalent mouse controls for desktop testing;
+- brief, draw-only move, tongue, and camera touch cues that confirm accepted
+  controls without changing input coordinates, targeting, physics, or scoring;
 - fixed tongue range, wall obstruction, miss recovery, and center-hit accuracy;
 - presentation-only tongue extension, hold, and retraction that preserves the
   result and accuracy of the original touch;
@@ -47,7 +49,13 @@ The prototype includes:
 - collision-aware target restocking that separates simultaneous replacements;
 - rare-target replenishment on a randomized 90–180 second schedule;
 - a rare golden cake that grants one minute of flight;
-- a lightweight day and night tint cycle;
+- a lightweight day and night cycle that changes the world tint, pedestrian
+  crowd, secondary traffic, and streetlight glow;
+- deterministic, draw-only pedestrians on fixed sidewalk routes, with a
+  smaller night crowd and no collision, targeting, scoring, or Field Guide
+  behavior;
+- deterministic, draw-only background traffic on the secondary road, kept
+  visually separate from the labeled, edible Delivery Van;
 - capped, draw-only swallow and damage bursts that add no physics bodies,
   targets, particle-system nodes, or shared random-number use;
 - a first-time tutorial stored independently for each local player profile:
@@ -103,7 +111,22 @@ The prototype includes:
 - an always-available End Game action, including from the belly screen; and
 - local player profiles with independent high scores and a device-wide best
   score. Ending the game before finishing or skipping the tutorial does not
-  mark that profile's tutorial complete.
+  mark that profile's tutorial complete;
+- per-profile **Reduce motion** and **Larger text & controls** choices available
+  before starting and from an in-game Accessibility panel;
+- immediate reduced-motion behavior that removes camera shake, scale and
+  wobble pulses, tongue travel, tutorial-marker pulsing, struggle-width pulses,
+  and decorative city movement while retaining informational text, color
+  flashes, the tongue line, density changes, and streetlight state;
+- readable high-contrast panels and controls with clear pressed, focus, and
+  enabled states, minimum 56-pixel normal touch actions, and minimum 64-pixel
+  actions when the larger-interface option is enabled;
+- safe-area-aware HUD edges and modal layouts that preserve the 1280×960 4:3
+  world composition;
+- opt-in, local-only developer performance instrumentation plus deterministic
+  structural budgets and repeatable stress scenarios; and
+- a restrained original vector city-and-canal menu backdrop and compact
+  two-column player/accessibility layout.
 
 ## Controls
 
@@ -117,6 +140,7 @@ The prototype includes:
 | Win a struggle | Tap rapidly until the struggle bar fills |
 | Manage swallowed targets | Tap **Belly** |
 | View discoveries | Tap **Guide** |
+| Change accessibility | Tap **Options** |
 | Finish the score session | Tap **End Game** |
 
 ### Windows development
@@ -146,11 +170,120 @@ On Linux or macOS:
 bash scripts/check-project.sh
 ```
 
-The smoke tests check the core belly, scoring, growth, touch-camera, traffic,
-pursuit, flight, profile persistence, Field Guide catalog and overlay behavior,
-legacy discovery saves, deterministic session challenges, tutorial sequence,
-action restrictions, guided struggle recovery, Skip behavior, and tutorial
-completion persistence.
+The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
+traffic, deterministic city-activity levels and routes, pursuit, flight,
+profile persistence, Field Guide catalog and overlay behavior, legacy discovery
+saves, per-profile accessibility persistence and legacy defaults, touch-target
+sizing, safe-area layout, touch feedback, reduced-motion transitions,
+deterministic session challenges, performance structure and stress budgets,
+the credential-free iOS pipeline configuration, tutorial sequence, action
+restrictions, guided struggle recovery, Skip behavior, and tutorial completion
+persistence.
+
+## Performance instrumentation and budgets
+
+Performance instrumentation is developer-only and disabled by default. It
+does not write files, send network requests, identify players, change saves, or
+collect remote analytics. Ordinary play pays only a one-time command-line flag
+check when the game scene starts.
+
+To show the local performance overlay, launch the project with the user
+argument after Godot's `--` separator:
+
+```powershell
+godot-console --path . -- --perf-overlay
+```
+
+The overlay is input-transparent and continues updating while the Belly, Field
+Guide, or Options overlay pauses gameplay. It reports rolling frame time and
+FPS, coarse Godot process and physics time, static memory, global node/resource
+counts, 2D physics activity, and game-specific nodes, canvas items, collision
+objects, targets, buildings, pursuit, city actors, effects, and overlay data.
+Live render-server counters are deliberately omitted because polling them can
+disturb the frame being observed.
+
+The prototype uses these **target-device acceptance budgets** for an A16 iPad
+release build at the 1280×960 reference presentation:
+
+| Metric | Budget |
+|---|---:|
+| Sustained frame rate | 60 FPS target; at least 58 FPS over a 30-second sample |
+| Frame time | 16.67 ms target; p95 no more than 18 ms |
+| Main-thread process time | p95 no more than 8 ms |
+| Physics process time | p95 no more than 2 ms |
+| Static memory | no more than 192 MiB |
+| Video memory | no more than 256 MiB |
+| Render activity | no more than 450 draw calls, 1,800 objects, and 50,000 primitives |
+
+Frame, process, physics, memory, and render budgets are hardware- and
+build-dependent. They are advisory on development computers and must be
+accepted on the target iPad using a release build and the Godot/Xcode profilers.
+Godot's runtime `Performance` monitors do not expose GPU frame time; measure GPU
+time with Xcode's Metal tools on the device. CI never fails on FPS, frame time,
+GPU time, or render-server values.
+
+The deterministic structural budgets are enforced in CI:
+
+| Reachable state | Structural ceiling |
+|---|---|
+| Baseline, busy daytime, maximum growth, Field Guide, or accessibility options | 216 game-subtree nodes, 30 collision objects and shapes, 18 targets, 4 buildings |
+| Pursuit or gameplay peak | 218 nodes, 31 collision objects and shapes, 1 pursuer |
+| Populated Belly sample | 64 items and rows, 472 nodes; this is a stress sample, not a gameplay capacity limit |
+| Busy daytime activity | 10 pedestrians plus 5 secondary vehicles, all draw-only |
+| Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
+| Populated Field Guide | 19 rows, matching the fixed catalog |
+
+Run the rendered Windows measurements without writing a benchmark report:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performance-windows.ps1
+```
+
+The harness uses fixed random seeds and covers baseline play, busy daytime,
+pursuit, maximum growth, a finite maximum presentation burst, a 64-item Belly,
+the populated Field Guide, both accessibility options, and a reachable gameplay
+peak combining daytime activity, pursuit, growth, and presentation effects. It
+prints median FPS, frame-time percentiles, memory, and a post-sample render
+snapshot. The command-driven Windows run can show isolated scheduling/window
+stalls, so p95 is more useful than its maximum or arithmetic-mean FPS.
+
+An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
+4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.
+Ordinary and populated-overlay scenarios were comfortably below the structural
+and render-count ceilings. One representative run measured 15.09 ms frame-time
+p95 for the finite presentation burst and 20.13 ms for the combined gameplay
+peak; the latter is marked for review against the 18 ms target. The same
+command-driven run produced isolated roughly half-second maximum-frame outliers
+and delayed process-time snapshots, so those values are not treated as
+acceptance evidence. Both peaks require explicit profiling on the A16 iPad. The
+unsigned Godot-to-Xcode pipeline is now verified, but installing and profiling
+on the target device still requires a separately authorized, developer-signed
+device build.
+
+## Unsigned iOS export verification
+
+The manual `iOS unsigned smoke build` workflow is verified on the pinned
+`macos-26` arm64 runner. Run
+[`33314224588`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33314224588)
+successfully installed Godot 4.7.2 and its export templates, passed the Xcode
+26.6/iOS 26.5 preflight, generated the Xcode project, and compiled a Release
+build for a generic iOS device with code signing disabled.
+
+The workflow is manual-only, read-only, uses a synthetic Team ID and example
+bundle identifier, references no GitHub secrets, persists no checkout
+credentials, and uploads no application artifact. `export_presets.cfg` is
+generated only for the export and removed on exit.
+
+The normal project check includes a deterministic unsigned-pipeline regression
+test. Windows and Linux can verify workflow wiring, toolchain pins, the arm64
+project-only preset, secret absence, and signing overrides, but cannot perform
+the Apple export or Xcode build. The macOS workflow remains authoritative.
+
+The successful remote run built committed state through `fa5523f`. The later
+gameplay, accessibility, performance, and release-pipeline changes in the
+current repository state require another manual smoke run after this state is
+pushed. Known non-fatal generated-project warnings are recorded in
+[`ios-release.md`](ios-release.md).
 
 ## Prototype boundaries
 
@@ -168,15 +301,18 @@ The following parts of the full design are not implemented yet:
 - rain, storms, festivals, shops with schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
-- final art, authored animation, sound, music, and an in-game accessibility
-  settings screen; and
-- signed installation, TestFlight distribution, or App Store release.
+- final art, authored animation, sound, music, and any accessibility work beyond
+  the implemented motion, interface-size, contrast, touch-feedback, and
+  safe-area controls; and
+- the first signed TestFlight upload, A16 iPad validation, and App Store
+  release.
 
-Motion-heavy feedback can already be disabled through the
-`frog_city/reduced_motion` Godot project setting. This keeps informational
-flashes, reward text, and the tongue line while removing camera shake, frog
-scale movement, target wobble, and tongue extension movement. A player-facing
-toggle is deferred to the accessibility priority.
+Each player can change **Reduce motion** and **Larger text & controls** from the
+main menu or the in-game **Options** panel. The settings are stored in the
+existing version 1 profile save without changing score, tutorial, or Field
+Guide semantics; older saves deterministically use both options as off. The
+`frog_city/reduced_motion` Godot project setting remains a fallback for direct
+scene runs that are not configured through a player profile.
 
 An Apple Developer Program membership is not required for local gameplay
 development or the repository's unsigned checks. It becomes necessary before
@@ -186,12 +322,16 @@ signed TestFlight or App Store distribution.
 
 Continue the prototype one reviewed priority at a time:
 
-1. Add more city activity.
-2. Add accessibility controls and iPad presentation polish.
-3. Add performance instrumentation and budgets.
-4. Verify the unsigned iOS export pipeline.
-5. If time remains, add original or clearly licensed sound effects, ambience,
-   and restrained music.
+1. Push the combined prototype and release-preparation commit, then run the
+   credential-free `iOS unsigned smoke build` against that exact commit.
+2. After the smoke build passes and the release is explicitly approved, run
+   the first internal-only TestFlight workflow and install it on the target
+   A16 iPad.
+3. Validate touch controls, safe-area presentation, both accessibility modes,
+   gameplay regressions, and the documented hardware performance budgets on
+   the device. Fix every material issue before expanding the prototype.
+4. After device validation, the next candidate feature priority is original or
+   clearly licensed sound effects, ambience, and restrained music.
 
 The broader unimplemented feature list above defines the remaining prototype
 boundaries. `docs/game-design.md` remains the source of truth for the intended

@@ -28,12 +28,16 @@ func _start_game(profile_id: String, display_name: String) -> void:
 		profile_id,
 		display_name,
 		not _profile_store.is_tutorial_complete(profile_id),
-		_profile_store.get_discoveries(profile_id)
+		_profile_store.get_discoveries(profile_id),
+		_profile_store.get_accessibility_preferences(profile_id)
 	)
 	game.score_changed.connect(_on_score_changed.bind(profile_id))
 	game.end_requested.connect(_on_game_ended.bind(profile_id))
 	game.tutorial_finished.connect(_on_tutorial_finished.bind(profile_id))
 	game.target_discovered.connect(_on_target_discovered.bind(profile_id))
+	game.accessibility_changed.connect(
+		_on_accessibility_changed.bind(profile_id)
+	)
 	_replace_screen(game)
 
 
@@ -53,6 +57,18 @@ func _on_tutorial_finished(_skipped: bool, profile_id: String) -> void:
 
 func _on_target_discovered(target_id: String, profile_id: String) -> void:
 	_profile_store.mark_discovered(profile_id, target_id)
+
+
+func _on_accessibility_changed(
+	reduce_motion: bool,
+	larger_text_controls: bool,
+	profile_id: String
+) -> void:
+	_profile_store.set_accessibility_preferences(
+		profile_id,
+		reduce_motion,
+		larger_text_controls
+	)
 
 
 func _replace_screen(next_screen: Node) -> void:
