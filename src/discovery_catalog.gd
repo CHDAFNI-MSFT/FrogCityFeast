@@ -73,6 +73,26 @@ const ENTRIES := [
 		"hint": "Grow once, then win a struggle in the apartment lobby.",
 	},
 	{
+		"id": "canal_apartments_address_plaque",
+		"name": "Address Plaque",
+		"hint": "Start dismantling Canal Apartments from the canal-side street.",
+	},
+	{
+		"id": "canal_apartments_lobby_bench",
+		"name": "Lobby Bench",
+		"hint": "Remove the plaque, grow once, and enter the apartment lobby.",
+	},
+	{
+		"id": "canal_apartments_entry_canopy",
+		"name": "Entry Canopy",
+		"hint": "Wrestle out the lobby bench before stripping the canopy.",
+	},
+	{
+		"id": "canal_apartments_building",
+		"name": "Canal Apartments",
+		"hint": "Remove all three apartment parts and reach maximum size.",
+	},
+	{
 		"id": "moonlight_market_sign",
 		"name": "Market Sign",
 		"hint": "Start dismantling Moonlight Market from outside.",

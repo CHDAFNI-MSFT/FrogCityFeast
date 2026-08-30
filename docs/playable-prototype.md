@@ -71,8 +71,8 @@ The prototype includes:
   actions, safely resets failed guided struggles, and returns to the city after
   required belly actions;
 - a Skip action that marks the tutorial complete and restores normal play;
-- a persistent, per-profile Frog Field Guide covering all 23 target IDs in the
-  prototype, including Golden Cake, all three destructible-building sequences,
+- a persistent, per-profile Frog Field Guide covering all 27 target IDs in the
+  prototype, including Golden Cake, all four destructible-building sequences,
   and Animal Control;
 - first-swallow discovery credit that never adds score or growth, cannot be
   farmed by returning and re-eating a target, and is saved immediately;
@@ -116,6 +116,15 @@ The prototype includes:
   - reach maximum growth and win a struggle against the weakened café; and
   - digest the whole structure or restore it in a clear footprint with all
     three parts still absent and the Loose Phone bar unchanged;
+- an ordered destructible-building sequence for Canal Apartments:
+  - eat its Address Plaque from outside;
+  - grow once, enter the still-open lobby, and win a struggle with the Lobby
+    Bench;
+  - remove the Entry Canopy without changing doorway collision;
+  - reach maximum growth and win a struggle against the weakened apartments;
+    and
+  - digest the whole structure or restore it in a clear footprint with all
+    three parts still absent and the Tenant's Cat and Lobby Lamp paths intact;
 - an always-available End Game action, including from the belly screen; and
 - local player profiles with independent high scores and a device-wide best
   score. Ending the game before finishing or skipping the tutorial does not
@@ -246,13 +255,13 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, busy daytime, maximum growth, Field Guide, or options | 228 game-subtree nodes, 31 collision objects and shapes, 22 targets, 4 buildings |
-| Pursuit or gameplay peak | 230 nodes, 32 collision objects and shapes, 1 pursuer |
-| Populated Belly sample | 64 items and rows, 484 nodes; this is a stress sample, not a gameplay capacity limit |
+| Baseline, busy daytime, maximum growth, Field Guide, or options | 236 game-subtree nodes, 31 collision objects and shapes, 26 targets, 4 buildings |
+| Pursuit or gameplay peak | 238 nodes, 32 collision objects and shapes, 1 pursuer |
+| Populated Belly sample | 64 items and rows, 492 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 pedestrians plus 5 secondary vehicles, all draw-only |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 23 rows, matching the fixed catalog |
+| Populated Field Guide | 27 rows, matching the fixed catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -303,10 +312,10 @@ the Apple export or Xcode build. The macOS workflow remains authoritative.
 The successful remote run built exact audio commit
 `73cfb5ef1cbc8d3d5e9eb71dbec44a4455d8fd76`. Godot CI run
 [`33327743256`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327743256)
-also passed on that commit. Later gameplay changes, including the Leap Café
-destruction slice, are not covered by either remote run until a separately
-authorized workflow is run on their eventual commit. Known non-fatal
-generated-project warnings are recorded in [`ios-release.md`](ios-release.md).
+also passed on that commit. Later gameplay commits require their own Godot CI
+result and remain outside the unsigned iOS integration run until that manual
+workflow is separately authorized. Known non-fatal generated-project warnings
+are recorded in [`ios-release.md`](ios-release.md).
 
 ## Prototype boundaries
 
@@ -318,7 +327,6 @@ The following parts of the full design are not implemented yet:
 
 - procedural endless city generation and additional districts;
 - authored multi-room interiors with separate transitions;
-- staged removal and swallowing for the remaining ordinary buildings;
 - pathfinding around complex city geometry;
 - several pursuer types, nets, traps, and roadblocks;
 - rain, storms, festivals, shops with schedules, and random emergencies;
@@ -354,19 +362,13 @@ signed TestFlight or App Store distribution.
 
 Continue the prototype one reviewed priority at a time:
 
-1. After this audio slice is reviewed, committed, and pushed with explicit
-   approval, run the credential-free `iOS unsigned smoke build` against that
-   exact commit. Audio files, bus layout, and autoload wiring affect the
-   exported iOS project, so the older successful smoke run is not sufficient.
-2. After the smoke build passes and the release is explicitly approved, run
-   the first internal-only TestFlight workflow and install it on the target
-   A16 iPad.
-3. Validate touch controls, safe-area presentation, accessibility and audio
-   controls, loop transitions, mix balance, gameplay regressions, and the
-   documented hardware performance budgets on the device. Fix every material
-   issue before expanding the prototype.
-4. After device validation, select the next bounded priority from the remaining
-   prototype backlog rather than beginning multiple systems together.
+1. Keep credential-free unsigned iOS integration, signed TestFlight work, and
+   A16 iPad validation as separately approved release tasks; no gameplay change
+   implicitly authorizes them.
+2. Select one next bounded gameplay slice from the remaining prototype backlog,
+   such as richer interiors, a pursuit expansion, or one dynamic city event.
+3. Review, test, document, and commit that slice before beginning another
+   system.
 
 The broader unimplemented feature list above defines the remaining prototype
 boundaries. `docs/game-design.md` remains the source of truth for the intended

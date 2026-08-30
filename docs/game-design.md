@@ -77,14 +77,14 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-prototype permits 22 gameplay targets, 4 buildings, 1 pursuer, 15 draw-only city
+prototype permits 26 gameplay targets, 4 buildings, 1 pursuer, 15 draw-only city
 actors, 24 capped world effects, 3 touch cues, and 6 fixed audio players
-including 4 reusable effect voices. Baseline states permit up to 228
+including 4 reusable effect voices. Baseline states permit up to 236
 game-subtree nodes and 31 collision objects/shapes; pursuit and the reachable
-gameplay peak permit 230 nodes and 32 collision objects/shapes. The performance
-Belly scenario renders 64 item rows within 484 nodes without changing the
+gameplay peak permit 238 nodes and 32 collision objects/shapes. The performance
+Belly scenario renders 64 item rows within 492 nodes without changing the
 belly's unlimited gameplay semantics. The populated Field Guide contains
-exactly 23 rows.
+exactly 27 rows.
 
 Reproducible stress coverage includes busy daytime city activity, pursuit,
 maximum growth, a finite simultaneous presentation burst, a 64-item Belly,
@@ -224,13 +224,17 @@ things to eat.
   balconies, sewers, subway tunnels, parks, ponds, construction cranes, and
   secret underground areas.
 - The navigation system marks buildings the player has discovered.
-- The current prototype has staged destruction for Moonlight Market, the
-  Oddities Shop, and Leap Café. Each requires three removable parts and maximum
-  growth before the whole weakened building can be swallowed.
+- The current prototype has staged destruction for all four authored
+  buildings. Each requires three removable parts and maximum growth before the
+  whole weakened building can be swallowed.
 - Leap Café stays enterable throughout its ordered sequence: remove the
   Sidewalk Menu Board, grow once and win an interior struggle with the Rear
   Espresso Counter, then strip the Front Awning. Its left bar remains in place
   so the Loose Phone still requires entering the café for a clear tongue shot.
+- Canal Apartments also stays enterable throughout its ordered sequence:
+  remove the Address Plaque, grow once and win an interior struggle with the
+  Lobby Bench, then strip the Entry Canopy. The remaining wall-side furniture
+  keeps the Tenant's Cat and Lobby Lamp exploration paths intact.
 - Leap Café and Canal Apartments use wall-hugging solid furniture with wide
   central aisles, keeping the single-world prototype navigable without
   pathfinding. Their interior targets require the frog to enter, remain

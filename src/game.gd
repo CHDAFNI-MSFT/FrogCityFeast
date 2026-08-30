@@ -187,6 +187,47 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 			"color": Color("ca8d77"),
 		},
 	},
+	"canal_apartments": {
+		"ordered": true,
+		"parts": [
+			{
+				"part_id": "sign",
+				"id": "canal_apartments_address_plaque",
+				"name": "Address Plaque",
+				"value": 40,
+				"radius": 32.0,
+				"color": Color("d7e0ef"),
+			},
+			{
+				"part_id": "counter",
+				"id": "canal_apartments_lobby_bench",
+				"name": "Lobby Bench",
+				"value": 94,
+				"tier": 1,
+				"radius": 38.0,
+				"resistant": true,
+				"taps": 9,
+				"color": Color("637b9f"),
+			},
+			{
+				"part_id": "door",
+				"id": "canal_apartments_entry_canopy",
+				"name": "Entry Canopy",
+				"value": 64,
+				"tier": 1,
+				"radius": 36.0,
+				"color": Color("b8c9e3"),
+			},
+		],
+		"whole": {
+			"id": "canal_apartments_building",
+			"name": "Canal Apartments",
+			"value": 480,
+			"radius": 155.0,
+			"taps": 17,
+			"color": Color("8aa6ce"),
+		},
+	},
 }
 
 @onready var _world: Node2D = $World
@@ -2109,16 +2150,7 @@ func _allocate_target_spawn_position(
 			continue
 		if not _circle_position_clear(candidate, radius, false):
 			continue
-		var overlaps_target := false
-		for target in _targets:
-			if (
-				is_instance_valid(target)
-				and target.global_position.distance_to(candidate)
-				< target.pick_radius + radius + 60.0
-			):
-				overlaps_target = true
-				break
-		if overlaps_target:
+		if _position_overlaps_target(candidate, radius, 60.0):
 			continue
 		var frog_distance := _frog.global_position.distance_to(candidate)
 		if frog_distance > best_distance:
@@ -2462,12 +2494,17 @@ func _clamp_circle_to_world(position: Vector2, radius: float) -> Vector2:
 	)
 
 
-func _position_overlaps_target(position: Vector2, radius: float) -> bool:
+func _position_overlaps_target(
+	position: Vector2,
+	radius: float,
+	extra_spacing: float = 12.0
+) -> bool:
 	for target in _targets:
 		if (
 			is_instance_valid(target)
+			and target.kind != "building"
 			and target.global_position.distance_to(position)
-			< target.pick_radius + radius + 12.0
+			< target.pick_radius + radius + extra_spacing
 		):
 			return true
 	return false
@@ -2796,7 +2833,6 @@ func _build_prototype_city() -> void:
 	var apartment_props: Array[Rect2] = [
 		Rect2(-231, -28, 86, 128),
 		Rect2(145, -28, 86, 56),
-		Rect2(145, 70, 86, 60),
 	]
 	var market := _spawn_building(
 		Vector2(-480, 420),
@@ -2826,9 +2862,11 @@ func _build_prototype_city() -> void:
 		"north",
 		Color("8aa6ce"),
 		"canal_apartments",
-		false,
-		Vector2(0, 105),
-		apartment_props
+		true,
+		Vector2(188, 100),
+		apartment_props,
+		PrototypeBuilding.ENTRANCE_PART_AWNING,
+		Vector2(86, 60)
 	)
 	var cafe_bounds := cafe.interior_rect()
 	var apartment_bounds := apartments.interior_rect()
@@ -2844,6 +2882,7 @@ func _build_prototype_city() -> void:
 	)
 	_spawn_destruction_targets(market)
 	_spawn_destruction_targets(cafe)
+	_spawn_destruction_targets(apartments)
 
 	_spawn_target({
 		"id": "street_donut",
@@ -2969,7 +3008,8 @@ func _spawn_building(
 	destructible_parts: bool = false,
 	counter_position: Vector2 = Vector2(0, 64),
 	interior_props: Array[Rect2] = [],
-	entrance_part_style: String = PrototypeBuilding.ENTRANCE_PART_DOOR
+	entrance_part_style: String = PrototypeBuilding.ENTRANCE_PART_DOOR,
+	counter_size: Vector2 = Vector2(140, 52)
 ) -> PrototypeBuilding:
 	var building := BUILDING_SCRIPT.new() as PrototypeBuilding
 	building.position = building_position
@@ -2980,6 +3020,7 @@ func _spawn_building(
 	building.building_id = building_id
 	building.destructible_parts = destructible_parts
 	building.counter_position = counter_position
+	building.counter_size = counter_size
 	building.interior_props = interior_props.duplicate()
 	building.entrance_part_style = entrance_part_style
 	_world.add_child(building)

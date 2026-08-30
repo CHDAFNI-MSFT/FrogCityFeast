@@ -318,6 +318,17 @@ func _test_game_integration() -> void:
 		).selectable,
 		"Tutorial completion leaves the ordered Leap Cafe sequence untouched."
 	)
+	_check(
+		game._building_by_id["canal_apartments"].weakness_count()
+		== 0
+		and game._find_target_by_id(
+			"canal_apartments_address_plaque"
+		).selectable
+		and not game._find_target_by_id(
+			"canal_apartments_lobby_bench"
+		).selectable,
+		"Tutorial completion leaves the ordered Canal Apartments sequence untouched."
+	)
 
 	game.queue_free()
 	await process_frame

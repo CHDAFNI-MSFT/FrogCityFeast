@@ -17,6 +17,7 @@ const WALL_THICKNESS := 24.0
 @export var building_id := ""
 @export var destructible_parts := false
 @export var counter_position := Vector2(0, 64)
+@export var counter_size := Vector2(140, 52)
 @export_enum("door", "awning") var entrance_part_style := ENTRANCE_PART_DOOR
 
 var consumed := false
@@ -47,7 +48,7 @@ func _ready() -> void:
 					"Unknown entrance part style '%s' for %s."
 					% [entrance_part_style, building_id]
 				)
-		_counter_body = _add_wall(counter_position, Vector2(140, 52))
+		_counter_body = _add_wall(counter_position, counter_size)
 	for prop in interior_props:
 		_add_wall(prop.get_center(), prop.size)
 	queue_redraw()
@@ -104,7 +105,7 @@ func _draw() -> void:
 		)
 	if destructible_parts and not is_part_removed(PART_COUNTER):
 		draw_rect(
-			Rect2(counter_position - Vector2(70, 26), Vector2(140, 52)),
+			Rect2(counter_position - counter_size / 2.0, counter_size),
 			floor_color.darkened(0.18)
 		)
 	if interior_props.is_empty():

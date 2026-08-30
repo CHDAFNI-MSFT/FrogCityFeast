@@ -31,8 +31,8 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 22,
-		"Prototype targets, interiors, and all three destruction sequences are created."
+		game._targets.size() == 26,
+		"Prototype targets, interiors, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
 	_check(game._belly.is_empty(), "A new game starts with an empty belly.")
@@ -344,6 +344,7 @@ func _run() -> void:
 
 	await _test_oddities_shop_sequence(game_scene)
 	await _test_leap_cafe_sequence(game_scene)
+	await _test_canal_apartments_sequence(game_scene)
 	await _test_building_interiors(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_accessibility(game_scene)
@@ -1127,7 +1128,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity is one draw-only layer with no physics bodies."
 	)
 	_check(
-		game._targets.size() == 22 and DiscoveryCatalog.count() == 23,
+		game._targets.size() == 26 and DiscoveryCatalog.count() == 27,
 		"Ambient city life does not add gameplay targets or Field Guide entries."
 	)
 	var expected_daylight := (
@@ -1315,7 +1316,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		if not catalog_ids.has(target_id):
 			catalog_matches_targets = false
 	_check(
-		catalog_matches_targets and DiscoveryCatalog.count() == 23,
+		catalog_matches_targets and DiscoveryCatalog.count() == 27,
 		"Field Guide catalog exactly matches every swallowable prototype target."
 	)
 	_check(
@@ -1919,7 +1920,7 @@ func _test_leap_cafe_sequence(game_scene: PackedScene) -> void:
 		and game._status_label.text.contains(
 			"Leap Café is weakened to 1/3"
 		),
-		"Removing the menu board adds one weakness and unlocks only the Espresso Counter."
+		"Removing the menu board adds one weakness and unlocks only the Rear Espresso Counter."
 	)
 	game._digest_item(0)
 
@@ -2161,6 +2162,355 @@ func _test_leap_cafe_sequence(game_scene: PackedScene) -> void:
 	await process_frame
 
 
+func _test_canal_apartments_sequence(
+	game_scene: PackedScene
+) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.configure(
+		"canal_apartments_test",
+		"Canal Apartments Tester",
+		false
+	)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	var apartments := (
+		game._building_by_id.get("canal_apartments")
+		as PrototypeBuilding
+	)
+	var address_plaque := _find_target(
+		game,
+		"canal_apartments_address_plaque"
+	)
+	var lobby_bench := _find_target(
+		game,
+		"canal_apartments_lobby_bench"
+	)
+	var entry_canopy := _find_target(
+		game,
+		"canal_apartments_entry_canopy"
+	)
+	var building_target := _find_target(
+		game,
+		"canal_apartments_building"
+	)
+	_check(
+		is_instance_valid(apartments)
+		and apartments.destructible_parts
+		and apartments.weakness_count() == 0
+		and apartments.entrance_part_style
+		== PrototypeBuilding.ENTRANCE_PART_AWNING
+		and apartments.counter_position == Vector2(188, 100)
+		and apartments.counter_size == Vector2(86, 60)
+		and apartments.interior_props.size() == 2
+		and not is_instance_valid(apartments._door_body)
+		and game._circle_position_clear(
+			Vector2(-610, 1120),
+			44.0,
+			true
+		),
+		"Canal Apartments starts intact, furnished, and enterable at maximum size."
+	)
+	_check(
+		address_plaque.visible
+		and address_plaque.selectable
+		and not lobby_bench.visible
+		and not lobby_bench.selectable
+		and not entry_canopy.visible
+		and not entry_canopy.selectable
+		and not building_target.selectable,
+		"Only the Address Plaque is active at the start of the ordered apartment sequence."
+	)
+
+	game._frog.global_position = Vector2(-745, 900)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* address_plaque.global_position
+	)
+	_check(
+		apartments.weakness_count() == 1
+		and lobby_bench.visible
+		and lobby_bench.selectable
+		and not entry_canopy.visible
+		and game._status_label.text.contains(
+			"Canal Apartments is weakened to 1/3"
+		),
+		"Removing the plaque adds one weakness and unlocks only the Lobby Bench."
+	)
+	game._digest_item(0)
+
+	game._frog.global_position = Vector2(-610, 960)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* lobby_bench.global_position
+	)
+	_check(
+		not is_instance_valid(game._struggle_target)
+		and game._status_label.text.contains(
+			"Enter Canal Apartments before reaching for Lobby Bench"
+		),
+		"The Lobby Bench explicitly requires entering the apartment lobby."
+	)
+
+	game._growth_tier = 0
+	game._frog.set_growth_tier(0)
+	game._frog.global_position = Vector2(-610, 1210)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* lobby_bench.global_position
+	)
+	_check(
+		game._pull_target == lobby_bench
+		and game._status_label.text.contains("is too big and pulls"),
+		"The interior bench requires the first growth tier."
+	)
+	game._cancel_pull()
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* lobby_bench.global_position
+	)
+	_check(
+		game._struggle_target == lobby_bench,
+		"The grown frog starts a rapid-tap struggle with the Lobby Bench."
+	)
+	game._fail_struggle()
+	_check(
+		lobby_bench.global_position
+		== apartments.part_world_position(
+			PrototypeBuilding.PART_COUNTER
+		)
+		and lobby_bench.velocity == Vector2.ZERO
+		and not lobby_bench.unpredictable,
+		"A failed bench struggle returns the fixture to the right-rear wall."
+	)
+	if is_instance_valid(game._pursuer):
+		game._pursuer.queue_free()
+		game._pursuer = null
+		await process_frame
+
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* lobby_bench.global_position
+	)
+	for _tap in lobby_bench.taps_required:
+		game._register_struggle_tap()
+	_check(
+		apartments.weakness_count() == 2
+		and apartments._counter_body.collision_layer == 0
+		and entry_canopy.visible
+		and entry_canopy.selectable
+		and not building_target.selectable,
+		"Winning the bench struggle removes its collision and unlocks only the Entry Canopy."
+	)
+	game._digest_item(0)
+
+	var lamp := _find_target(game, "canal_lobby_lamp")
+	var cat := _find_target(game, "canal_tenant_cat")
+	game._swallow_target(lamp, 1.0)
+	game._digest_item(0)
+	game._swallow_target(cat, 1.0)
+	game._digest_item(0)
+
+	game._frog.global_position = Vector2(-610, 900)
+	game._tongue_recovery = 0.0
+	game._update_camera()
+	await process_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* entry_canopy.global_position
+	)
+	_check(
+		apartments.weakness_count() == 3
+		and apartments.is_ready_to_swallow()
+		and building_target.selectable
+		and game._circle_position_clear(
+			Vector2(-610, 1120),
+			44.0,
+			true
+		),
+		"Removing the canopy fully weakens the apartments without blocking the entrance."
+	)
+	game._digest_item(0)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* building_target.global_position
+	)
+	_check(
+		game._pull_target == building_target
+		and game._status_label.text.contains(
+			"Canal Apartments is weak, but the frog must reach maximum growth"
+		),
+		"The fully weakened apartments still require maximum growth."
+	)
+	game._cancel_pull()
+
+	game._growth_tier = 2
+	game._frog.set_growth_tier(2)
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* building_target.global_position
+	)
+	_check(
+		game._struggle_target == building_target,
+		"The maximum-size frog starts the whole-apartments struggle through the open entrance."
+	)
+	game._fail_struggle()
+	_check(
+		building_target.global_position == apartments.global_position
+		and not apartments.consumed
+		and game._status_label.text.contains(
+			"Canal Apartments shook the frog off"
+		),
+		"A failed whole-apartments struggle stays anchored and summons pursuit."
+	)
+	if is_instance_valid(game._pursuer):
+		game._pursuer.queue_free()
+		game._pursuer = null
+		await process_frame
+
+	var score_before_capture := game._score
+	var growth_before_capture := game._growth_points
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* building_target.global_position
+	)
+	for _tap in building_target.taps_required:
+		game._register_struggle_tap()
+	_check(
+		apartments.consumed
+		and game._building_footprint_clear(apartments)
+		and game._belly.size() == 1
+		and game._belly[0].target_id
+		== "canal_apartments_building"
+		and game._score == score_before_capture
+		and game._growth_points == growth_before_capture,
+		"Swallowing the apartments creates one Belly item without immediate score or growth."
+	)
+	_check(
+		game._discoveries.has(
+			"canal_apartments_address_plaque"
+		)
+		and game._discoveries.has(
+			"canal_apartments_lobby_bench"
+		)
+		and game._discoveries.has(
+			"canal_apartments_entry_canopy"
+		)
+		and game._discoveries.has(
+			"canal_apartments_building"
+		),
+		"Every apartment part and the whole building records its first discovery."
+	)
+
+	var footprint_blocker := EdibleTarget.new()
+	footprint_blocker.position = apartments.global_position
+	footprint_blocker.pick_radius = 30.0
+	game._world.add_child(footprint_blocker)
+	game._targets.append(footprint_blocker)
+	game._spit_item(0)
+	_check(
+		apartments.consumed and game._belly.size() == 1,
+		"An occupied Canal Apartments footprint prevents unsafe restoration."
+	)
+	game._targets.erase(footprint_blocker)
+	footprint_blocker.queue_free()
+	game._spit_item(0)
+	var restored_building_target := _find_target(
+		game,
+		"canal_apartments_building"
+	)
+	_check(
+		not apartments.consumed
+		and apartments.weakness_count() == 3
+		and apartments._counter_body.collision_layer == 0
+		and not is_instance_valid(apartments._door_body)
+		and restored_building_target.selectable
+		and game._circle_position_clear(
+			Vector2(-610, 1120),
+			44.0,
+			true
+		)
+		and not game._circle_position_clear(
+			Vector2(-798, 1246),
+			24.0,
+			true
+		),
+		"Restoration keeps all parts absent while preserving the lobby aisle and remaining furniture."
+	)
+
+	var restored_target_count := 0
+	for target in game._targets:
+		if target.target_id == "canal_apartments_building":
+			restored_target_count += 1
+	_check(
+		restored_target_count == 1,
+		"Restoring Canal Apartments creates exactly one whole-building target."
+	)
+
+	game._swallow_target(restored_building_target, 1.0)
+	var score_before_digest := game._score
+	game._digest_item(0)
+	_check(
+		game._score > score_before_digest
+		and apartments.consumed,
+		"Digesting the restored apartments awards score once and removes their geometry."
+	)
+
+	await create_timer(9.2, false).timeout
+	var restocked_lamp := _find_target(game, "canal_lobby_lamp")
+	var restocked_cat := _find_target(game, "canal_tenant_cat")
+	var lamp_count := 0
+	var cat_count := 0
+	for target in game._targets:
+		if target.target_id == "canal_lobby_lamp":
+			lamp_count += 1
+		elif target.target_id == "canal_tenant_cat":
+			cat_count += 1
+	_check(
+		is_instance_valid(restocked_lamp)
+		and is_instance_valid(restocked_cat)
+		and apartments.interior_rect().has_point(
+			restocked_lamp.global_position
+		)
+		and apartments.interior_rect().has_point(
+			restocked_cat.global_position
+		)
+		and apartments.consumed
+		and lamp_count == 1
+		and cat_count == 1
+		and game._circle_position_clear(
+			Vector2(-798, 1246),
+			24.0,
+			true
+		),
+		"Apartment targets restock once inside the consumed footprint without recreating geometry."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
 func _test_building_interiors(game_scene: PackedScene) -> void:
 	var game := game_scene.instantiate() as FrogGame
 	game.configure("interior_test", "Interior Tester", false)
@@ -2207,7 +2557,7 @@ func _test_building_interiors(game_scene: PackedScene) -> void:
 	)
 	_check(
 		cafe.interior_props.size() == 2
-		and apartments.interior_props.size() == 3
+		and apartments.interior_props.size() == 2
 		and market.interior_props.is_empty()
 		and shop.interior_props.is_empty(),
 		"Authored furniture stays limited to Leap Cafe and Canal Apartments."

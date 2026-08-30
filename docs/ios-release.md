@@ -35,10 +35,10 @@ generated-project validator, iPad-only target, explicit icon, privacy
 declarations, warning sanitation, original audio files,
 `default_bus_layout.tres`, and the audio autoload.
 
-Later gameplay changes are not included in either remote run until a separately
-authorized workflow is run on their eventual commit. Do not approve a signed
-release until Godot CI and the credential-free unsigned smoke both pass on the
-intended release commit.
+The cited runs cover the audio commit only. Later gameplay commits require
+their own Godot CI result, and remain outside the unsigned iOS integration run
+until that manual workflow is separately authorized. Do not approve a signed
+release until both checks pass on the intended release commit.
 
 The successful build retains non-fatal Godot/Xcode warnings for a legacy boot
 splash property, empty camera/photo-library/microphone purpose strings emitted
