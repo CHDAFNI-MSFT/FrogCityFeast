@@ -78,20 +78,21 @@ profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
 prototype permits 26 gameplay targets, 4 buildings, 1 pursuer, 15 draw-only city
-actors, 24 capped world effects, 3 touch cues, and 6 fixed audio players
-including 4 reusable effect voices. Baseline states permit up to 236
-game-subtree nodes and 31 collision objects/shapes; pursuit and the reachable
-gameplay peak permit 238 nodes and 32 collision objects/shapes. The performance
-Belly scenario renders 64 item rows within 492 nodes without changing the
-belly's unlimited gameplay semantics. The populated Field Guide contains
-exactly 27 rows.
+actors, 84 draw-only rain streaks, 24 capped world effects, 3 touch cues, and 6
+fixed audio players including 4 reusable effect voices. Baseline states permit
+up to 236 game-subtree nodes and 31 collision objects/shapes; pursuit and the
+reachable gameplay peak permit 238 nodes and 32 collision objects/shapes. The
+performance Belly scenario renders 64 item rows within 492 nodes without
+changing the belly's unlimited gameplay semantics. The populated Field Guide
+contains exactly 27 rows.
 
-Reproducible stress coverage includes busy daytime city activity, pursuit,
-maximum growth, a finite simultaneous presentation burst, a 64-item Belly,
-the fully populated Field Guide, both accessibility settings, and a reachable
-gameplay peak. Desktop measurements are advisory; the target iPad release build
-is authoritative. The exact commands and current local measurement notes are
-recorded in [`playable-prototype.md`](playable-prototype.md).
+Reproducible stress coverage includes busy daytime city activity, peak rain,
+pursuit, maximum growth, a finite simultaneous presentation burst, a 64-item
+Belly, the fully populated Field Guide, both accessibility settings, and a
+reachable gameplay peak. Desktop measurements are advisory; the target iPad
+release build is authoritative. The exact commands and current local
+measurement notes are recorded in
+[`playable-prototype.md`](playable-prototype.md).
 
 ## Player character and touch controls
 
@@ -245,7 +246,7 @@ things to eat.
 The city can change through:
 
 - a day and night cycle;
-- rain and storms;
+- storms;
 - changing crowd sizes;
 - changing traffic levels;
 - shops opening and closing;
@@ -253,10 +254,18 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements the first small dynamic-city slice:
-the day and night cycle changes the visible pedestrian crowd, secondary traffic
-level, streetlight glow, and a restrained synthesized ambience layer. These
-ambient pedestrians and vehicles use authored routes and are decorative rather
+The fixed-city prototype now implements two small deterministic dynamic-city
+slices. The day and night cycle changes the visible pedestrian crowd, secondary
+traffic level, streetlight glow, and restrained synthesized ambience. Once per
+180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
+peak, and fades out. Peak rain adds fixed draw-only streaks, wet-road sheen,
+puddle highlights, and a cooler tint while reducing ambient activity from 10
+pedestrians and 5 vehicles to 4 pedestrians and 3 vehicles. Reduce motion keeps
+the wet presentation and lower density but freezes the streaks with the other
+decorative movement. Rain adds no audio asset, physics, targeting, scoring,
+save data, random-number use, or Field Guide entry.
+
+Ambient pedestrians and vehicles use authored routes and are decorative rather
 than targets, hazards, or persistent world state. The labeled Delivery Van
 remains the prototype's interactive traffic target.
 

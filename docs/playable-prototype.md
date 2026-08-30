@@ -51,6 +51,12 @@ The prototype includes:
 - a rare golden cake that grants one minute of flight;
 - a lightweight day and night cycle that changes the world tint, pedestrian
   crowd, secondary traffic, and streetlight glow;
+- one deterministic 36-second daytime rain shower per 180-second cycle, with
+  smooth fades, wet-road sheen, puddle highlights, and 84 capped draw-only rain
+  streaks;
+- peak rain that reduces ambient activity from 10 pedestrians and 5 secondary
+  vehicles to 4 pedestrians and 3 vehicles without changing gameplay targets,
+  collision, scoring, saves, the Field Guide, or the day/night audio;
 - deterministic, draw-only pedestrians on fixed sidewalk routes, with a
   smaller night crowd and no collision, targeting, scoring, or Field Guide
   behavior;
@@ -198,16 +204,18 @@ bash scripts/check-project.sh
 ```
 
 The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
-traffic, deterministic city-activity levels and routes, pursuit, flight,
-profile persistence, Field Guide catalog and overlay behavior, legacy discovery
-saves, per-profile accessibility persistence and legacy defaults, touch-target
-sizing, safe-area layout, touch feedback, reduced-motion transitions,
-deterministic session challenges, original audio resources and provenance,
-audio buses and semantic event wiring, bounded player/cooldown behavior,
-per-profile audio persistence and legacy defaults, loop lifecycle, gameplay RNG
-isolation, performance structure and stress budgets, the credential-free iOS
-pipeline configuration, tutorial sequence, action restrictions, guided
-struggle recovery, Skip behavior, and tutorial completion persistence.
+traffic, deterministic city-activity levels and routes, the bounded rain
+schedule and density change, frame-step-independent rain, static reduced-motion
+weather, pursuit, flight, profile persistence, Field Guide catalog and overlay
+behavior, legacy discovery saves, per-profile accessibility persistence and
+legacy defaults, touch-target sizing, safe-area layout, touch feedback,
+reduced-motion transitions, deterministic session challenges, original audio
+resources and provenance, audio buses and semantic event wiring, bounded
+player/cooldown behavior, per-profile audio persistence and legacy defaults,
+loop lifecycle, gameplay RNG isolation, performance structure and stress
+budgets, the credential-free iOS pipeline configuration, tutorial sequence,
+action restrictions, guided struggle recovery, Skip behavior, and tutorial
+completion persistence.
 
 ## Performance instrumentation and budgets
 
@@ -259,6 +267,7 @@ The deterministic structural budgets are enforced in CI:
 | Pursuit or gameplay peak | 238 nodes, 32 collision objects and shapes, 1 pursuer |
 | Populated Belly sample | 64 items and rows, 492 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 pedestrians plus 5 secondary vehicles, all draw-only |
+| Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
 | Populated Field Guide | 27 rows, matching the fixed catalog |
@@ -329,7 +338,7 @@ The following parts of the full design are not implemented yet:
 - authored multi-room interiors with separate transitions;
 - pathfinding around complex city geometry;
 - several pursuer types, nets, traps, and roadblocks;
-- rain, storms, festivals, shops with schedules, and random emergencies;
+- storms, festivals, shops with schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
 - final art, authored animation, expanded audio content and target-device mix

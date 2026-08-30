@@ -40,6 +40,10 @@ const TONGUE_COLOR := Color(0.96, 0.42, 0.56, 1.0)
 const STRUGGLE_DURATION := 3.1
 const DAMAGE_COOLDOWN := 1.4
 const NIGHT_AUDIO_THRESHOLD := 0.38
+const RAIN_START := 0.58
+const RAIN_FULL_START := 0.62
+const RAIN_FULL_END := 0.74
+const RAIN_END := 0.78
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
 const DISCOVERY_BANNER_DURATION := 2.2
@@ -318,6 +322,7 @@ var _status_time := 0.0
 var _flight_time_left := 0.0
 var _day_clock := 0.23
 var _current_daylight := 0.0
+var _current_rain_intensity := 0.0
 var _last_safe_ground_position := Vector2.ZERO
 var _rare_respawn_pending: Dictionary = {}
 var _pending_growth_tier := -1
@@ -1405,6 +1410,12 @@ func performance_structure_snapshot() -> Dictionary:
 		"active_pedestrians": active_pedestrians,
 		"active_vehicles": active_vehicles,
 		"active_city_actors": active_pedestrians + active_vehicles,
+		"rain_intensity": _current_rain_intensity,
+		"rain_streaks": (
+			_city_activity.visible_rain_streak_count()
+			if is_instance_valid(_city_activity)
+			else 0
+		),
 		"active_effects": (
 			_effects.active_effect_count()
 			if is_instance_valid(_effects)
@@ -2216,13 +2227,31 @@ func _update_day_night(delta: float) -> void:
 	var daylight := (sin(_day_clock * TAU - PI / 2.0) + 1.0) * 0.5
 	_current_daylight = daylight
 	var night_color := Color(0.44, 0.56, 0.78)
-	_world_tint.color = night_color.lerp(Color.WHITE, 0.38 + daylight * 0.62)
+	var clear_color := night_color.lerp(Color.WHITE, 0.38 + daylight * 0.62)
+	var rain_intensity := rain_intensity_for_clock(_day_clock)
+	_current_rain_intensity = rain_intensity
+	_world_tint.color = clear_color.lerp(
+		Color(0.68, 0.76, 0.84),
+		rain_intensity * 0.3
+	)
 	if is_instance_valid(_city_activity):
 		_city_activity.set_daylight(daylight)
+		_city_activity.set_rain_intensity(rain_intensity)
 	AudioDirector.set_game_ambience(
 		self,
 		daylight < NIGHT_AUDIO_THRESHOLD
 	)
+
+
+static func rain_intensity_for_clock(value: float) -> float:
+	var clock := fposmod(value, 1.0)
+	if clock < RAIN_START or clock > RAIN_END:
+		return 0.0
+	if clock < RAIN_FULL_START:
+		return smoothstep(RAIN_START, RAIN_FULL_START, clock)
+	if clock > RAIN_FULL_END:
+		return 1.0 - smoothstep(RAIN_FULL_END, RAIN_END, clock)
+	return 1.0
 
 
 func _disable_belly_actions() -> void:

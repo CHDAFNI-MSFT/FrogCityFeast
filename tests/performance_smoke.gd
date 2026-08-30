@@ -36,6 +36,10 @@ func _run() -> void:
 		"The city-actor budget matches the authored route count."
 	)
 	_check(
+		BUDGETS.MAX_RAIN_STREAKS == CityActivity.RAIN_STREAK_COUNT,
+		"The rain-streak budget matches the draw-only presentation cap."
+	)
+	_check(
 		BUDGETS.FIELD_GUIDE_ROWS == DiscoveryCatalog.count(),
 		"The Field Guide budget matches the catalog."
 	)
@@ -59,6 +63,12 @@ func _run() -> void:
 		{
 			"name": "busy_daytime",
 			"setup": _setup_busy_daytime,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "rainy_day",
+			"setup": _setup_rainy_day,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -189,6 +199,11 @@ func _setup_busy_daytime(game: FrogGame) -> void:
 	game._update_day_night(0.0)
 
 
+func _setup_rainy_day(game: FrogGame) -> void:
+	game._day_clock = 0.68
+	game._update_day_night(0.0)
+
+
 func _setup_pursuit(game: FrogGame) -> void:
 	game._spawn_pursuer()
 
@@ -274,6 +289,15 @@ func _check_scenario_expectations(
 				int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS,
 				"Busy daytime activates every authored city route."
+			)
+		"rainy_day":
+			_check(
+				is_equal_approx(float(snapshot["rain_intensity"]), 1.0)
+				and int(snapshot["rain_streaks"])
+				== BUDGETS.MAX_RAIN_STREAKS
+				and int(snapshot["active_pedestrians"]) == 4
+				and int(snapshot["active_vehicles"]) == 3,
+				"Peak rain uses bounded draw-only streaks and reduces ambient city activity."
 			)
 		"pursuit":
 			_check(

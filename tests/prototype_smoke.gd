@@ -1125,7 +1125,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		is_instance_valid(activity)
 		and activity.get_child_count() == 0
 		and not _contains_collision_object(activity),
-		"City activity is one draw-only layer with no physics bodies."
+		"City activity and rain share one draw-only layer with no physics bodies."
 	)
 	_check(
 		game._targets.size() == 26 and DiscoveryCatalog.count() == 27,
@@ -1137,6 +1137,29 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	_check(
 		is_equal_approx(activity.daylight, expected_daylight),
 		"The game forwards its initial day-night value to city activity."
+	)
+	_check(
+		is_zero_approx(FrogGame.rain_intensity_for_clock(0.57))
+		and is_zero_approx(FrogGame.rain_intensity_for_clock(0.58))
+		and is_equal_approx(
+			FrogGame.rain_intensity_for_clock(0.60),
+			0.5
+		)
+		and is_equal_approx(
+			FrogGame.rain_intensity_for_clock(0.62),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.rain_intensity_for_clock(0.74),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.rain_intensity_for_clock(0.76),
+			0.5
+		)
+		and is_zero_approx(FrogGame.rain_intensity_for_clock(0.78))
+		and is_zero_approx(FrogGame.rain_intensity_for_clock(1.57)),
+		"Rain follows one bounded deterministic shower with smooth fades per day-night cycle."
 	)
 
 	game._day_clock = 0.5
@@ -1165,11 +1188,31 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		is_zero_approx(day_lights) and night_lights > 0.99,
 		"Streetlights switch on at night without changing the world tint."
 	)
+	game._day_clock = 0.68
+	game._update_day_night(0.0)
+	var rainy_snapshot := game.performance_structure_snapshot()
+	_check(
+		is_equal_approx(activity.rain_intensity, 1.0)
+		and activity.active_pedestrian_count() == 4
+		and activity.active_vehicle_count() == 3
+		and activity.visible_rain_streak_count()
+		== CityActivity.RAIN_STREAK_COUNT,
+		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
+	)
+	_check(
+		int(rainy_snapshot["targets"]) == 26
+		and int(rainy_snapshot["buildings"]) == 4
+		and int(rainy_snapshot["collision_objects"]) == 31
+		and int(rainy_snapshot["collision_shapes"]) == 31,
+		"Rain does not add targets, buildings, or collision objects."
+	)
 
 	var single_step := CityActivity.new()
 	var many_steps := CityActivity.new()
 	single_step.set_motion_scale(1.0)
 	many_steps.set_motion_scale(1.0)
+	single_step.set_rain_intensity(1.0)
+	many_steps.set_rain_intensity(1.0)
 	single_step._advance_animation(12.0)
 	for step in 120:
 		many_steps._advance_animation(0.1)
@@ -1180,20 +1223,46 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		if single_signature[index].distance_to(many_signature[index]) > 0.001:
 			deterministic_positions = false
 			break
+	var single_rain_signature := single_step.rain_signature()
+	var many_rain_signature := many_steps.rain_signature()
+	for index in single_rain_signature.size():
+		if (
+			single_rain_signature[index].distance_to(
+				many_rain_signature[index]
+			)
+			> 0.001
+		):
+			deterministic_positions = false
+			break
 	_check(
 		deterministic_positions,
-		"City actor positions depend on absolute deterministic time, not frame size."
+		"City actors and rain depend on absolute deterministic time, not frame size."
 	)
 
 	var frozen_position := single_step.pedestrian_position(0)
+	var frozen_rain := single_step.rain_signature()
 	single_step.set_motion_scale(0.0)
 	single_step._advance_animation(8.0)
 	single_step.set_daylight(0.0)
 	_check(
 		single_step.pedestrian_position(0) == frozen_position
-		and single_step.active_pedestrian_count() == 5
+		and single_step.rain_signature() == frozen_rain
+		and single_step.active_pedestrian_count() == 4
+		and single_step.active_vehicle_count() == 2
+		and single_step.visible_rain_streak_count()
+		== CityActivity.RAIN_STREAK_COUNT
 		and single_step.streetlight_intensity() > 0.99,
-		"Reduced motion freezes actors while day-night density and lighting still update."
+		"Reduced motion freezes actors and rain while weather density and lighting still update."
+	)
+	seed(20260830)
+	var expected_random := randf()
+	seed(20260830)
+	single_step.set_rain_intensity(0.5)
+	single_step.rain_signature()
+	var actual_random := randf()
+	_check(
+		is_equal_approx(actual_random, expected_random),
+		"Rain presentation does not consume the gameplay random-number stream."
 	)
 
 	var loop_is_seamless := true
@@ -1229,9 +1298,21 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 			> 0.001
 		):
 			loop_is_seamless = false
+	for index in CityActivity.RAIN_STREAK_COUNT:
+		if (
+			single_step.rain_streak_position_at(index, 17.25)
+			.distance_to(
+				single_step.rain_streak_position_at(
+					index,
+					17.25 + CityActivity.RAIN_LOOP_DURATION
+				)
+			)
+			> 0.001
+		):
+			loop_is_seamless = false
 	_check(
 		loop_is_seamless,
-		"Every authored activity route loops without a visible teleport."
+		"Every authored activity route and rain streak loops seamlessly."
 	)
 
 	var forbidden_areas: Array[Rect2] = [

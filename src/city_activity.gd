@@ -4,6 +4,38 @@ extends Node2D
 const LOOP_DURATION := 120.0
 const ROUTE_CLEARANCE := 18.0
 const FADE_WIDTH := 0.08
+const RAIN_FADE_WIDTH := 0.12
+const RAIN_STREAK_COUNT := 84
+const RAIN_LOOP_DURATION := 4.0
+const RAIN_FALL_SPEED := 745.0
+const RAIN_SLANT := Vector2(-10, 26)
+const WET_PATCHES := [
+	Vector2(-1480, -70),
+	Vector2(-690, 95),
+	Vector2(520, -90),
+	Vector2(1350, 100),
+	Vector2(-1080, 810),
+	Vector2(460, 865),
+]
+const PEDESTRIAN_RAIN_LIMITS := [
+	1.25,
+	1.25,
+	1.25,
+	1.25,
+	0.9,
+	0.82,
+	0.74,
+	0.66,
+	0.58,
+	0.5,
+]
+const VEHICLE_RAIN_LIMITS := [
+	1.25,
+	1.25,
+	1.25,
+	0.78,
+	0.58,
+]
 
 const PEDESTRIAN_ROUTES := [
 	{
@@ -149,6 +181,7 @@ const STREETLIGHT_POSITIONS := [
 ]
 
 var daylight := 0.5
+var rain_intensity := 0.0
 var motion_scale := 1.0
 var _animation_time := 0.0
 
@@ -170,25 +203,57 @@ func set_daylight(value: float) -> void:
 	queue_redraw()
 
 
+func set_rain_intensity(value: float) -> void:
+	var next_intensity := clampf(value, 0.0, 1.0)
+	if is_equal_approx(rain_intensity, next_intensity):
+		return
+	rain_intensity = next_intensity
+	queue_redraw()
+
+
 func set_motion_scale(value: float) -> void:
 	motion_scale = clampf(value, 0.0, 1.0)
 	set_process(motion_scale > 0.0)
 
 
 func pedestrian_count_for_daylight(value: float) -> int:
-	return _active_count(PEDESTRIAN_ROUTES, value)
+	return pedestrian_count_for_conditions(value, 0.0)
 
 
 func vehicle_count_for_daylight(value: float) -> int:
-	return _active_count(VEHICLE_ROUTES, value)
+	return vehicle_count_for_conditions(value, 0.0)
+
+
+func pedestrian_count_for_conditions(
+	daylight_value: float,
+	rain_value: float
+) -> int:
+	return _active_count(
+		PEDESTRIAN_ROUTES,
+		daylight_value,
+		rain_value,
+		PEDESTRIAN_RAIN_LIMITS
+	)
+
+
+func vehicle_count_for_conditions(
+	daylight_value: float,
+	rain_value: float
+) -> int:
+	return _active_count(
+		VEHICLE_ROUTES,
+		daylight_value,
+		rain_value,
+		VEHICLE_RAIN_LIMITS
+	)
 
 
 func active_pedestrian_count() -> int:
-	return pedestrian_count_for_daylight(daylight)
+	return pedestrian_count_for_conditions(daylight, rain_intensity)
 
 
 func active_vehicle_count() -> int:
-	return vehicle_count_for_daylight(daylight)
+	return vehicle_count_for_conditions(daylight, rain_intensity)
 
 
 func streetlight_intensity_for_daylight(value: float) -> float:
@@ -198,6 +263,35 @@ func streetlight_intensity_for_daylight(value: float) -> float:
 
 func streetlight_intensity() -> float:
 	return streetlight_intensity_for_daylight(daylight)
+
+
+func visible_rain_streak_count() -> int:
+	return RAIN_STREAK_COUNT if rain_intensity > 0.01 else 0
+
+
+func rain_streak_position_at(index: int, animation_time: float) -> Vector2:
+	if index < 0 or index >= RAIN_STREAK_COUNT:
+		return Vector2.INF
+	var rain_time := fposmod(
+		snappedf(animation_time, 0.0001),
+		RAIN_LOOP_DURATION
+	)
+	var x_offset := fposmod(
+		float(index * 211),
+		CityBackdrop.WORLD_RECT.size.x + 160.0
+	) - 80.0
+	var y_offset := fposmod(
+		float(index * 137) + rain_time * RAIN_FALL_SPEED,
+		CityBackdrop.WORLD_RECT.size.y + 180.0
+	) - 90.0
+	return CityBackdrop.WORLD_RECT.position + Vector2(x_offset, y_offset)
+
+
+func rain_signature() -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for index in RAIN_STREAK_COUNT:
+		result.append(rain_streak_position_at(index, _animation_time))
+	return result
 
 
 func pedestrian_position(index: int) -> Vector2:
@@ -242,19 +336,34 @@ func _advance_animation(delta: float) -> void:
 func _draw() -> void:
 	_draw_streetlights()
 	for index in VEHICLE_ROUTES.size():
-		var alpha := _actor_alpha(
-			daylight,
-			float(VEHICLE_ROUTES[index]["threshold"])
+		var alpha := (
+			_actor_alpha(
+				daylight,
+				float(VEHICLE_ROUTES[index]["threshold"])
+			)
+			* _rain_route_alpha(
+				index,
+				rain_intensity,
+				VEHICLE_RAIN_LIMITS
+			)
 		)
 		if alpha > 0.01:
 			_draw_vehicle(index, alpha)
 	for index in PEDESTRIAN_ROUTES.size():
-		var alpha := _actor_alpha(
-			daylight,
-			float(PEDESTRIAN_ROUTES[index]["threshold"])
+		var alpha := (
+			_actor_alpha(
+				daylight,
+				float(PEDESTRIAN_ROUTES[index]["threshold"])
+			)
+			* _rain_route_alpha(
+				index,
+				rain_intensity,
+				PEDESTRIAN_RAIN_LIMITS
+			)
 		)
 		if alpha > 0.01:
 			_draw_pedestrian(index, alpha)
+	_draw_rain()
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -330,6 +439,37 @@ func _draw_pedestrian(index: int, alpha: float) -> void:
 	draw_circle(Vector2(0, -7), 6.5, head_color)
 
 
+func _draw_rain() -> void:
+	if rain_intensity <= 0.01:
+		return
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_rect(
+		CityBackdrop.WORLD_RECT,
+		Color(0.16, 0.28, 0.38, 0.08 * rain_intensity)
+	)
+	for road in CityBackdrop.ROAD_RECTS:
+		draw_rect(
+			(road as Rect2).grow(-22.0),
+			Color(0.48, 0.65, 0.72, 0.08 * rain_intensity)
+		)
+	for patch_position in WET_PATCHES:
+		draw_set_transform(
+			patch_position,
+			-0.08,
+			Vector2(1.8, 0.45)
+		)
+		draw_circle(
+			Vector2.ZERO,
+			34.0,
+			Color(0.62, 0.78, 0.84, 0.14 * rain_intensity)
+		)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var rain_color := Color(0.72, 0.88, 1.0, 0.5 * rain_intensity)
+	for index in RAIN_STREAK_COUNT:
+		var start := rain_streak_position_at(index, _animation_time)
+		draw_line(start, start + RAIN_SLANT, rain_color, 2.0)
+
+
 func _pedestrian_direction(index: int) -> Vector2:
 	var route: Dictionary = PEDESTRIAN_ROUTES[index]
 	var direction := (
@@ -338,10 +478,23 @@ func _pedestrian_direction(index: int) -> Vector2:
 	return -direction if _route_cycle(route, _animation_time) >= 0.5 else direction
 
 
-func _active_count(routes: Array, value: float) -> int:
+func _active_count(
+	routes: Array,
+	daylight_value: float,
+	rain_value: float,
+	rain_limits: Array
+) -> int:
 	var total := 0
-	for route in routes:
-		if _actor_alpha(value, float((route as Dictionary)["threshold"])) >= 0.5:
+	for index in routes.size():
+		var route := routes[index] as Dictionary
+		var alpha := (
+			_actor_alpha(
+				daylight_value,
+				float(route["threshold"])
+			)
+			* _rain_route_alpha(index, rain_value, rain_limits)
+		)
+		if alpha >= 0.5:
 			total += 1
 	return total
 
@@ -352,6 +505,21 @@ func _actor_alpha(value: float, threshold: float) -> float:
 	return smoothstep(
 		threshold - FADE_WIDTH,
 		threshold + FADE_WIDTH,
+		clampf(value, 0.0, 1.0)
+	)
+
+
+func _rain_route_alpha(
+	index: int,
+	value: float,
+	rain_limits: Array
+) -> float:
+	if index < 0 or index >= rain_limits.size():
+		return 0.0
+	var limit := float(rain_limits[index])
+	return 1.0 - smoothstep(
+		limit - RAIN_FADE_WIDTH,
+		limit + RAIN_FADE_WIDTH,
 		clampf(value, 0.0, 1.0)
 	)
 

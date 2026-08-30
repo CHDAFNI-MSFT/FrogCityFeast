@@ -19,6 +19,7 @@ const MAX_PURSUERS := 1
 const MAX_VISUAL_EFFECTS := 24
 const MAX_TOUCH_FEEDBACK := 3
 const MAX_CITY_ACTORS := 15
+const MAX_RAIN_STREAKS := 84
 const MAX_AUDIO_NODES := 7
 const MAX_AUDIO_PLAYERS := 6
 const MAX_AUDIO_EFFECT_VOICES := 4
@@ -51,6 +52,13 @@ const STRUCTURAL_LIMITS := {
 		"collision_shapes": 31,
 		"targets": MAX_TARGETS,
 		"active_city_actors": MAX_CITY_ACTORS,
+	},
+	"rainy_day": {
+		"game_nodes": 236,
+		"collision_objects": 31,
+		"collision_shapes": 31,
+		"targets": MAX_TARGETS,
+		"rain_streaks": MAX_RAIN_STREAKS,
 	},
 	"pursuit": {
 		"game_nodes": 238,
