@@ -4,6 +4,8 @@ Native iOS game.
 
 ## Development planning
 
+- [Game design requirements](docs/game-design.md)
+- [Playable prototype status and controls](docs/playable-prototype.md)
 - [Game stack decision guide](docs/game-stack-decision-guide.md)
 - [Development toolchain setup](docs/development-setup.md)
 - [Clean-room environment rebuild runbook](docs/environment-rebuild-runbook.md)

@@ -30,5 +30,9 @@ run_checked() {
 
 run_checked import --headless --path "$repo_root" --import
 run_checked startup --headless --path "$repo_root" --quit-after 2
+run_checked prototype-smoke --headless --path "$repo_root" \
+  --script res://tests/prototype_smoke.gd
+run_checked tutorial-smoke --headless --path "$repo_root" \
+  --script res://tests/tutorial_smoke.gd
 
 echo "Godot project checks passed."

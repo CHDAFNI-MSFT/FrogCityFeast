@@ -1,0 +1,613 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://src/city_backdrop.gd" id="2_city"]
+[ext_resource type="PackedScene" path="res://scenes/frog.tscn" id="3_frog"]
+[ext_resource type="Script" path="res://src/tutorial_marker.gd" id="4_tutorial_marker"]
+[ext_resource type="Script" path="res://src/feel_effects.gd" id="5_feel_effects"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_status"]
+bg_color = Color(0.05, 0.12, 0.13, 0.88)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[node name="Game" type="Node2D"]
+process_mode = 3
+script = ExtResource("1_game")
+
+[node name="World" type="Node2D" parent="."]
+process_mode = 1
+
+[node name="City" type="Node2D" parent="World"]
+z_index = -10
+script = ExtResource("2_city")
+
+[node name="WorldTint" type="CanvasModulate" parent="World"]
+color = Color(1, 1, 1, 1)
+
+[node name="Effects" type="Node2D" parent="World"]
+z_index = 8
+script = ExtResource("5_feel_effects")
+
+[node name="Frog" parent="World" instance=ExtResource("3_frog")]
+position = Vector2(0, 420)
+z_index = 6
+
+[node name="Camera" type="Camera2D" parent="World"]
+position = Vector2(0, 220)
+ignore_rotation = false
+position_smoothing_enabled = true
+position_smoothing_speed = 9.0
+zoom = Vector2(0.9, 0.9)
+enabled = true
+
+[node name="Tongue" type="Line2D" parent="World"]
+z_index = 7
+width = 12.0
+default_color = Color(0.96, 0.42, 0.56, 1)
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="TutorialMarker" type="Node2D" parent="World"]
+visible = false
+z_index = 3
+script = ExtResource("4_tutorial_marker")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+process_mode = 3
+
+[node name="Root" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBackground" type="ColorRect" parent="HUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 82.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.025, 0.075, 0.08, 0.9)
+
+[node name="TopMargin" type="MarginContainer" parent="HUD/Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 82.0
+grow_horizontal = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 22
+
+[node name="TopBar" type="HBoxContainer" parent="HUD/Root/TopMargin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="ProfileSlot" type="Control" parent="HUD/Root/TopMargin/TopBar"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+
+[node name="ProfileLabel" type="Label" parent="HUD/Root/TopMargin/TopBar/ProfileSlot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 21
+text = "Player"
+vertical_alignment = 1
+text_overrun_behavior = 3
+clip_text = true
+
+[node name="ScoreLabel" type="Label" parent="HUD/Root/TopMargin/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.32, 1)
+theme_override_font_sizes/font_size = 25
+text = "Score: 0"
+
+[node name="GrowthLabel" type="Label" parent="HUD/Root/TopMargin/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.52, 1, 0.55, 1)
+theme_override_font_sizes/font_size = 22
+text = "Growth: 0 / 100"
+
+[node name="PowerLabel" type="Label" parent="HUD/Root/TopMargin/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = ""
+
+[node name="Spacer" type="Control" parent="HUD/Root/TopMargin/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GuideButton" type="Button" parent="HUD/Root/TopMargin/TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "Guide"
+
+[node name="BellyButton" type="Button" parent="HUD/Root/TopMargin/TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "Belly (0)"
+
+[node name="EndButton" type="Button" parent="HUD/Root/TopMargin/TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "End Game"
+
+[node name="StatusPanel" type="PanelContainer" parent="HUD/Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -310.0
+offset_top = 92.0
+offset_right = 310.0
+offset_bottom = 150.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_status")
+
+[node name="StatusLabel" type="Label" parent="HUD/Root/StatusPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+text = "Tap the ground to move. Double-tap a target to eat it."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Instructions" type="Label" parent="HUD/Root"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -470.0
+offset_top = -92.0
+offset_right = -24.0
+offset_bottom = -22.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.92, 0.96, 0.92, 0.88)
+theme_override_font_sizes/font_size = 17
+text = "Touch: tap ground to move • double-tap targets\nTwo fingers: drag second finger to turn camera"
+horizontal_alignment = 2
+
+[node name="StrugglePanel" type="PanelContainer" parent="HUD/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -95.0
+offset_right = 250.0
+offset_bottom = 95.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="HUD/Root/StrugglePanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="Content" type="VBoxContainer" parent="HUD/Root/StrugglePanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 15
+
+[node name="Title" type="Label" parent="HUD/Root/StrugglePanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 27
+text = "It is trying to escape!"
+horizontal_alignment = 1
+
+[node name="Progress" type="ProgressBar" parent="HUD/Root/StrugglePanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+mouse_filter = 2
+show_percentage = false
+
+[node name="Hint" type="Label" parent="HUD/Root/StrugglePanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 20
+text = "Tap rapidly anywhere!"
+horizontal_alignment = 1
+
+[node name="ChallengePanel" type="PanelContainer" parent="HUD/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+offset_left = 22.0
+offset_top = 94.0
+offset_right = 300.0
+offset_bottom = 286.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_status")
+
+[node name="Margin" type="MarginContainer" parent="HUD/Root/ChallengePanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="Content" type="VBoxContainer" parent="HUD/Root/ChallengePanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 5
+
+[node name="Title" type="Label" parent="HUD/Root/ChallengePanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.32, 1)
+theme_override_font_sizes/font_size = 21
+text = "Tonight's Tasks"
+
+[node name="ChallengeSharpAim" type="Label" parent="HUD/Root/ChallengePanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 18
+text = ""
+
+[node name="ChallengeHoldOn" type="Label" parent="HUD/Root/ChallengePanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 18
+text = ""
+
+[node name="ChallengeCityTour" type="Label" parent="HUD/Root/ChallengePanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 18
+text = ""
+
+[node name="ChallengeSummary" type="Label" parent="HUD/Root/ChallengePanel/Margin/Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "All tasks complete!"
+
+[node name="BellyOverlay" type="Control" parent="HUD/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Shade" type="ColorRect" parent="HUD/Root/BellyOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0.02, 0.04, 0.05, 0.78)
+
+[node name="Center" type="CenterContainer" parent="HUD/Root/BellyOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Panel" type="PanelContainer" parent="HUD/Root/BellyOverlay/Center"]
+custom_minimum_size = Vector2(760, 620)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="HUD/Root/BellyOverlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 28
+
+[node name="Content" type="VBoxContainer" parent="HUD/Root/BellyOverlay/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 1, 0.58, 1)
+theme_override_font_sizes/font_size = 36
+text = "Inside the Frog's Belly"
+horizontal_alignment = 1
+
+[node name="Summary" type="Label" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Digest things for points and growth, or return them safely."
+horizontal_alignment = 1
+
+[node name="RewardLabel" type="Label" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.36, 1)
+theme_override_colors/font_outline_color = Color(0.03, 0.08, 0.08, 0.95)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
+text = "+0 points  +0 growth"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content"]
+custom_minimum_size = Vector2(0, 350)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BellyList" type="VBoxContainer" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Actions" type="HBoxContainer" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DigestAllButton" type="Button" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 21
+text = "Digest Everything"
+
+[node name="EndGameBellyButton" type="Button" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 21
+text = "End Game"
+
+[node name="CloseBellyButton" type="Button" parent="HUD/Root/BellyOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 21
+text = "Return to City"
+
+[node name="GuideOverlay" type="Control" parent="HUD/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Shade" type="ColorRect" parent="HUD/Root/GuideOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0.02, 0.04, 0.05, 0.82)
+
+[node name="Center" type="CenterContainer" parent="HUD/Root/GuideOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Panel" type="PanelContainer" parent="HUD/Root/GuideOverlay/Center"]
+custom_minimum_size = Vector2(820, 680)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="HUD/Root/GuideOverlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 34
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 34
+theme_override_constants/margin_bottom = 28
+
+[node name="Content" type="VBoxContainer" parent="HUD/Root/GuideOverlay/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 36
+text = "Frog Field Guide"
+horizontal_alignment = 1
+
+[node name="GuideProgress" type="Label" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 1, 0.58, 1)
+theme_override_font_sizes/font_size = 24
+text = "Discovered 0 / 19"
+horizontal_alignment = 1
+
+[node name="GuideHint" type="Label" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Swallow something once to reveal its entry. Discoveries stay with this player."
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content"]
+custom_minimum_size = Vector2(0, 430)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="GuideList" type="VBoxContainer" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 7
+
+[node name="Actions" type="HBoxContainer" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Spacer" type="Control" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EndGameGuideButton" type="Button" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "End Game"
+
+[node name="CloseGuideButton" type="Button" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(210, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "Return to City"
+
+[node name="TutorialPanel" type="PanelContainer" parent="HUD/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -610.0
+offset_top = -258.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 0
+
+[node name="Margin" type="MarginContainer" parent="HUD/Root/TutorialPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="Content" type="VBoxContainer" parent="HUD/Root/TutorialPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="TutorialProgress" type="Label" parent="HUD/Root/TutorialPanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.48, 1, 0.56, 1)
+theme_override_font_sizes/font_size = 18
+text = "Tutorial 1 / 10"
+
+[node name="TutorialTitle" type="Label" parent="HUD/Root/TutorialPanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 28
+text = "Move the frog"
+
+[node name="TutorialInstruction" type="Label" parent="HUD/Root/TutorialPanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 19
+text = "Tap the glowing circle."
+autowrap_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="HUD/Root/TutorialPanel/Margin/Content"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Spacer" type="Control" parent="HUD/Root/TutorialPanel/Margin/Content/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="SkipTutorialButton" type="Button" parent="HUD/Root/TutorialPanel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Skip Tutorial"
+
+[node name="DiscoveryBanner" type="PanelContainer" parent="HUD/Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -330.0
+offset_top = 162.0
+offset_right = 330.0
+offset_bottom = 222.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_status")
+
+[node name="DiscoveryBannerLabel" type="Label" parent="HUD/Root/DiscoveryBanner"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.55, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "New Field Guide entry"
+horizontal_alignment = 1
+vertical_alignment = 1

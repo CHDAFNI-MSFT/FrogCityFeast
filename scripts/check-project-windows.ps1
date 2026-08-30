@@ -87,5 +87,11 @@ Invoke-GodotCheck `
 Invoke-GodotCheck `
     -Label "startup" `
     -Arguments "--headless --path `"$repoRoot`" --quit-after 2"
+Invoke-GodotCheck `
+    -Label "prototype-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/prototype_smoke.gd"
+Invoke-GodotCheck `
+    -Label "tutorial-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/tutorial_smoke.gd"
 
 Write-Host "Godot project checks passed."

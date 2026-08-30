@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/frog.gd" id="1_frog"]
+
+[sub_resource type="CircleShape2D" id="CircleShape_frog"]
+radius = 28.0
+
+[node name="Frog" type="CharacterBody2D"]
+collision_layer = 1
+collision_mask = 1
+script = ExtResource("1_frog")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape_frog")
