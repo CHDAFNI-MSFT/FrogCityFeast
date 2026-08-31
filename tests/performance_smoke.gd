@@ -58,7 +58,7 @@ func _run() -> void:
 		"The Animal Control snare budget remains capped at one."
 	)
 	_check(
-		BUDGETS.MAX_INTERIOR_ROOMS == 3,
+		BUDGETS.MAX_INTERIOR_ROOMS == 4,
 		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
@@ -103,6 +103,15 @@ func _run() -> void:
 		{
 			"name": "market_rooftop",
 			"setup": _setup_market_rooftop,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "oddities_cellar",
+			"setup": _setup_oddities_cellar,
 			"preferences": {
 				"reduce_motion": true,
 				"larger_text_controls": false,
@@ -301,6 +310,18 @@ func _setup_market_rooftop(game: FrogGame) -> void:
 	game._begin_interior_transition(FrogGame.MARKET_ROOFTOP_ID)
 
 
+func _setup_oddities_cellar(game: FrogGame) -> void:
+	var shop := (
+		game._building_by_id.get("oddities_shop")
+		as PrototypeBuilding
+	)
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	shop.remove_part(PrototypeBuilding.PART_COUNTER)
+	game._frog.global_position = shop.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.ODDITIES_CELLAR_ID)
+
+
 func _setup_night_shop(game: FrogGame) -> void:
 	game._day_clock = 0.0
 	game._update_day_night(0.0)
@@ -435,7 +456,7 @@ func _check_scenario_expectations(
 					and int(snapshot["interior_rooms"])
 					== BUDGETS.MAX_INTERIOR_ROOMS
 					and int(snapshot["pursuers"]) == 0,
-				"Stockroom stress activates one of three separate rooms without adding pursuit."
+				"Stockroom stress activates one of four separate rooms without adding pursuit."
 			)
 		"upper_hall":
 			_check(
@@ -444,7 +465,7 @@ func _check_scenario_expectations(
 				and int(snapshot["interior_rooms"])
 				== BUDGETS.MAX_INTERIOR_ROOMS
 				and int(snapshot["pursuers"]) == 0,
-				"Upper-hall stress activates the second of three separate rooms without adding pursuit."
+				"Upper-hall stress activates the second of four separate rooms without adding pursuit."
 			)
 		"market_rooftop":
 			_check(
@@ -455,6 +476,16 @@ func _check_scenario_expectations(
 				and int(snapshot["pursuers"]) == 0
 				and int(snapshot["growth_tier"]) == 1,
 				"Rooftop stress activates the progression-gated third separate room."
+			)
+		"oddities_cellar":
+			_check(
+				str(snapshot["active_interior"])
+				== FrogGame.ODDITIES_CELLAR_ID
+				and int(snapshot["interior_rooms"])
+				== BUDGETS.MAX_INTERIOR_ROOMS
+				and int(snapshot["pursuers"]) == 0
+				and int(snapshot["growth_tier"]) == 1,
+				"Cellar stress activates the fixture-gated fourth separate room."
 			)
 		"night_shop":
 			_check(

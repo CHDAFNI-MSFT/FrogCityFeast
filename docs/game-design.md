@@ -77,28 +77,28 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-prototype permits 29 gameplay targets, 4 buildings, 3 separate exploration
+prototype permits 30 gameplay targets, 4 buildings, 4 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 1 draw-only Animal Control
 net projectile, 24 capped world effects, 3 touch cues, and 6 fixed audio
 players including 4 reusable effect voices. Baseline and separate-room states
-permit up to 273 game-subtree nodes, 34 collision objects, and 55 collision
-shapes; ordinary pursuit and net attack permit 275 nodes, 35 collision objects,
-and 56 collision shapes; a snare pursuit permits 276 nodes with the same
-physics structure; a roadblock pursuit permits 277 nodes, 36 collision objects,
-and 57 collision shapes; the reachable roadblock-and-snare gameplay peak
-permits 278 nodes with the same 36 collision objects and 57 shapes. The
-performance Belly scenario renders 64 item rows within 529 nodes without
+permit up to 285 game-subtree nodes, 35 collision objects, and 63 collision
+shapes; ordinary pursuit and net attack permit 287 nodes, 36 collision objects,
+and 64 collision shapes; a snare pursuit permits 288 nodes with the same
+physics structure; a roadblock pursuit permits 289 nodes, 37 collision objects,
+and 65 collision shapes; the reachable roadblock-and-snare gameplay peak
+permits 290 nodes with the same 37 collision objects and 65 shapes. The
+performance Belly scenario renders 64 item rows within 541 nodes without
 changing the belly's unlimited gameplay semantics. The populated Field Guide
-contains exactly 30 rows.
+contains exactly 31 rows.
 
-Reproducible stress coverage includes all three connected rooms, busy daytime city
-activity, peak rain, pursuit, active crowd cover, roadblock and snare pursuit,
-a net in flight, maximum growth, a finite simultaneous presentation burst, a
-64-item Belly, the fully populated Field Guide, both accessibility settings,
-and a reachable gameplay peak. Desktop measurements are advisory; the target
-iPad release build is authoritative. The exact commands and current local
-measurement notes are recorded in
+Reproducible stress coverage includes all four connected rooms, busy daytime
+city activity, peak rain, pursuit, active crowd cover, roadblock and snare
+pursuit, a net in flight, maximum growth, a finite simultaneous presentation
+burst, a 64-item Belly, the fully populated Field Guide, both accessibility
+settings, and a reachable gameplay peak. Desktop measurements are advisory;
+the target iPad release build is authoritative. The exact commands and current
+local measurement notes are recorded in
 [`playable-prototype.md`](playable-prototype.md).
 
 ## Player character and touch controls
@@ -266,6 +266,14 @@ things to eat.
   to the garden when spat out or restocked. Entering ends active pursuit,
   remote pursuit spawning remains blocked, Reduce motion uses an immediate
   cut, and consuming the market disables the ladder until restoration.
+- Oddities Shop has the first destruction-gated connected room. Removing the
+  Curio Shelf reveals a marked trapdoor to a compact cellar with solid
+  wall-side storage, a centered room camera, a return-to-shop marker, and a
+  resistant tier-one Cursed Music Box. The target remains scoped to the cellar
+  when spat out or restocked. Entering ends active pursuit, remote pursuit
+  spawning remains blocked, Reduce motion uses an immediate cut, and consuming
+  the shop disables the trapdoor until restoration. The removed shelf and
+  cellar access remain unlocked after the shop is restored.
 
 ### Dynamic city events
 
@@ -303,12 +311,12 @@ The meetup adds no collision, target, save, audio, or gameplay-random behavior.
 Oddities Shop implements the first scheduled business. Its intact removable
 shutter raises from the late-evening boundary through early morning, revealing
 the existing entrance without weakening the building. During the day it lowers
-and becomes the same edible shutter used by the destruction sequence. Closure
-waits while the frog or Animal Control occupies the shop or doorway, preventing
-a character from being trapped or overlapped. Eating the shutter permanently
-opens the entrance for the rest of that city session. The schedule is
-deterministic, adds no nodes, targets, saves, audio, animation, or random-number
-use, and has identical timing with Reduce motion.
+and becomes the same edible shutter used by the destruction sequence. Closure waits while the frog or Animal Control occupies the shop or doorway,
+or while the frog explores the connected cellar, preventing a character from
+being trapped or overlapped. Eating the shutter permanently opens the entrance
+for the rest of that city session. The schedule is deterministic, adds no
+nodes, targets, saves, audio, animation, or random-number use, and has
+identical timing with Reduce motion.
 
 Ambient pedestrians and vehicles use authored routes and are decorative rather
 than targets, hazards, or persistent world state. The labeled Delivery Van

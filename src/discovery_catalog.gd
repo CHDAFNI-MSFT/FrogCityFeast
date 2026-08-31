@@ -148,6 +148,11 @@ const ENTRIES := [
 		"hint": "Remove all three shop parts and reach maximum size.",
 	},
 	{
+		"id": "oddities_cellar_music_box",
+		"name": "Cursed Music Box",
+		"hint": "Remove the Curio Shelf and use the shop's cellar trapdoor.",
+	},
+	{
 		"id": "animal_control",
 		"name": "Animal Control Officer",
 		"hint": "At maximum size, let a resistant target escape, then eat what comes looking.",

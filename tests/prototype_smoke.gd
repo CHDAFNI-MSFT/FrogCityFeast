@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 29,
+		game._targets.size() == 30,
 		"Prototype targets, interiors, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -344,6 +344,7 @@ func _run() -> void:
 
 	await _test_oddities_shop_sequence(game_scene)
 	await _test_oddities_shop_hours(game_scene)
+	await _test_oddities_cellar(game_scene)
 	await _test_leap_cafe_sequence(game_scene)
 	await _test_canal_apartments_sequence(game_scene)
 	await _test_building_interiors(game_scene)
@@ -1136,7 +1137,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, and rain share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 29 and DiscoveryCatalog.count() == 30,
+		game._targets.size() == 30 and DiscoveryCatalog.count() == 31,
 		"Ambient city life does not add gameplay targets or Field Guide entries."
 	)
 	var expected_daylight := (
@@ -1256,10 +1257,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 29
+		int(rainy_snapshot["targets"]) == 30
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 34
-		and int(rainy_snapshot["collision_shapes"]) == 55,
+		and int(rainy_snapshot["collision_objects"]) == 35
+		and int(rainy_snapshot["collision_shapes"]) == 63,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1636,8 +1637,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 275
-		and int(net_snapshot["collision_objects"]) == 35,
+		and int(net_snapshot["game_nodes"]) == 287
+		and int(net_snapshot["collision_objects"]) == 36,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -2181,7 +2182,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		if not catalog_ids.has(target_id):
 			catalog_matches_targets = false
 	_check(
-		catalog_matches_targets and DiscoveryCatalog.count() == 30,
+		catalog_matches_targets and DiscoveryCatalog.count() == 31,
 		"Field Guide catalog exactly matches every swallowable prototype target."
 	)
 	_check(
@@ -3726,7 +3727,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 3
+		and game._interior_rooms.size() == 4
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -3961,6 +3962,217 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	await process_frame
 
 
+func _test_oddities_cellar(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("cellar_test", "Cellar Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var shop := (
+		game._building_by_id.get("oddities_shop")
+		as PrototypeBuilding
+	)
+	var cellar := (
+		game._interior_rooms.get(FrogGame.ODDITIES_CELLAR_ID)
+		as PrototypeInteriorRoom
+	)
+	var shelf := _find_target(game, "oddities_shop_counter")
+	var music_box := _find_target(game, "oddities_cellar_music_box")
+	_check(
+		is_instance_valid(shop)
+		and is_instance_valid(cellar)
+		and is_instance_valid(shelf)
+		and is_instance_valid(music_box)
+		and game._interior_rooms.size() == 4
+		and shop.transition_room_id == FrogGame.ODDITIES_CELLAR_ID
+		and shop.transition_required_removed_part
+		== PrototypeBuilding.PART_COUNTER
+		and shop.transition_required_part_label == "Curio Shelf"
+		and cellar.return_label == "RETURN TO SHOP"
+		and cellar._collision_body.get_child_count() == 8
+		and music_box.size_tier == 1
+		and music_box.resistant
+		and music_box.building_id == FrogGame.ODDITIES_CELLAR_ID
+		and music_box.move_bounds == cellar.interior_rect(),
+		"Oddities Shop creates one fixture-gated cellar and its room-scoped Music Box."
+	)
+	_check(
+		not shop.transition_door_hit_test(
+			shop.transition_door_world_position()
+		)
+		and game._circle_position_clear(
+			shop.transition_door_approach_position(),
+			44.0,
+			true
+		)
+		and not game._circle_position_clear(
+			cellar.global_position + cellar.props[0].get_center(),
+			28.0,
+			true
+		)
+		and game._circle_position_clear(
+			cellar.global_position,
+			44.0,
+			true
+		),
+		"The covered trapdoor has a safe approach and the cellar retains maximum-size-safe clear space."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._frog.global_position = shop.global_position + Vector2(-150, 100)
+	game._begin_interior_transition(FrogGame.ODDITIES_CELLAR_ID)
+	_check(
+		game._active_interior_id.is_empty()
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and game._frog.movement_enabled,
+		"Direct transition calls cannot bypass the cellar's shelf prerequisite."
+	)
+
+	game._swallow_target(shelf, 1.0)
+	game._digest_item(0)
+	game._day_clock = 0.0
+	game._update_oddities_shop_schedule()
+	var city_camera_rotation := -0.24
+	game._camera.rotation = city_camera_rotation
+	var handled_entry := game._try_handle_interior_transition_tap(
+		shop.transition_door_world_position()
+	)
+	_check(
+		handled_entry
+		and shop.is_part_removed(PrototypeBuilding.PART_COUNTER)
+		and shop.transition_door_hit_test(
+			shop.transition_door_world_position()
+		)
+		and game._pending_interior_transition
+		== FrogGame.ODDITIES_CELLAR_ID
+		and game._frog._move_target
+		== shop.transition_door_approach_position(),
+		"Removing the Curio Shelf unlocks a walk to the cellar trapdoor."
+	)
+	game._frog.global_position = shop.transition_door_approach_position()
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._on_frog_move_reached(game._frog.global_position)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id == FrogGame.ODDITIES_CELLAR_ID
+		and game._frog.global_position == cellar.entry_position()
+		and game._camera.global_position == cellar.global_position
+		and game._camera.zoom == FrogGame.STOCKROOM_CAMERA_ZOOM
+		and is_zero_approx(game._camera.rotation)
+		and game._active_navigation_rect() == cellar.interior_rect(),
+		"Entering the cellar uses the fixed room camera and ends active pursuit."
+	)
+	game._spawn_pursuer()
+	_check(
+		not is_instance_valid(game._pursuer)
+		and game._status_label.text.contains("cannot find"),
+		"Animal Control cannot spawn remotely in the cellar."
+	)
+	game._day_clock = 0.5
+	game._update_oddities_shop_schedule()
+	_check(
+		game._oddities_shop_scheduled_open
+		and shop.entrance_part_temporarily_open
+		and shop._door_body.collision_layer == 0,
+		"Daytime closure waits while the frog explores the connected cellar."
+	)
+
+	game._pending_growth_tier = 2
+	game._frog.global_position = cellar.global_position
+	game._last_safe_ground_position = cellar.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1
+		and cellar.interior_rect().has_point(game._frog.global_position),
+		"The cellar aisle supports maximum-size growth."
+	)
+
+	game._frog.global_position = music_box.global_position + Vector2(0, 110)
+	game._swallow_target(music_box, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id == "oddities_cellar_music_box"
+		and game._belly[0].movement_bounds == cellar.interior_rect(),
+		"Swallowing the Music Box preserves its cellar restock bounds."
+	)
+	game._spit_item(0)
+	var spat_music_box := _find_target(
+		game,
+		"oddities_cellar_music_box"
+	)
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_music_box)
+		and cellar.interior_rect().has_point(
+			spat_music_box.global_position
+		),
+		"Spitting the Music Box in the cellar returns it within the room."
+	)
+	game._swallow_target(spat_music_box, 1.0)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = cellar.exit_approach_position()
+	var handled_exit := game._try_handle_interior_transition_tap(
+		cellar.exit_marker_position()
+	)
+	_check(
+		handled_exit
+		and game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== shop.transition_door_approach_position()
+		and is_equal_approx(game._camera.rotation, city_camera_rotation),
+		"The cellar trapdoor returns to the shop immediately with Reduce motion."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains("curio cellar"),
+		"A Music Box carried upstairs cannot be spat into the shop."
+	)
+	game._digest_item(0)
+	game._frog.global_position = shop.global_position + Vector2(0, -310)
+	game._update_oddities_shop_schedule()
+	_check(
+		not game._oddities_shop_scheduled_open
+		and not shop.entrance_part_temporarily_open
+		and shop._door_body.collision_layer == 1,
+		"The shutter closes only after the frog leaves the cellar and shop."
+	)
+
+	shop.consume()
+	_check(
+		not shop.transition_door_hit_test(
+			shop.transition_door_world_position()
+		),
+		"Consuming Oddities Shop disables cellar access."
+	)
+	shop.restore()
+	_check(
+		shop.is_part_removed(PrototypeBuilding.PART_COUNTER)
+		and shop.transition_door_hit_test(
+			shop.transition_door_world_position()
+		),
+		"Restoring the shop preserves the removed shelf and cellar access."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
 func _test_market_rooftop(game_scene: PackedScene) -> void:
 	var game := game_scene.instantiate() as FrogGame
 	game.set_motion_scale(1.0)
@@ -3983,7 +4195,7 @@ func _test_market_rooftop(game_scene: PackedScene) -> void:
 		is_instance_valid(market)
 		and is_instance_valid(rooftop)
 		and is_instance_valid(beehive)
-		and game._interior_rooms.size() == 3
+		and game._interior_rooms.size() == 4
 		and market.transition_room_id == FrogGame.MARKET_ROOFTOP_ID
 		and market.transition_min_growth_tier == 1
 		and rooftop.return_label == "RETURN TO MARKET"
@@ -4163,7 +4375,7 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 		is_instance_valid(apartments)
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(vacuum)
-		and game._interior_rooms.size() == 3
+		and game._interior_rooms.size() == 4
 		and apartments.transition_room_id
 		== FrogGame.CANAL_UPPER_HALL_ID
 		and upper_hall.return_label == "RETURN TO LOBBY"

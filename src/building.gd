@@ -27,6 +27,8 @@ var transition_door_approach_offset := Vector2.INF
 var transition_door_label := ""
 var transition_room_id := ""
 var transition_min_growth_tier := 0
+var transition_required_removed_part := ""
+var transition_required_part_label := ""
 var entrance_schedule_open_label := ""
 var entrance_schedule_closed_label := ""
 var entrance_part_temporarily_open := false
@@ -179,8 +181,16 @@ func transition_door_approach_position() -> Vector2:
 func transition_door_hit_test(world_position: Vector2) -> bool:
 	return (
 		not consumed
+		and transition_door_unlocked()
 		and transition_door_position != Vector2.INF
 		and transition_door_world_position().distance_to(world_position) <= 56.0
+	)
+
+
+func transition_door_unlocked() -> bool:
+	return (
+		transition_required_removed_part.is_empty()
+		or is_part_removed(transition_required_removed_part)
 	)
 
 
@@ -329,7 +339,10 @@ func _draw_entrance_schedule_status() -> void:
 
 
 func _draw_transition_door() -> void:
-	if transition_door_position == Vector2.INF:
+	if (
+		transition_door_position == Vector2.INF
+		or not transition_door_unlocked()
+	):
 		return
 	draw_rect(
 		Rect2(

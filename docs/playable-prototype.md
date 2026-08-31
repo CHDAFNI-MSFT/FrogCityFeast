@@ -103,7 +103,7 @@ The prototype includes:
   actions, safely resets failed guided struggles, and returns to the city after
   required belly actions;
 - a Skip action that marks the tutorial complete and restores normal play;
-- a persistent, per-profile Frog Field Guide covering all 29 target IDs in the
+- a persistent, per-profile Frog Field Guide covering all 30 target IDs in the
   prototype, including Golden Cake, all four destructible-building sequences,
   and Animal Control;
 - first-swallow discovery credit that never adds score or growth, cannot be
@@ -144,6 +144,14 @@ The prototype includes:
   Moonlight Market is consumed;
 - a resistant tier-one Rooftop Beehive that remains scoped to the garden when
   spat out or restocked;
+- a marked Oddities Shop cellar trapdoor that unlocks only after the Curio
+  Shelf is removed, then leads through the same bounded transition to a solid
+  cellar with a fixed room camera and return-to-shop marker;
+- cellar hiding that ends active pursuit, blocks remote pursuer spawning,
+  defers the shop's daytime shutter closure, uses an immediate cut with Reduce
+  motion, and becomes inaccessible while Oddities Shop is consumed;
+- a resistant tier-one Cursed Music Box that remains scoped to the cellar when
+  spat out or restocked;
 - a Loose Phone positioned behind the Leap Café bar so the player must move
   into the café to get a clear tongue shot;
 - a Lobby Lamp and resistant Tenant's Cat that require entering Canal
@@ -158,6 +166,7 @@ The prototype includes:
 - a second complete destructible-building sequence for the Oddities Shop:
   - remove its shutter at any size;
   - grow once, enter the shop, and win a struggle with its Curio Shelf;
+  - optionally use the revealed trapdoor to explore the Curio Cellar;
   - remove its exterior banner;
   - reach maximum growth and win a struggle against the weakened shop; and
   - digest the whole structure or restore it with all three parts still gone;
@@ -252,7 +261,8 @@ bash scripts/check-project.sh
 
 The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
 traffic, deterministic city-activity levels and routes, Oddities Shop hours and
-safe deferred closure, the bounded rain schedule and density change,
+safe deferred closure through connected-cellar travel, growth- and
+destruction-gated room transitions, the bounded rain schedule and density change,
 frame-step-independent rain, static reduced-motion weather, pursuit, net windup
 and wall clearance, dodging, tongue interruption, rapid-tap escape and timeout
 damage, flight and growth immunity, profile persistence, Field Guide catalog
@@ -312,19 +322,19 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 273 game-subtree nodes, 34 collision objects, 55 collision shapes, 29 targets, 4 buildings, 3 separate rooms |
-| Ordinary pursuit | 275 nodes, 35 collision objects, 56 collision shapes, 1 pursuer |
-| Pursuit in active crowd cover | Pursuit structure remains at 275 nodes, 35 collision objects, and 56 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 275 nodes, 35 collision objects, and 56 collision shapes |
-| Animal Control snare | 276 nodes, 35 collision objects, 56 collision shapes, 1 pursuer, 1 draw-only snare |
-| Roadblock pursuit | 277 nodes, 36 collision objects, 57 collision shapes, 1 pursuer, 1 roadblock |
-| Reachable gameplay peak | 278 nodes, 36 collision objects, 57 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
-| Populated Belly sample | 64 items and rows, 529 nodes; this is a stress sample, not a gameplay capacity limit |
+| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 285 game-subtree nodes, 35 collision objects, 63 collision shapes, 30 targets, 4 buildings, 4 separate rooms |
+| Ordinary pursuit | 287 nodes, 36 collision objects, 64 collision shapes, 1 pursuer |
+| Pursuit in active crowd cover | Pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes |
+| Animal Control snare | 288 nodes, 36 collision objects, 64 collision shapes, 1 pursuer, 1 draw-only snare |
+| Roadblock pursuit | 289 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock |
+| Reachable gameplay peak | 290 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
+| Populated Belly sample | 64 items and rows, 541 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 30 rows, matching the fixed catalog |
+| Populated Field Guide | 31 rows, matching the fixed catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -334,15 +344,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 
 The harness uses fixed random seeds and covers baseline play, the night-open
 Oddities Shop, the active Leap Café stockroom, the active Canal Apartments
-upper hall, the progression-gated Moonlight Market rooftop garden, busy
-daytime, ordinary and crowd-cover pursuit, a temporary roadblock, a draw-only
-pursuit snare, an Animal Control net in flight, maximum growth, a finite
-maximum presentation burst, a 64-item Belly, the populated Field Guide, both
-accessibility options, and a reachable gameplay peak combining daytime
-activity, pursuit, growth, the roadblock, the snare, and presentation effects.
-It prints median FPS, frame-time percentiles, memory, and a post-sample render
-snapshot. The command-driven Windows run can show isolated scheduling/window
-stalls, so p95 is more useful than its maximum or arithmetic-mean FPS.
+upper hall, the progression-gated Moonlight Market rooftop garden, the
+fixture-gated Oddities Shop cellar, busy daytime, ordinary and crowd-cover
+pursuit, a temporary roadblock, a draw-only pursuit snare, an Animal Control
+net in flight, maximum growth, a finite maximum presentation burst, a 64-item
+Belly, the populated Field Guide, both accessibility options, and a reachable
+gameplay peak combining daytime activity, pursuit, growth, the roadblock, the
+snare, and presentation effects. It prints median FPS, frame-time percentiles,
+memory, and a post-sample render snapshot. The command-driven Windows run can
+show isolated scheduling/window stalls, so p95 is more useful than its maximum
+or arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.

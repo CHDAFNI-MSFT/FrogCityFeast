@@ -113,6 +113,8 @@ const CANAL_UPPER_HALL_ID := "canal_apartments_upper_hall"
 const CANAL_UPPER_HALL_POSITION := Vector2(3400, 1200)
 const MARKET_ROOFTOP_ID := "moonlight_market_rooftop"
 const MARKET_ROOFTOP_POSITION := Vector2(3400, 2400)
+const ODDITIES_CELLAR_ID := "oddities_shop_cellar"
+const ODDITIES_CELLAR_POSITION := Vector2(3400, 3600)
 const INTERIOR_TRANSITION_DURATION := 0.18
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
@@ -793,11 +795,9 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 			% [building.display_name, building.transition_door_label.to_lower()]
 		)
 		return true
-	if _growth_tier < building.transition_min_growth_tier:
-		_show_status(
-			"Grow once before using %s's %s."
-			% [building.display_name, building.transition_door_label.to_lower()]
-		)
+	var requirement := _interior_transition_requirement(building)
+	if not requirement.is_empty():
+		_show_status(requirement)
 		return true
 	var destination := building.transition_room_id
 	var approach_position := building.transition_door_approach_position()
@@ -826,6 +826,34 @@ func _building_for_interior_room(room_id: String) -> PrototypeBuilding:
 	return _building_by_id.get(building_id) as PrototypeBuilding
 
 
+func _interior_transition_requirement(
+	building: PrototypeBuilding
+) -> String:
+	if _growth_tier < building.transition_min_growth_tier:
+		return (
+			"Grow once before using %s's %s."
+			% [building.display_name, building.transition_door_label.to_lower()]
+		)
+	if (
+		not building.transition_required_removed_part.is_empty()
+		and not building.is_part_removed(
+			building.transition_required_removed_part
+		)
+	):
+		var part_label := building.transition_required_part_label
+		if part_label.is_empty():
+			part_label = "required fixture"
+		return (
+			"Remove the %s before using %s's %s."
+			% [
+				part_label,
+				building.display_name,
+				building.transition_door_label.to_lower(),
+			]
+		)
+	return ""
+
+
 func _begin_interior_transition(destination: String) -> void:
 	if _interior_transition_phase != InteriorTransitionPhase.NONE:
 		return
@@ -834,21 +862,14 @@ func _begin_interior_transition(destination: String) -> void:
 			return
 	elif _interior_rooms.has(destination):
 		var building := _building_for_interior_room(destination)
+		if is_instance_valid(building):
+			var requirement := _interior_transition_requirement(building)
+			if not requirement.is_empty():
+				_show_status(requirement)
+				return
 		if (
-			is_instance_valid(building)
-			and _growth_tier < building.transition_min_growth_tier
-		):
-			_show_status(
-				"Grow once before using %s's %s."
-				% [
-					building.display_name,
-					building.transition_door_label.to_lower(),
-				]
-			)
-			return
-		if (
-			not _active_interior_id.is_empty()
-			or not is_instance_valid(building)
+			not is_instance_valid(building)
+			or not _active_interior_id.is_empty()
 			or building.consumed
 			or not building.contains_world_point(_frog.global_position)
 			or building.transition_room_id != destination
@@ -3045,6 +3066,8 @@ func _update_oddities_shop_schedule() -> void:
 func _oddities_shop_doorway_occupied(
 	shop: PrototypeBuilding
 ) -> bool:
+	if _active_interior_id == ODDITIES_CELLAR_ID:
+		return true
 	var doorway := shop.entrance_part_world_rect().grow(
 		SHOP_DOORWAY_CLEARANCE
 	)
@@ -3889,7 +3912,30 @@ func _build_prototype_city() -> void:
 	)
 	oddities_shop.entrance_schedule_open_label = "NIGHT OPEN"
 	oddities_shop.entrance_schedule_closed_label = "OPENS AT NIGHT"
+	oddities_shop.transition_door_position = oddities_shop.counter_position
+	oddities_shop.transition_door_approach_offset = Vector2(-140, 0)
+	oddities_shop.transition_door_label = "CELLAR TRAPDOOR"
+	oddities_shop.transition_room_id = ODDITIES_CELLAR_ID
+	oddities_shop.transition_required_removed_part = (
+		PrototypeBuilding.PART_COUNTER
+	)
+	oddities_shop.transition_required_part_label = "Curio Shelf"
 	oddities_shop.queue_redraw()
+	var oddities_cellar := _spawn_interior_room(
+		ODDITIES_CELLAR_ID,
+		"Oddities Shop Curio Cellar",
+		ODDITIES_CELLAR_POSITION,
+		Vector2(1100, 820),
+		Color("665b78"),
+		[
+			Rect2(-430, -320, 260, 86),
+			Rect2(170, -320, 260, 86),
+			Rect2(-470, 20, 110, 190),
+			Rect2(360, -30, 110, 190),
+		],
+		oddities_shop.building_id,
+		"RETURN TO SHOP"
+	)
 	_spawn_destruction_targets(market)
 	_spawn_destruction_targets(cafe)
 	_spawn_destruction_targets(apartments)
@@ -4006,6 +4052,20 @@ func _build_prototype_city() -> void:
 		"color": Color("e0b64f"),
 	})
 	_spawn_destruction_targets(oddities_shop)
+	_spawn_target({
+		"id": "oddities_cellar_music_box",
+		"name": "Cursed Music Box",
+		"position": oddities_cellar.global_position + Vector2(-250, -180),
+		"value": 84,
+		"tier": 1,
+		"kind": "object",
+		"radius": 34.0,
+		"resistant": true,
+		"taps": 8,
+		"bounds": oddities_cellar.interior_rect(),
+		"building_id": ODDITIES_CELLAR_ID,
+		"color": Color("b68bc8"),
+	})
 	_spawn_target({
 		"id": "canal_lobby_lamp",
 		"name": "Lobby Lamp",
