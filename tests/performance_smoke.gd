@@ -50,6 +50,10 @@ func _run() -> void:
 		"The Animal Control projectile budget remains capped at one."
 	)
 	_check(
+		BUDGETS.MAX_ROADBLOCKS == 1,
+		"The Animal Control roadblock budget remains capped at one."
+	)
+	_check(
 		BUDGETS.MAX_INTERIOR_ROOMS == 1,
 		"The authored separate-room budget remains capped at one."
 	)
@@ -104,6 +108,12 @@ func _run() -> void:
 		{
 			"name": "crowd_pursuit",
 			"setup": _setup_crowd_pursuit,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "roadblock",
+			"setup": _setup_roadblock,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -260,6 +270,13 @@ func _setup_crowd_pursuit(game: FrogGame) -> void:
 	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION * 0.5)
 
 
+func _setup_roadblock(game: FrogGame) -> void:
+	game._frog.global_position = Vector2(0, -520)
+	game._spawn_pursuer()
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+
+
 func _setup_net_attack(game: FrogGame) -> void:
 	game._spawn_pursuer()
 	game._pursuer._begin_net_attack()
@@ -320,7 +337,7 @@ func _setup_accessibility_options(game: FrogGame) -> void:
 
 func _setup_gameplay_peak(game: FrogGame) -> void:
 	_setup_busy_daytime(game)
-	game._spawn_pursuer()
+	_setup_roadblock(game)
 	_setup_presentation_peak(game)
 
 
@@ -382,6 +399,13 @@ func _check_scenario_expectations(
 				and float(snapshot["crowd_hide_progress"]) > 0.0,
 				"Crowd-pursuit stress exercises active cover before escape."
 			)
+		"roadblock":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["roadblocks"])
+				== BUDGETS.MAX_ROADBLOCKS,
+				"Roadblock stress contains one pursuer and one physical barricade."
+			)
 		"net_attack":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -423,6 +447,8 @@ func _check_scenario_expectations(
 		"gameplay_peak":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["roadblocks"])
+				== BUDGETS.MAX_ROADBLOCKS
 				and int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS,
 				"Gameplay peak combines reachable pursuit and daytime activity."

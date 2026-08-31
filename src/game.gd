@@ -20,6 +20,7 @@ const EDIBLE_SCRIPT := preload("res://src/edible.gd")
 const BUILDING_SCRIPT := preload("res://src/building.gd")
 const INTERIOR_ROOM_SCRIPT := preload("res://src/interior_room.gd")
 const PURSUER_SCRIPT := preload("res://src/pursuer.gd")
+const ROADBLOCK_SCRIPT := preload("res://src/roadblock.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
 )
@@ -56,6 +57,35 @@ const CROWD_FULL_START := 0.22
 const CROWD_FULL_END := 0.50
 const CROWD_END := 0.56
 const CROWD_HIDE_DURATION := 1.75
+const ROADBLOCK_DEPLOY_DELAY := 3.0
+const ROADBLOCK_MIN_DISTANCE := 260.0
+const ROADBLOCK_MAX_DISTANCE := 850.0
+const ROADBLOCK_ANCHORS := [
+	{
+		"position": Vector2(0, -900),
+		"size": Vector2(360, 52),
+	},
+	{
+		"position": Vector2(-1080, -650),
+		"size": Vector2(280, 52),
+	},
+	{
+		"position": Vector2(0, 430),
+		"size": Vector2(360, 52),
+	},
+	{
+		"position": Vector2(-1080, 430),
+		"size": Vector2(280, 52),
+	},
+	{
+		"position": Vector2(0, 1080),
+		"size": Vector2(360, 52),
+	},
+	{
+		"position": Vector2(-1080, 1100),
+		"size": Vector2(280, 52),
+	},
+]
 const NET_ESCAPE_DURATION := 3.0
 const NET_ESCAPE_TAPS := 6
 const TARGET_STRUGGLE_TITLE := "It is trying to escape!"
@@ -333,6 +363,7 @@ var _buildings: Array[PrototypeBuilding] = []
 var _building_by_id: Dictionary = {}
 var _interior_rooms: Dictionary = {}
 var _pursuer: PrototypePursuer
+var _roadblock: PrototypeRoadblock
 
 var _tongue_recovery := 0.0
 var _tongue_phase := TonguePhase.HIDDEN
@@ -349,6 +380,8 @@ var _current_daylight := 0.0
 var _current_rain_intensity := 0.0
 var _current_crowd_intensity := 0.0
 var _crowd_hide_time := 0.0
+var _roadblock_deploy_time := 0.0
+var _roadblock_deployed := false
 var _last_safe_ground_position := Vector2.ZERO
 var _rare_respawn_pending: Dictionary = {}
 var _pending_growth_tier := -1
@@ -543,6 +576,7 @@ func _process(delta: float) -> void:
 	if _net_escape_active:
 		_update_net_escape(delta)
 	_update_crowd_hiding(delta)
+	_update_pursuit_roadblock(delta)
 
 	if is_instance_valid(_pull_target):
 		_pull_time_left -= delta
@@ -893,14 +927,16 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 			+ shot_offset.normalized() * _frog.tongue_range()
 		)
 		var range_obstruction := _first_tongue_obstruction(limited_end)
-		_show_tongue(
-			range_obstruction.get("position", limited_end) as Vector2
-			if not range_obstruction.is_empty()
-			else limited_end
-		)
-		_tongue_recovery = TONGUE_RECOVERY
-		AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
-		_show_status("That spot is out of tongue range.")
+		if not range_obstruction.is_empty():
+			_handle_tongue_obstruction(
+				range_obstruction,
+				"That spot is out of tongue range."
+			)
+		else:
+			_show_tongue(limited_end)
+			_tongue_recovery = TONGUE_RECOVERY
+			AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
+			_show_status("That spot is out of tongue range.")
 		return
 
 	var obstruction := _first_tongue_obstruction(
@@ -909,10 +945,10 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 		target
 	)
 	if not obstruction.is_empty():
-		_show_tongue(obstruction["position"] as Vector2)
-		_tongue_recovery = TONGUE_RECOVERY
-		AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
-		_show_status("The tongue bounced off a wall.")
+		_handle_tongue_obstruction(
+			obstruction,
+			"The tongue bounced off a wall."
+		)
 		return
 
 	if pursuer_hit != null:
@@ -1660,6 +1696,7 @@ func performance_structure_snapshot() -> Dictionary:
 		"interior_rooms": _interior_rooms.size(),
 		"active_interior": _active_interior_id,
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
+		"roadblocks": 1 if is_instance_valid(_roadblock) else 0,
 		"net_projectiles": (
 			_pursuer.active_net_projectile_count()
 			if is_instance_valid(_pursuer)
@@ -2173,6 +2210,138 @@ func _spawn_pursuer() -> void:
 	_pursuer.netted.connect(_on_pursuer_netted)
 	_pursuer.escaped.connect(_on_pursuer_escaped)
 	_world.add_child(_pursuer)
+	_clear_roadblock()
+	_roadblock_deploy_time = ROADBLOCK_DEPLOY_DELAY
+	_roadblock_deployed = false
+
+
+func _update_pursuit_roadblock(delta: float) -> void:
+	if not is_instance_valid(_pursuer):
+		_clear_roadblock()
+		return
+	if (
+		_roadblock_deployed
+		or not _active_interior_id.is_empty()
+		or not _frog.movement_enabled
+	):
+		return
+	_roadblock_deploy_time = maxf(
+		0.0,
+		_roadblock_deploy_time - maxf(0.0, delta)
+	)
+	if _roadblock_deploy_time > 0.0:
+		return
+	_roadblock_deployed = _spawn_roadblock()
+
+
+func _spawn_roadblock() -> bool:
+	if is_instance_valid(_roadblock):
+		return true
+	var configuration := _select_roadblock_anchor()
+	if configuration.is_empty():
+		return false
+	var roadblock := ROADBLOCK_SCRIPT.new() as PrototypeRoadblock
+	roadblock.position = configuration["position"] as Vector2
+	roadblock.barrier_size = configuration["size"] as Vector2
+	roadblock.removed.connect(_on_roadblock_removed)
+	_world.add_child(roadblock)
+	_roadblock = roadblock
+	_show_status("Animal Control blocked a nearby road!")
+	return true
+
+
+func _select_roadblock_anchor() -> Dictionary:
+	var selected := {}
+	var selected_distance := INF
+	for configuration_value in ROADBLOCK_ANCHORS:
+		var configuration := configuration_value as Dictionary
+		var position := configuration["position"] as Vector2
+		var distance := position.distance_to(_frog.global_position)
+		if (
+			distance < ROADBLOCK_MIN_DISTANCE
+			or distance > ROADBLOCK_MAX_DISTANCE
+			or not _roadblock_anchor_clear(configuration)
+		):
+			continue
+		if distance < selected_distance:
+			selected = configuration
+			selected_distance = distance
+	return selected
+
+
+func _roadblock_anchor_clear(configuration: Dictionary) -> bool:
+	var position := configuration["position"] as Vector2
+	var size := configuration["size"] as Vector2
+	var footprint := Rect2(position - size / 2.0, size)
+	if not WORLD_RECT.encloses(footprint.grow(24.0)):
+		return false
+	var shape := RectangleShape2D.new()
+	shape.size = size
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = shape
+	query.transform = Transform2D(0.0, position)
+	query.collision_mask = 1
+	if not get_world_2d().direct_space_state.intersect_shape(query, 16).is_empty():
+		return false
+	for building in _buildings:
+		if (
+			is_instance_valid(building)
+			and not building.consumed
+			and footprint.grow(24.0).intersects(
+				building.footprint_rect()
+			)
+		):
+			return false
+	for target in _targets:
+		if (
+			is_instance_valid(target)
+			and target.kind != "building"
+			and _circle_overlaps_rect(
+				target.global_position,
+				target.pick_radius + 24.0,
+				footprint
+			)
+		):
+			return false
+	return true
+
+
+func _handle_tongue_obstruction(
+	obstruction: Dictionary,
+	fallback_status: String
+) -> void:
+	_show_tongue(obstruction["position"] as Vector2)
+	_tongue_recovery = TONGUE_RECOVERY
+	var collider := obstruction.get("collider") as Object
+	if is_instance_valid(_roadblock) and collider == _roadblock:
+		var roadblock := _roadblock
+		var broken := roadblock.register_tongue_hit()
+		AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
+		if broken:
+			_show_status("The Animal Control roadblock broke apart!")
+		else:
+			_show_status(
+				"Roadblock hit! %d more tongue hits."
+				% roadblock.remaining_hits()
+			)
+		return
+	AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
+	_show_status(fallback_status)
+
+
+func _clear_roadblock() -> void:
+	_roadblock_deploy_time = 0.0
+	if is_instance_valid(_roadblock):
+		_roadblock.dismiss(false)
+	_roadblock = null
+
+
+func _on_roadblock_removed(
+	roadblock: PrototypeRoadblock,
+	_broken: bool
+) -> void:
+	if _roadblock == roadblock:
+		_roadblock = null
 
 
 func _find_pursuer_spawn_position() -> Vector2:
@@ -2348,6 +2517,7 @@ func _on_pursuer_escaped() -> void:
 	if _net_escape_active:
 		_clear_net_escape()
 	_pursuer = null
+	_clear_roadblock()
 	_reset_crowd_hiding()
 	_show_status("You escaped Animal Control!")
 
@@ -2386,6 +2556,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	pursuer.active = false
 	pursuer.queue_free()
 	_pursuer = null
+	_clear_roadblock()
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
 	_effects.emit_swallow(effect_position, item.target_color)
 	_tongue_recovery = TONGUE_RECOVERY
@@ -3313,6 +3484,7 @@ func _end_game() -> void:
 		_clear_struggle()
 	if _net_escape_active:
 		_clear_net_escape()
+	_clear_roadblock()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 	get_tree().paused = false
 	end_requested.emit(_score)

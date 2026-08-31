@@ -349,6 +349,7 @@ func _run() -> void:
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
+	await _test_pursuer_roadblock(game_scene)
 	await _test_pursuer_net_escape(game_scene)
 	await _test_accessibility(game_scene)
 	await _test_game_feel(game_scene)
@@ -1755,6 +1756,188 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 	_check(
 		is_equal_approx(actual_random, expected_random),
 		"Animal Control net attacks do not consume the gameplay random-number stream."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
+func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("roadblock_test", "Roadblock Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	game._frog.global_position = Vector2(1500, -500)
+	game._spawn_pursuer()
+	var pursuer := game._pursuer
+	_check(
+		is_instance_valid(pursuer)
+		and not is_instance_valid(game._roadblock)
+		and is_equal_approx(
+			game._roadblock_deploy_time,
+			FrogGame.ROADBLOCK_DEPLOY_DELAY
+		),
+		"Animal Control begins pursuit before deploying one delayed roadblock."
+	)
+	if not is_instance_valid(pursuer):
+		game.queue_free()
+		await process_frame
+		return
+	pursuer.set_physics_process(false)
+
+	game._frog.movement_enabled = false
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	var blocked_while_rooted := not is_instance_valid(game._roadblock)
+	game._frog.movement_enabled = true
+	seed(20260830)
+	var expected_random := randf()
+	seed(20260830)
+	game._update_pursuit_roadblock(0.1)
+	var waits_for_safe_anchor := (
+		not is_instance_valid(game._roadblock)
+		and not game._roadblock_deployed
+	)
+	game._frog.global_position = Vector2(0, -520)
+	game._update_pursuit_roadblock(0.0)
+	var actual_random := randf()
+	await physics_frame
+	var roadblock := game._roadblock
+	var score_before := game._score
+	var growth_before := game._growth_points
+	var target_count_before := game._targets.size()
+	var discovery_count_before := game._known_discovery_count()
+	_check(
+		blocked_while_rooted
+		and waits_for_safe_anchor
+		and is_instance_valid(roadblock)
+		and roadblock.global_position == Vector2(0, -900)
+		and roadblock.barrier_size == Vector2(360, 52)
+		and roadblock.remaining_hits()
+		== PrototypeRoadblock.REQUIRED_HITS
+		and is_equal_approx(actual_random, expected_random),
+		"The roadblock retries until the nearest safe authored anchor is available without gameplay RNG."
+	)
+	if not is_instance_valid(roadblock):
+		game.queue_free()
+		await process_frame
+		return
+	var roadblock_rect := Rect2(
+		roadblock.global_position - roadblock.barrier_size / 2.0,
+		roadblock.barrier_size
+	)
+	var avoids_targets := true
+	for target in game._targets:
+		if (
+			is_instance_valid(target)
+			and target.kind != "building"
+			and game._circle_overlaps_rect(
+				target.global_position,
+				target.pick_radius,
+				roadblock_rect
+			)
+		):
+			avoids_targets = false
+	_check(
+		not game._circle_position_clear(
+			roadblock.global_position,
+			28.0,
+			true
+		)
+		and avoids_targets
+		and not game._position_inside_building(
+			roadblock.global_position
+		),
+		"The deployed barricade blocks ground movement without covering targets or buildings."
+	)
+	var initial_snapshot := game.performance_structure_snapshot()
+	game._update_pursuit_roadblock(100.0)
+	_check(
+		game._roadblock == roadblock
+		and int(initial_snapshot["roadblocks"]) == 1,
+		"One pursuit can deploy at most one roadblock."
+	)
+
+	game._frog.global_position = (
+		roadblock.global_position + Vector2(0, 180)
+	)
+	game._camera.rotation = 0.0
+	game._update_camera()
+	await process_frame
+	var aim_position := (
+		roadblock.global_position - Vector2(0, 180)
+	)
+	for expected_remaining in [2, 1]:
+		game._tongue_recovery = 0.0
+		game._try_tongue_at_screen(
+			game.get_viewport().get_canvas_transform()
+			* aim_position
+		)
+		_check(
+			game._roadblock == roadblock
+			and roadblock.remaining_hits() == expected_remaining
+			and game._status_label.text.contains("Roadblock hit"),
+			"Each obstructed tongue shot visibly damages the roadblock."
+		)
+	game._tongue_recovery = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* aim_position
+	)
+	await process_frame
+	await physics_frame
+	_check(
+		not is_instance_valid(game._roadblock)
+		and game._circle_position_clear(
+			roadblock_rect.get_center(),
+			28.0,
+			true
+		)
+		and game._status_label.text.contains("broke apart")
+		and game._score == score_before
+		and game._growth_points == growth_before
+		and game._targets.size() == target_count_before
+		and game._known_discovery_count() == discovery_count_before,
+		"Three tongue hits remove the barricade without rewards or progression changes."
+	)
+	game._update_pursuit_roadblock(PrototypeRoadblock.LIFETIME)
+	_check(
+		not is_instance_valid(game._roadblock),
+		"A broken roadblock cannot redeploy during the same pursuit."
+	)
+
+	game._roadblock_deployed = false
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	var expiring_roadblock := game._roadblock
+	if is_instance_valid(expiring_roadblock):
+		expiring_roadblock._process(PrototypeRoadblock.LIFETIME)
+	await process_frame
+	_check(
+		not is_instance_valid(game._roadblock)
+		and is_instance_valid(game._pursuer),
+		"An unbroken roadblock expires after its bounded lifetime without ending pursuit."
+	)
+
+	game._roadblock_deployed = false
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	var escape_roadblock := game._roadblock
+	pursuer._escape()
+	await process_frame
+	_check(
+		not is_instance_valid(game._pursuer)
+		and not is_instance_valid(game._roadblock)
+		and (
+			not is_instance_valid(escape_roadblock)
+			or escape_roadblock.collision_layer == 0
+		),
+		"Ending pursuit immediately clears its temporary roadblock."
 	)
 
 	game.queue_free()

@@ -78,22 +78,24 @@ profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
 prototype permits 27 gameplay targets, 4 buildings, 1 separate interior room,
-1 pursuer, 20 draw-only city actors, 84 draw-only rain streaks, 1 draw-only
-Animal Control net projectile, 24 capped world effects, 3 touch cues, and 6
-fixed audio players including 4 reusable effect voices. Baseline and stockroom
-states permit up to 249 game-subtree nodes, 32 collision objects, and 39
-collision shapes; pursuit, net attack, and the reachable gameplay peak permit
-251 nodes, 33 collision objects, and 40 collision shapes. The performance Belly
-scenario renders 64 item rows within 505 nodes without changing the belly's
-unlimited gameplay semantics. The populated Field Guide contains exactly 28
-rows.
+1 pursuer, 1 temporary physical roadblock, 20 draw-only city actors, 84
+draw-only rain streaks, 1 draw-only Animal Control net projectile, 24 capped
+world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
+effect voices. Baseline and stockroom states permit up to 249 game-subtree
+nodes, 32 collision objects, and 39 collision shapes; ordinary pursuit and net
+attack permit 251 nodes, 33 collision objects, and 40 collision shapes; a
+roadblock pursuit and the reachable gameplay peak permit 253 nodes, 34
+collision objects, and 41 collision shapes. The performance Belly scenario
+renders 64 item rows within 505 nodes without changing the belly's unlimited
+gameplay semantics. The populated Field Guide contains exactly 28 rows.
 
 Reproducible stress coverage includes busy daytime city activity, peak rain,
-pursuit, active crowd cover, a net in flight, maximum growth, a finite
-simultaneous presentation burst, a 64-item Belly, the fully populated Field
-Guide, both accessibility settings, and a reachable gameplay peak. Desktop
-measurements are advisory; the target iPad release build is authoritative. The
-exact commands and current local measurement notes are recorded in
+pursuit, active crowd cover, a roadblock pursuit, a net in flight, maximum
+growth, a finite simultaneous presentation burst, a 64-item Belly, the fully
+populated Field Guide, both accessibility settings, and a reachable gameplay
+peak. Desktop measurements are advisory; the target iPad release build is
+authoritative. The exact commands and current local measurement notes are
+recorded in
 [`playable-prototype.md`](playable-prototype.md).
 
 ## Player character and touch controls
@@ -333,8 +335,17 @@ and a static progress ring fills as an eligible frog stays within the crowd.
 Completing the short hold dismisses Animal Control without awarding score,
 growth, challenge progress, or Field Guide credit.
 
-Some obstacles temporarily block the tongue, cause it to bounce away, and can
-be broken after repeated hits.
+The prototype implements the first temporary pursuit obstacle as one Animal
+Control roadblock per chase. After three unpaused, movement-enabled pursuit
+seconds, the nearest safe authored road anchor 260–850 units from the frog
+receives a physical barricade; if no anchor is currently valid, deployment
+waits and retries without consuming the chase's roadblock. The barricade blocks
+ground movement, pursuer movement, net sweeps, and tongue rays. Three tongue
+hits break it, while an untouched barricade expires after ten seconds. Breaking
+or expiry never deploys a replacement during the same pursuit, and ending the
+pursuit clears it immediately. Placement is deterministic, uses no gameplay
+random numbers, and changes no score, growth, target, save, challenge, or Field
+Guide state.
 
 If a pursuer catches the frog:
 
