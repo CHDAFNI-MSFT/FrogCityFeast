@@ -38,6 +38,11 @@ The prototype includes:
 - traffic that is dangerous while the frog is small and edible at maximum
   growth;
 - Animal Control pursuit after an escaped target calls for help;
+- a deterministic Animal Control net attack with a 0.8-second warning, one
+  wall-aware draw-only projectile, a dodge window, and a three-second six-tap
+  escape;
+- net failure that reuses the existing 25-point capped loss and knockback,
+  while flight and maximum growth prevent capture;
 - knockback and score loss that never reduces the score below zero;
 - short, deterministic, eight-pixel-or-less camera shake for damage and whole
   building captures, suppressed during camera gestures and struggles;
@@ -206,16 +211,17 @@ bash scripts/check-project.sh
 The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
 traffic, deterministic city-activity levels and routes, the bounded rain
 schedule and density change, frame-step-independent rain, static reduced-motion
-weather, pursuit, flight, profile persistence, Field Guide catalog and overlay
-behavior, legacy discovery saves, per-profile accessibility persistence and
-legacy defaults, touch-target sizing, safe-area layout, touch feedback,
-reduced-motion transitions, deterministic session challenges, original audio
-resources and provenance, audio buses and semantic event wiring, bounded
-player/cooldown behavior, per-profile audio persistence and legacy defaults,
-loop lifecycle, gameplay RNG isolation, performance structure and stress
-budgets, the credential-free iOS pipeline configuration, tutorial sequence,
-action restrictions, guided struggle recovery, Skip behavior, and tutorial
-completion persistence.
+weather, pursuit, net windup and wall clearance, dodging, tongue interruption,
+rapid-tap escape and timeout damage, flight and growth immunity, profile
+persistence, Field Guide catalog and overlay behavior, legacy discovery saves,
+per-profile accessibility persistence and legacy defaults, touch-target sizing,
+safe-area layout, touch feedback, reduced-motion transitions, deterministic
+session challenges, original audio resources and provenance, audio buses and
+semantic event wiring, bounded player/cooldown behavior, per-profile audio
+persistence and legacy defaults, loop lifecycle, gameplay RNG isolation,
+performance structure and stress budgets, the credential-free iOS pipeline
+configuration, tutorial sequence, action restrictions, guided struggle
+recovery, Skip behavior, and tutorial completion persistence.
 
 ## Performance instrumentation and budgets
 
@@ -265,6 +271,7 @@ The deterministic structural budgets are enforced in CI:
 |---|---|
 | Baseline, busy daytime, maximum growth, Field Guide, or options | 236 game-subtree nodes, 31 collision objects and shapes, 26 targets, 4 buildings |
 | Pursuit or gameplay peak | 238 nodes, 32 collision objects and shapes, 1 pursuer |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 238 nodes and 32 collision objects and shapes |
 | Populated Belly sample | 64 items and rows, 492 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 pedestrians plus 5 secondary vehicles, all draw-only |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
@@ -279,12 +286,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 ```
 
 The harness uses fixed random seeds and covers baseline play, busy daytime,
-pursuit, maximum growth, a finite maximum presentation burst, a 64-item Belly,
-the populated Field Guide, both accessibility options, and a reachable gameplay
-peak combining daytime activity, pursuit, growth, and presentation effects. It
-prints median FPS, frame-time percentiles, memory, and a post-sample render
-snapshot. The command-driven Windows run can show isolated scheduling/window
-stalls, so p95 is more useful than its maximum or arithmetic-mean FPS.
+pursuit, an Animal Control net in flight, maximum growth, a finite maximum
+presentation burst, a 64-item Belly, the populated Field Guide, both
+accessibility options, and a reachable gameplay peak combining daytime
+activity, pursuit, growth, and presentation effects. It prints median FPS,
+frame-time percentiles, memory, and a post-sample render snapshot. The
+command-driven Windows run can show isolated scheduling/window stalls, so p95
+is more useful than its maximum or arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.
@@ -337,7 +345,7 @@ The following parts of the full design are not implemented yet:
 - procedural endless city generation and additional districts;
 - authored multi-room interiors with separate transitions;
 - pathfinding around complex city geometry;
-- several pursuer types, nets, traps, and roadblocks;
+- several pursuer types, traps, and roadblocks;
 - storms, festivals, shops with schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;

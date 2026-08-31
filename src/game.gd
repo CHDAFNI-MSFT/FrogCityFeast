@@ -44,6 +44,10 @@ const RAIN_START := 0.58
 const RAIN_FULL_START := 0.62
 const RAIN_FULL_END := 0.74
 const RAIN_END := 0.78
+const NET_ESCAPE_DURATION := 3.0
+const NET_ESCAPE_TAPS := 6
+const TARGET_STRUGGLE_TITLE := "It is trying to escape!"
+const TARGET_STRUGGLE_HINT := "Tap rapidly anywhere!"
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
 const DISCOVERY_BANNER_DURATION := 2.2
@@ -264,6 +268,8 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _challenge_summary: Label = %ChallengeSummary
 @onready var _struggle_panel: PanelContainer = %StrugglePanel
 @onready var _struggle_progress: ProgressBar = %Progress
+@onready var _struggle_title: Label = $HUD/Root/StrugglePanel/Margin/Content/Title
+@onready var _struggle_hint: Label = $HUD/Root/StrugglePanel/Margin/Content/Hint
 @onready var _belly_overlay: Control = %BellyOverlay
 @onready var _belly_center: CenterContainer = $HUD/Root/BellyOverlay/Center
 @onready var _belly_list: VBoxContainer = %BellyList
@@ -332,7 +338,10 @@ var _struggle_accuracy := 0.0
 var _struggle_taps := 0
 var _struggle_time_left := 0.0
 var _struggle_hit_offset := Vector2.ZERO
-
+var _net_escape_active := false
+var _net_escape_taps := 0
+var _net_escape_time_left := 0.0
+var _net_source_position := Vector2.ZERO
 var _pull_target: EdibleTarget
 var _pull_time_left := 0.0
 var _pull_hit_offset := Vector2.ZERO
@@ -496,6 +505,8 @@ func _process(delta: float) -> void:
 		_struggle_time_left -= delta
 		if _struggle_time_left <= 0.0:
 			_fail_struggle()
+	if _net_escape_active:
+		_update_net_escape(delta)
 
 	if is_instance_valid(_pull_target):
 		_pull_time_left -= delta
@@ -550,6 +561,10 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 		if _touch_over_hud_action(event.position):
 			_active_touches[event.index] = {"blocked": true}
 			return
+		if _net_escape_active:
+			_register_net_escape_tap()
+			_active_touches[event.index] = {"blocked": true}
+			return
 		if is_instance_valid(_struggle_target):
 			_register_struggle_tap()
 			_active_touches[event.index] = {"blocked": true}
@@ -594,7 +609,9 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if event.button_index != MOUSE_BUTTON_LEFT or not event.pressed:
 		return
 
-	if is_instance_valid(_struggle_target):
+	if _net_escape_active:
+		_register_net_escape_tap()
+	elif is_instance_valid(_struggle_target):
 		_register_struggle_tap()
 	elif event.double_click:
 		_try_tongue_at_screen(event.position)
@@ -603,6 +620,9 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 
 func _handle_world_tap(screen_position: Vector2) -> void:
+	if _net_escape_active:
+		_show_status("Tap rapidly anywhere to break free from the net!")
+		return
 	if is_instance_valid(_pull_target):
 		_show_status("The tongue is pulling the frog right now.")
 		return
@@ -633,6 +653,9 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 
 
 func _try_tongue_at_screen(screen_position: Vector2) -> void:
+	if _net_escape_active:
+		_show_status("Break free from the net before using the tongue.")
+		return
 	_touch_feedback.show_tongue(screen_position)
 	if is_instance_valid(_pull_target):
 		_show_status("Finish being pulled before shooting again.")
@@ -753,6 +776,8 @@ func _begin_struggle(target: EdibleTarget, accuracy: float, hit_offset: Vector2)
 	_struggle_time_left = STRUGGLE_DURATION
 	_struggle_progress.max_value = target.taps_required
 	_struggle_progress.value = 0
+	_struggle_title.text = TARGET_STRUGGLE_TITLE
+	_struggle_hint.text = TARGET_STRUGGLE_HINT
 	_struggle_panel.visible = true
 	_frog.movement_enabled = false
 	if _tongue_phase == TonguePhase.HIDDEN:
@@ -885,6 +910,9 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 
 
 func _open_belly() -> void:
+	if _net_escape_active:
+		_show_status("Break free from the net before opening the belly.")
+		return
 	if is_instance_valid(_struggle_target):
 		_show_status("Finish the struggle before opening the belly.")
 		return
@@ -930,6 +958,9 @@ func _open_guide() -> void:
 		return
 	if is_instance_valid(_struggle_target):
 		_show_status("Finish the struggle before opening the Field Guide.")
+		return
+	if _net_escape_active:
+		_show_status("Break free from the net before opening the Field Guide.")
 		return
 	if is_instance_valid(_pull_target):
 		_show_status("Finish being pulled before opening the Field Guide.")
@@ -1403,6 +1434,12 @@ func performance_structure_snapshot() -> Dictionary:
 		"targets": _targets.size(),
 		"buildings": _buildings.size(),
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
+		"net_projectiles": (
+			_pursuer.active_net_projectile_count()
+			if is_instance_valid(_pursuer)
+			else 0
+		),
+		"frog_netted": _net_escape_active,
 		"belly_items": _belly.size(),
 		"belly_rows": _belly_list.get_child_count(),
 		"guide_rows": _guide_list.get_child_count(),
@@ -1451,6 +1488,8 @@ func _apply_motion_scale(value: float) -> void:
 		_effects.set_motion_scale(_motion_scale)
 	if is_instance_valid(_city_activity):
 		_city_activity.set_motion_scale(_motion_scale)
+	if is_instance_valid(_pursuer):
+		_pursuer.set_presentation_motion_scale(_motion_scale)
 	if is_instance_valid(_frog):
 		_frog.set_presentation_motion_scale(_motion_scale)
 	for target in _targets:
@@ -1878,7 +1917,9 @@ func _spawn_pursuer() -> void:
 	_pursuer = PURSUER_SCRIPT.new() as PrototypePursuer
 	_pursuer.frog = _frog
 	_pursuer.position = spawn_position
+	_pursuer.set_presentation_motion_scale(_motion_scale)
 	_pursuer.caught.connect(_on_pursuer_caught)
+	_pursuer.netted.connect(_on_pursuer_netted)
 	_pursuer.escaped.connect(_on_pursuer_escaped)
 	_world.add_child(_pursuer)
 
@@ -1975,10 +2016,86 @@ func _activate_next_ordered_building_part(
 
 
 func _on_pursuer_caught(source_position: Vector2) -> void:
+	if _net_escape_active:
+		_clear_net_escape()
 	_apply_damage(source_position, 25, "Animal Control caught you! You lost some points.")
 
 
+func _on_pursuer_netted(source_position: Vector2) -> void:
+	if _frog.growth_tier >= 2 or _frog.is_flying:
+		if is_instance_valid(_pursuer):
+			_pursuer.set_frog_netted(false)
+		return
+	if is_instance_valid(_struggle_target):
+		_fail_struggle()
+	if is_instance_valid(_pull_target):
+		_cancel_pull()
+	_net_escape_active = true
+	_net_escape_taps = 0
+	_net_escape_time_left = NET_ESCAPE_DURATION
+	_net_source_position = source_position
+	_struggle_progress.max_value = NET_ESCAPE_TAPS
+	_struggle_progress.value = 0
+	_struggle_title.text = "Caught in Animal Control's net!"
+	_struggle_hint.text = "Tap rapidly anywhere to break free!"
+	_struggle_panel.visible = true
+	_frog.stop_moving()
+	_frog.movement_enabled = false
+	_reset_touch_input_state()
+	_show_status("Animal Control netted you! Tap rapidly to escape.")
+
+
+func _update_net_escape(delta: float) -> void:
+	if not _net_escape_active or delta <= 0.0:
+		return
+	_net_escape_time_left = maxf(0.0, _net_escape_time_left - delta)
+	if _net_escape_time_left <= 0.0:
+		_fail_net_escape()
+
+
+func _register_net_escape_tap() -> void:
+	if not _net_escape_active:
+		return
+	AudioDirector.play_effect(FrogAudioDirector.STRUGGLE_TAP)
+	_net_escape_taps += 1
+	_struggle_progress.value = _net_escape_taps
+	if is_instance_valid(_pursuer):
+		_pursuer.pulse_net()
+	if _net_escape_taps >= NET_ESCAPE_TAPS:
+		_clear_net_escape()
+		_show_status("You tore through Animal Control's net!")
+
+
+func _fail_net_escape() -> void:
+	var source_position := _net_source_position
+	var damage_blocked := _damage_cooldown > 0.0
+	_clear_net_escape()
+	if damage_blocked:
+		_show_status("The net tightened, but the frog was still recovering.")
+		return
+	_apply_damage(
+		source_position,
+		25,
+		"Animal Control tightened the net! You lost some points."
+	)
+
+
+func _clear_net_escape() -> void:
+	_net_escape_active = false
+	_net_escape_taps = 0
+	_net_escape_time_left = 0.0
+	_net_source_position = Vector2.ZERO
+	_struggle_panel.visible = false
+	_struggle_title.text = TARGET_STRUGGLE_TITLE
+	_struggle_hint.text = TARGET_STRUGGLE_HINT
+	_frog.movement_enabled = true
+	if is_instance_valid(_pursuer):
+		_pursuer.set_frog_netted(false)
+
+
 func _on_pursuer_escaped() -> void:
+	if _net_escape_active:
+		_clear_net_escape()
 	_pursuer = null
 	_show_status("You escaped Animal Control!")
 
@@ -1992,6 +2109,8 @@ func _is_actively_chased() -> bool:
 
 
 func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
+	if _net_escape_active:
+		_clear_net_escape()
 	var effect_position := pursuer.global_position
 	var item := BellyItem.new()
 	item.target_id = "animal_control"
@@ -2849,6 +2968,8 @@ func _find_target_by_id(target_id: String) -> EdibleTarget:
 func _end_game() -> void:
 	if is_instance_valid(_struggle_target):
 		_clear_struggle()
+	if _net_escape_active:
+		_clear_net_escape()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 	get_tree().paused = false
 	end_requested.emit(_score)

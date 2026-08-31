@@ -40,6 +40,10 @@ func _run() -> void:
 		"The rain-streak budget matches the draw-only presentation cap."
 	)
 	_check(
+		BUDGETS.MAX_NET_PROJECTILES == 1,
+		"The Animal Control projectile budget remains capped at one."
+	)
+	_check(
 		BUDGETS.FIELD_GUIDE_ROWS == DiscoveryCatalog.count(),
 		"The Field Guide budget matches the catalog."
 	)
@@ -75,6 +79,12 @@ func _run() -> void:
 		{
 			"name": "pursuit",
 			"setup": _setup_pursuit,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "net_attack",
+			"setup": _setup_net_attack,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -208,6 +218,14 @@ func _setup_pursuit(game: FrogGame) -> void:
 	game._spawn_pursuer()
 
 
+func _setup_net_attack(game: FrogGame) -> void:
+	game._spawn_pursuer()
+	game._pursuer._begin_net_attack()
+	game._pursuer._advance_net_attack(
+		PrototypePursuer.NET_WINDUP_DURATION
+	)
+
+
 func _setup_maximum_growth(game: FrogGame) -> void:
 	game._apply_growth_tier(2)
 
@@ -304,6 +322,14 @@ func _check_scenario_expectations(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS,
 				"Pursuit stress contains one Animal Control pursuer."
 			)
+		"net_attack":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["net_projectiles"])
+				== BUDGETS.MAX_NET_PROJECTILES
+				and not bool(snapshot["frog_netted"]),
+				"Net-attack stress contains one draw-only projectile in flight."
+			)
 		"maximum_growth":
 			_check(
 				int(snapshot["growth_tier"]) == 2,
@@ -368,10 +394,22 @@ func _measure_scenario(
 	var frame_ms: Array[float] = []
 	if scenario_name in ["presentation_peak", "gameplay_peak"]:
 		_setup_presentation_peak(game)
+	elif scenario_name == "net_attack":
+		if game._net_escape_active:
+			game._clear_net_escape()
+		game._pursuer.cancel_net_attack()
+		game._pursuer._begin_net_attack()
+		game._pursuer._advance_net_attack(
+			PrototypePursuer.NET_WINDUP_DURATION
+		)
 	var last_tick := Time.get_ticks_usec()
 	var sample_seconds := (
 		BUDGETS.TRANSIENT_SAMPLE_SECONDS
-		if scenario_name in ["presentation_peak", "gameplay_peak"]
+		if scenario_name in [
+			"presentation_peak",
+			"gameplay_peak",
+			"net_attack",
+		]
 		else BUDGETS.LOCAL_SAMPLE_SECONDS
 	)
 	var sample_end := (

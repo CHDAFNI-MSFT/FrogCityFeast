@@ -347,6 +347,7 @@ func _run() -> void:
 	await _test_canal_apartments_sequence(game_scene)
 	await _test_building_interiors(game_scene)
 	await _test_city_activity(game_scene)
+	await _test_pursuer_net_escape(game_scene)
 	await _test_accessibility(game_scene)
 	await _test_game_feel(game_scene)
 	await _test_feel_effects_component()
@@ -1366,6 +1367,205 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 
 	single_step.free()
 	many_steps.free()
+	game.queue_free()
+	await process_frame
+
+
+func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("net_escape_test", "Net Escape Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	game._spawn_pursuer()
+	var pursuer := game._pursuer
+	_check(
+		is_instance_valid(pursuer),
+		"Animal Control is available for the net-escape test."
+	)
+	if not is_instance_valid(pursuer):
+		game.queue_free()
+		await process_frame
+		return
+	pursuer.set_physics_process(false)
+
+	var launch_position := pursuer.global_position
+	var original_frog_position := game._frog.global_position
+	var launch_distance := launch_position.distance_to(original_frog_position)
+	_check(
+		PrototypePursuer.NET_INITIAL_COOLDOWN * pursuer.speed
+		< (
+			PrototypePursuer.NET_MAX_DISTANCE
+			- PrototypePursuer.NET_MIN_DISTANCE
+		),
+		"The initial cooldown leaves time to throw before Animal Control reaches catch range."
+	)
+	pursuer._net_cooldown = 0.0
+	_check(
+		pursuer._can_start_net_attack(launch_distance),
+		"Animal Control only readies a net in its bounded range with a clear path."
+	)
+	var blocker := StaticBody2D.new()
+	blocker.position = launch_position.lerp(original_frog_position, 0.5)
+	blocker.collision_layer = 1
+	var blocker_collision := CollisionShape2D.new()
+	var blocker_shape := CircleShape2D.new()
+	blocker_shape.radius = 38.0
+	blocker_collision.shape = blocker_shape
+	blocker.add_child(blocker_collision)
+	game._world.add_child(blocker)
+	await physics_frame
+	_check(
+		not pursuer._net_path_clear(
+			launch_position,
+			original_frog_position
+		),
+		"The net's full radius cannot pass through blocking geometry."
+	)
+	blocker.queue_free()
+	await physics_frame
+	pursuer._begin_net_attack()
+	_check(
+		pursuer._net_phase == PrototypePursuer.NetPhase.WINDUP
+		and pursuer.active_net_projectile_count() == 0,
+		"The net attack begins with a visible windup before creating a projectile."
+	)
+	pursuer._advance_net_attack(PrototypePursuer.NET_WINDUP_DURATION)
+	var net_snapshot := game.performance_structure_snapshot()
+	_check(
+		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
+		and pursuer.active_net_projectile_count() == 1
+		and int(net_snapshot["net_projectiles"]) == 1
+		and int(net_snapshot["game_nodes"]) == 238
+		and int(net_snapshot["collision_objects"]) == 32,
+		"The flying net is a bounded draw-only state with no added scene or physics nodes."
+	)
+
+	game._frog.global_position = (
+		original_frog_position
+		+ (original_frog_position - launch_position).orthogonal().normalized()
+		* 180.0
+	)
+	for _step in 30:
+		pursuer._advance_net_attack(0.05)
+		if not pursuer.net_attack_active():
+			break
+	_check(
+		not pursuer.net_attack_active()
+		and not game._net_escape_active,
+		"Moving out of the telegraphed path dodges the net."
+	)
+
+	game._frog.global_position = original_frog_position
+	pursuer._begin_net_attack()
+	pursuer._advance_net_attack(PrototypePursuer.NET_WINDUP_DURATION)
+	for _step in 30:
+		pursuer._advance_net_attack(0.05)
+		if game._net_escape_active:
+			break
+	_check(
+		game._net_escape_active
+		and pursuer.is_frog_netted()
+		and not game._frog.movement_enabled
+		and game._struggle_panel.visible
+		and game._struggle_title.text.contains("Animal Control")
+		and game._struggle_progress.max_value == FrogGame.NET_ESCAPE_TAPS,
+		"A net hit roots the frog and starts the shared rapid-tap escape panel."
+	)
+
+	game._frog._has_move_target = false
+	game._handle_world_tap(Vector2(640, 480))
+	game._try_tongue_at_screen(Vector2(640, 480))
+	game._open_belly()
+	game._open_guide()
+	_check(
+		not game._frog._has_move_target
+		and game._belly_overlay.visible == false
+		and game._guide_overlay.visible == false,
+		"A netted frog cannot move, use the tongue, or open gameplay overlays."
+	)
+
+	var escape_score := game._score
+	for _tap in FrogGame.NET_ESCAPE_TAPS:
+		game._register_net_escape_tap()
+	_check(
+		not game._net_escape_active
+		and not pursuer.is_frog_netted()
+		and game._frog.movement_enabled
+		and not game._struggle_panel.visible
+		and game._score == escape_score
+		and game._status_label.text.contains("tore through"),
+		"Six rapid taps break the net without changing score or progression."
+	)
+
+	var resistant_target := _find_target(game, "running_hotdog")
+	game._begin_struggle(resistant_target, 1.0, Vector2.ZERO)
+	pursuer.set_frog_netted(true)
+	game._on_pursuer_netted(pursuer.global_position)
+	_check(
+		not is_instance_valid(game._struggle_target)
+		and game._net_escape_active,
+		"A net hit interrupts an in-progress tongue struggle before trapping the frog."
+	)
+	game.set_motion_scale(0.0)
+	pursuer.pulse_net()
+	_check(
+		pursuer._presentation_motion_scale == 0.0
+		and is_equal_approx(
+			pursuer._trapped_net_radius(),
+			game._frog.collision_radius() + 14.0
+		)
+		and game._net_escape_active,
+		"Reduce motion removes the net pulse without removing the escape challenge."
+	)
+	for _tap in FrogGame.NET_ESCAPE_TAPS:
+		game._register_net_escape_tap()
+
+	game.set_motion_scale(1.0)
+	game._score = 40
+	game._damage_cooldown = 0.0
+	pursuer.set_frog_netted(true)
+	game._on_pursuer_netted(pursuer.global_position)
+	game._update_net_escape(FrogGame.NET_ESCAPE_DURATION)
+	_check(
+		not game._net_escape_active
+		and game._score == 15
+		and game._frog._knockback_time > 0.0
+		and game._frog.movement_enabled
+		and game._status_label.text.contains("tightened the net"),
+		"Failing the escape uses the existing capped score-loss and knockback path."
+	)
+
+	game._frog.set_flying(true)
+	pursuer._begin_net_attack()
+	pursuer._advance_net_attack(PrototypePursuer.NET_WINDUP_DURATION)
+	var flying_cancels_net := not pursuer.net_attack_active()
+	game._frog.set_flying(false)
+	game._frog.set_growth_tier(2)
+	pursuer._begin_net_attack()
+	pursuer._advance_net_attack(PrototypePursuer.NET_WINDUP_DURATION)
+	_check(
+		flying_cancels_net and not pursuer.net_attack_active(),
+		"Flight and maximum growth prevent Animal Control nets from trapping the frog."
+	)
+
+	game._frog.set_growth_tier(0)
+	seed(20260830)
+	var expected_random := randf()
+	seed(20260830)
+	pursuer._begin_net_attack()
+	pursuer._advance_net_attack(PrototypePursuer.NET_WINDUP_DURATION)
+	pursuer.cancel_net_attack()
+	var actual_random := randf()
+	_check(
+		is_equal_approx(actual_random, expected_random),
+		"Animal Control net attacks do not consume the gameplay random-number stream."
+	)
+
 	game.queue_free()
 	await process_frame
 

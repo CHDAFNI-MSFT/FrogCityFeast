@@ -20,6 +20,7 @@ const MAX_VISUAL_EFFECTS := 24
 const MAX_TOUCH_FEEDBACK := 3
 const MAX_CITY_ACTORS := 15
 const MAX_RAIN_STREAKS := 84
+const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
 const MAX_AUDIO_PLAYERS := 6
 const MAX_AUDIO_EFFECT_VOICES := 4
@@ -66,6 +67,14 @@ const STRUCTURAL_LIMITS := {
 		"collision_shapes": 32,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
+	},
+	"net_attack": {
+		"game_nodes": 238,
+		"collision_objects": 32,
+		"collision_shapes": 32,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"net_projectiles": MAX_NET_PROJECTILES,
 	},
 	"maximum_growth": {
 		"game_nodes": 236,

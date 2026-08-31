@@ -78,20 +78,21 @@ profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
 prototype permits 26 gameplay targets, 4 buildings, 1 pursuer, 15 draw-only city
-actors, 84 draw-only rain streaks, 24 capped world effects, 3 touch cues, and 6
-fixed audio players including 4 reusable effect voices. Baseline states permit
-up to 236 game-subtree nodes and 31 collision objects/shapes; pursuit and the
-reachable gameplay peak permit 238 nodes and 32 collision objects/shapes. The
-performance Belly scenario renders 64 item rows within 492 nodes without
-changing the belly's unlimited gameplay semantics. The populated Field Guide
-contains exactly 27 rows.
+actors, 84 draw-only rain streaks, 1 draw-only Animal Control net projectile, 24
+capped world effects, 3 touch cues, and 6 fixed audio players including 4
+reusable effect voices. Baseline states permit up to 236 game-subtree nodes and
+31 collision objects/shapes; pursuit, net attack, and the reachable gameplay
+peak permit 238 nodes and 32 collision objects/shapes. The performance Belly
+scenario renders 64 item rows within 492 nodes without changing the belly's
+unlimited gameplay semantics. The populated Field Guide contains exactly 27
+rows.
 
 Reproducible stress coverage includes busy daytime city activity, peak rain,
-pursuit, maximum growth, a finite simultaneous presentation burst, a 64-item
-Belly, the fully populated Field Guide, both accessibility settings, and a
-reachable gameplay peak. Desktop measurements are advisory; the target iPad
-release build is authoritative. The exact commands and current local
-measurement notes are recorded in
+pursuit, a net in flight, maximum growth, a finite simultaneous presentation
+burst, a 64-item Belly, the fully populated Field Guide, both accessibility
+settings, and a reachable gameplay peak. Desktop measurements are advisory; the
+target iPad release build is authoritative. The exact commands and current
+local measurement notes are recorded in
 [`playable-prototype.md`](playable-prototype.md).
 
 ## Player character and touch controls
@@ -293,10 +294,22 @@ Pursuers may:
 
 - chase the frog;
 - block roads and doors;
-- use nets;
 - interrupt or deflect the tongue;
 - protect valuable targets; and
 - set traps.
+
+The prototype's Animal Control pursuer now implements the first bounded net
+attack. A small or medium ground frog within the authored range receives a
+clear 0.8-second aim warning before one draw-only net travels along the locked
+path. The net sweeps its full radius against building collision, so walls and
+corners stop it, and moving out of the telegraphed line dodges it. A hit
+interrupts an active tongue struggle, roots the frog for a three-second escape,
+and reuses the existing rapid-tap panel. Six taps tear through the net without
+changing score or progression; timing out applies the existing 25-point capped
+loss and knockback. Flight and maximum growth are immune. Reduce motion removes
+the telegraph and escape scale pulses while preserving the gameplay timing and
+static net information. The attack is deterministic, uses no gameplay random
+numbers, adds no collision or scene nodes, and reuses existing audio.
 
 Some obstacles temporarily block the tongue, cause it to bounce away, and can
 be broken after repeated hits.
