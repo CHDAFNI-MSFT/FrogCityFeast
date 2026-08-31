@@ -127,6 +127,24 @@ const CANAL_FIRE_ESCAPE_ID := "canal_apartments_fire_escape"
 const CANAL_FIRE_ESCAPE_POSITION := (
 	INTERIOR_SPACE_ORIGIN + Vector2(0, 4800)
 )
+const RIVER_SEWER_JUNCTION_ID := "river_sewer_junction"
+const RIVER_SEWER_JUNCTION_POSITION := (
+	INTERIOR_SPACE_ORIGIN + Vector2(0, 6400)
+)
+const RIVER_SUBWAY_TUNNEL_ID := "river_subway_service_tunnel"
+const RIVER_SUBWAY_TUNNEL_POSITION := (
+	INTERIOR_SPACE_ORIGIN + Vector2(0, 7800)
+)
+const CITY_EXPLORATION_PORTALS := [
+	{
+		"id": "river_sewer_hatch",
+		"label": "River Park sewer hatch",
+		"marker_position": Vector2(1050, 550),
+		"approach_position": Vector2(980, 550),
+		"destination": RIVER_SEWER_JUNCTION_ID,
+		"destination_entry_id": "from_city",
+	},
+]
 const INTERIOR_TRANSITION_DURATION := 0.18
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
@@ -450,6 +468,7 @@ var _pending_interior_portal_id := ""
 var _interior_transition_destination := ""
 var _interior_transition_entry_id := "default"
 var _interior_transition_source_space := ""
+var _interior_transition_source_portal_id := ""
 var _interior_transition_phase := InteriorTransitionPhase.NONE
 var _interior_transition_time := 0.0
 var _city_return_position := Vector2.ZERO
@@ -1314,10 +1333,43 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 		return true
 
 	var building := _transition_building_at(world_position)
+	var city_portal := {}
 	if not is_instance_valid(building):
+		city_portal = _city_portal_at(world_position)
+	if not is_instance_valid(building) and city_portal.is_empty():
 		return false
 	if _tutorial != null and _tutorial.active:
 		_show_status("Finish or skip the tutorial before exploring another room.")
+		return true
+	if not city_portal.is_empty():
+		var portal_requirement := _interior_portal_requirement(city_portal)
+		if not portal_requirement.is_empty():
+			_show_status(portal_requirement)
+			return true
+		var portal_destination := str(city_portal.get("destination", ""))
+		var portal_id := str(city_portal.get("id", ""))
+		var portal_approach := (
+			city_portal.get("approach_position", Vector2.INF) as Vector2
+		)
+		if _frog.global_position.distance_to(portal_approach) <= 130.0:
+			_begin_interior_transition(portal_destination, portal_id)
+		else:
+			var route := _request_frog_navigation(
+				portal_approach,
+				false,
+				false
+			)
+			if bool(route["reachable"]):
+				_pending_interior_transition = portal_destination
+				_pending_interior_portal_id = portal_id
+				_show_status(
+					"Moving to the %s."
+					% str(city_portal.get("label", "entrance"))
+				)
+			else:
+				_pending_interior_transition = ""
+				_pending_interior_portal_id = ""
+				_show_status("No safe route reaches that entrance.")
 		return true
 	if not building.contains_world_point(_frog.global_position):
 		_show_status(
@@ -1358,6 +1410,30 @@ func _transition_building_at(world_position: Vector2) -> PrototypeBuilding:
 		):
 			return building
 	return null
+
+
+func _city_portal_at(world_position: Vector2) -> Dictionary:
+	if (
+		_current_district_coordinate
+		!= DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+	):
+		return {}
+	for portal_value in CITY_EXPLORATION_PORTALS:
+		var portal := portal_value as Dictionary
+		var marker_position := (
+			portal.get("marker_position", Vector2.INF) as Vector2
+		)
+		if marker_position.distance_to(world_position) <= 62.0:
+			return portal
+	return {}
+
+
+func _city_portal_by_id(portal_id: String) -> Dictionary:
+	for portal_value in CITY_EXPLORATION_PORTALS:
+		var portal := portal_value as Dictionary
+		if str(portal.get("id", "")) == portal_id:
+			return portal
+	return {}
 
 
 func _building_for_interior_room(room_id: String) -> PrototypeBuilding:
@@ -1480,29 +1556,58 @@ func _begin_interior_transition(
 	elif destination == "city":
 		return
 	elif _interior_rooms.has(destination):
-		var building := _building_for_interior_room(destination)
-		if is_instance_valid(building):
-			var requirement := _interior_transition_requirement(building)
-			if not requirement.is_empty():
-				_show_status(requirement)
+		if not source_portal_id.is_empty():
+			var city_portal := _city_portal_by_id(source_portal_id)
+			var portal_approach := (
+				city_portal.get("approach_position", Vector2.INF)
+				as Vector2
+			)
+			if (
+				city_portal.is_empty()
+				or str(city_portal.get("destination", "")) != destination
+				or _current_district_coordinate
+				!= DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+				or _frog.global_position.distance_to(portal_approach)
+				> 130.0
+			):
+				_show_status("That entrance is not accessible from here.")
 				return
-		if (
-			not is_instance_valid(building)
-			or not _active_interior_id.is_empty()
-			or building.consumed
-			or not building.contains_world_point(_frog.global_position)
-			or building.transition_room_id != destination
-		):
-			var room := (
-				_interior_rooms.get(destination) as PrototypeInteriorRoom
+			var portal_requirement := _interior_portal_requirement(
+				city_portal
 			)
-			var room_name := (
-				room.display_name
-				if is_instance_valid(room)
-				else "separate room"
+			if not portal_requirement.is_empty():
+				_show_status(portal_requirement)
+				return
+			destination_entry_id = str(
+				city_portal.get("destination_entry_id", "default")
 			)
-			_show_status("The %s is not accessible from here." % room_name)
-			return
+		else:
+			var building := _building_for_interior_room(destination)
+			if is_instance_valid(building):
+				var requirement := _interior_transition_requirement(building)
+				if not requirement.is_empty():
+					_show_status(requirement)
+					return
+			if (
+				not is_instance_valid(building)
+				or not _active_interior_id.is_empty()
+				or building.consumed
+				or not building.contains_world_point(_frog.global_position)
+				or building.transition_room_id != destination
+			):
+				var room := (
+					_interior_rooms.get(destination)
+					as PrototypeInteriorRoom
+				)
+				var room_name := (
+					room.display_name
+					if is_instance_valid(room)
+					else "separate room"
+				)
+				_show_status(
+					"The %s is not accessible from here." % room_name
+				)
+				return
 	else:
 		push_error("Unknown interior transition destination: %s." % destination)
 		return
@@ -1512,6 +1617,7 @@ func _begin_interior_transition(
 	_interior_transition_destination = destination
 	_interior_transition_entry_id = destination_entry_id
 	_interior_transition_source_space = source_space
+	_interior_transition_source_portal_id = source_portal_id
 	_cancel_frog_navigation()
 	_frog.clear_knockback()
 	_frog.movement_enabled = false
@@ -1562,18 +1668,27 @@ func _complete_interior_transfer() -> void:
 			)
 			return
 		if _interior_transition_source_space.is_empty():
-			var building := _building_for_interior_room(
-				_interior_transition_destination
-			)
-			if not is_instance_valid(building):
-				push_error(
-					"Interior transition '%s' is missing its building."
-					% _interior_transition_destination
+			if not _interior_transition_source_portal_id.is_empty():
+				var city_portal := _city_portal_by_id(
+					_interior_transition_source_portal_id
 				)
-				return
-			_city_return_position = (
-				building.transition_door_approach_position()
-			)
+				_city_return_position = city_portal.get(
+					"approach_position",
+					Vector2.ZERO
+				) as Vector2
+			else:
+				var building := _building_for_interior_room(
+					_interior_transition_destination
+				)
+				if not is_instance_valid(building):
+					push_error(
+						"Interior transition '%s' is missing its building."
+						% _interior_transition_destination
+					)
+					return
+				_city_return_position = (
+					building.transition_door_approach_position()
+				)
 			_city_camera_rotation = _camera.rotation
 			_city_camera_smoothing_enabled = (
 				_camera.position_smoothing_enabled
@@ -1616,6 +1731,7 @@ func _finish_interior_transition() -> void:
 	_interior_transition_destination = ""
 	_interior_transition_entry_id = "default"
 	_interior_transition_source_space = ""
+	_interior_transition_source_portal_id = ""
 	_interior_transition_time = 0.0
 	_interior_transition_fade.visible = false
 	_set_interior_fade_alpha(0.0)
@@ -4886,11 +5002,19 @@ func _on_frog_move_reached(world_position: Vector2) -> void:
 						portal
 					)
 		else:
-			var building := _building_for_interior_room(destination)
-			if is_instance_valid(building):
-				expected_position = (
-					building.transition_door_approach_position()
-				)
+			if not portal_id.is_empty():
+				var city_portal := _city_portal_by_id(portal_id)
+				if not city_portal.is_empty():
+					expected_position = city_portal.get(
+						"approach_position",
+						Vector2.INF
+					) as Vector2
+			else:
+				var building := _building_for_interior_room(destination)
+				if is_instance_valid(building):
+					expected_position = (
+						building.transition_door_approach_position()
+					)
 		if (
 			expected_position == Vector2.INF
 			or world_position.distance_to(expected_position) > 130.0
@@ -5055,6 +5179,62 @@ func _build_prototype_city() -> void:
 		"return",
 		Vector2(-780, 120),
 		Vector2(-650, 120)
+	)
+	var sewer_junction := _spawn_interior_room(
+		RIVER_SEWER_JUNCTION_ID,
+		"River Park Sewer Junction",
+		RIVER_SEWER_JUNCTION_POSITION,
+		Vector2(1600, 1100),
+		Color("536b65"),
+		[
+			Rect2(-700, -450, 280, 88),
+			Rect2(420, -450, 280, 88),
+			Rect2(-720, 300, 230, 96),
+			Rect2(490, 285, 210, 110),
+		],
+		"",
+		"RETURN TO RIVER PARK"
+	)
+	sewer_junction.camera_mode = PrototypeInteriorRoom.CAMERA_FOLLOW
+	sewer_junction.camera_zoom = Vector2(1.25, 1.25)
+	sewer_junction.camera_follow_distance = 110.0
+	sewer_junction.camera_rotation_limit = 0.2
+	sewer_junction.set_entry("from_city", Vector2(0, 390))
+	sewer_junction.set_entry("from_tunnel", Vector2(500, -250))
+	sewer_junction.add_portal(
+		"service_tunnel",
+		"SERVICE TUNNEL",
+		Vector2(690, -260),
+		Vector2(540, -260),
+		RIVER_SUBWAY_TUNNEL_ID,
+		"from_junction"
+	)
+	var subway_tunnel := _spawn_interior_room(
+		RIVER_SUBWAY_TUNNEL_ID,
+		"Old Subway Service Tunnel",
+		RIVER_SUBWAY_TUNNEL_POSITION,
+		Vector2(1800, 1000),
+		Color("4d5963"),
+		[
+			Rect2(-800, -410, 320, 82),
+			Rect2(480, -410, 320, 82),
+			Rect2(-810, 300, 260, 74),
+			Rect2(550, 285, 230, 88),
+		],
+		"",
+		"RETURN TO SEWER JUNCTION",
+		RIVER_SEWER_JUNCTION_ID,
+		"from_tunnel"
+	)
+	subway_tunnel.camera_mode = PrototypeInteriorRoom.CAMERA_FOLLOW
+	subway_tunnel.camera_zoom = Vector2(1.3, 1.3)
+	subway_tunnel.camera_follow_distance = 100.0
+	subway_tunnel.camera_rotation_limit = 0.15
+	subway_tunnel.set_entry("from_junction", Vector2(-700, 100))
+	subway_tunnel.set_portal_geometry(
+		"return",
+		Vector2(-820, 100),
+		Vector2(-700, 100)
 	)
 	var market_rooftop := _spawn_interior_room(
 		MARKET_ROOFTOP_ID,
@@ -5285,6 +5465,31 @@ func _build_prototype_city() -> void:
 		"bounds": fire_escape.interior_rect(),
 		"building_id": CANAL_FIRE_ESCAPE_ID,
 		"color": Color("d9c7a1"),
+	})
+	_spawn_target({
+		"id": "river_sewer_valve",
+		"name": "Sewer Valve Wheel",
+		"position": sewer_junction.global_position + Vector2(-360, -170),
+		"value": 52,
+		"kind": "object",
+		"radius": 32.0,
+		"bounds": sewer_junction.interior_rect(),
+		"building_id": RIVER_SEWER_JUNCTION_ID,
+		"color": Color("b86f4e"),
+	})
+	_spawn_target({
+		"id": "river_subway_signal",
+		"name": "Abandoned Signal Lamp",
+		"position": subway_tunnel.global_position + Vector2(380, -150),
+		"value": 68,
+		"tier": 1,
+		"kind": "object",
+		"radius": 34.0,
+		"resistant": true,
+		"taps": 7,
+		"bounds": subway_tunnel.interior_rect(),
+		"building_id": RIVER_SUBWAY_TUNNEL_ID,
+		"color": Color("d8a84d"),
 	})
 
 

@@ -63,7 +63,7 @@ func _run() -> void:
 		"The Animal Control snare budget remains capped at one."
 	)
 	_check(
-		BUDGETS.MAX_INTERIOR_ROOMS == 5,
+		BUDGETS.MAX_INTERIOR_ROOMS == 7,
 		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
@@ -135,6 +135,15 @@ func _run() -> void:
 		{
 			"name": "fire_escape",
 			"setup": _setup_fire_escape,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "sewer_tunnel",
+			"setup": _setup_sewer_tunnel,
 			"preferences": {
 				"reduce_motion": true,
 				"larger_text_controls": false,
@@ -372,6 +381,25 @@ func _setup_fire_escape(game: FrogGame) -> void:
 	game._begin_interior_transition(
 		FrogGame.CANAL_FIRE_ESCAPE_ID,
 		"fire_escape_door"
+	)
+
+
+func _setup_sewer_tunnel(game: FrogGame) -> void:
+	var city_portal := game._city_portal_by_id("river_sewer_hatch")
+	game._frog.global_position = city_portal["approach_position"] as Vector2
+	game._begin_interior_transition(
+		FrogGame.RIVER_SEWER_JUNCTION_ID,
+		"river_sewer_hatch"
+	)
+	var junction := (
+		game._interior_rooms.get(FrogGame.RIVER_SEWER_JUNCTION_ID)
+		as PrototypeInteriorRoom
+	)
+	var portal := junction.portal_by_id("service_tunnel")
+	game._frog.global_position = junction.portal_approach_position(portal)
+	game._begin_interior_transition(
+		FrogGame.RIVER_SUBWAY_TUNNEL_ID,
+		"service_tunnel"
 	)
 
 
@@ -617,6 +645,15 @@ func _check_scenario_expectations(
 				and int(snapshot["pursuers"]) == 0
 				and int(snapshot["growth_tier"]) == 1,
 				"Fire-escape stress activates the navigable room-chain destination."
+			)
+		"sewer_tunnel":
+			_check(
+				str(snapshot["active_interior"])
+				== FrogGame.RIVER_SUBWAY_TUNNEL_ID
+				and int(snapshot["interior_rooms"])
+				== BUDGETS.MAX_INTERIOR_ROOMS
+				and int(snapshot["pursuers"]) == 0,
+				"Sewer stress activates the second navigable section of the chain."
 			)
 		"market_rooftop":
 			_check(

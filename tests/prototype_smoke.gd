@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 31,
+		game._targets.size() == 33,
 		"Prototype targets, connected spaces, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -351,6 +351,7 @@ func _run() -> void:
 	await _test_market_rooftop(game_scene)
 	await _test_canal_upper_hall(game_scene)
 	await _test_canal_fire_escape(game_scene)
+	await _test_river_sewer_chain(game_scene)
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
@@ -1139,9 +1140,9 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, rain, and the night bazaar share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 31
+		game._targets.size() == 33
 			and DiscoveryCatalog.count()
-			== 32 + DistrictGenerator.discovery_ids().size(),
+			== 34 + DistrictGenerator.discovery_ids().size(),
 		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
@@ -1308,10 +1309,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 31
+		int(rainy_snapshot["targets"]) == 33
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 36
-		and int(rainy_snapshot["collision_shapes"]) == 71,
+		and int(rainy_snapshot["collision_objects"]) == 38
+		and int(rainy_snapshot["collision_shapes"]) == 87,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1708,8 +1709,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 309
-		and int(net_snapshot["collision_objects"]) == 37,
+		and int(net_snapshot["game_nodes"]) == 333
+		and int(net_snapshot["collision_objects"]) == 39,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -3913,7 +3914,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 5
+		and game._interior_rooms.size() == 7
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -4173,7 +4174,7 @@ func _test_oddities_cellar(game_scene: PackedScene) -> void:
 		and is_instance_valid(cellar)
 		and is_instance_valid(shelf)
 		and is_instance_valid(music_box)
-		and game._interior_rooms.size() == 5
+		and game._interior_rooms.size() == 7
 		and shop.transition_room_id == FrogGame.ODDITIES_CELLAR_ID
 		and shop.transition_required_removed_part
 		== PrototypeBuilding.PART_COUNTER
@@ -4381,7 +4382,7 @@ func _test_market_rooftop(game_scene: PackedScene) -> void:
 		is_instance_valid(market)
 		and is_instance_valid(rooftop)
 		and is_instance_valid(beehive)
-		and game._interior_rooms.size() == 5
+		and game._interior_rooms.size() == 7
 		and market.transition_room_id == FrogGame.MARKET_ROOFTOP_ID
 		and market.transition_min_growth_tier == 1
 		and rooftop.return_label == "RETURN TO MARKET"
@@ -4561,7 +4562,7 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 		is_instance_valid(apartments)
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(vacuum)
-		and game._interior_rooms.size() == 5
+		and game._interior_rooms.size() == 7
 		and apartments.transition_room_id
 		== FrogGame.CANAL_UPPER_HALL_ID
 		and upper_hall.return_label == "RETURN TO LOBBY"
@@ -4729,7 +4730,7 @@ func _test_canal_fire_escape(game_scene: PackedScene) -> void:
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(fire_escape)
 		and is_instance_valid(laundry)
-		and game._interior_rooms.size() == 5
+		and game._interior_rooms.size() == 7
 		and str(outward_portal["destination"])
 		== FrogGame.CANAL_FIRE_ESCAPE_ID
 		and str(return_portal["destination"])
@@ -4944,6 +4945,252 @@ func _test_canal_fire_escape(game_scene: PackedScene) -> void:
 		)
 		and game._active_interior_id.is_empty(),
 		"Digesting the Laundry Basket restocks it on the fire escape."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
+func _test_river_sewer_chain(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("sewer_test", "Sewer Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var city_portal := game._city_portal_by_id("river_sewer_hatch")
+	var junction := (
+		game._interior_rooms.get(FrogGame.RIVER_SEWER_JUNCTION_ID)
+		as PrototypeInteriorRoom
+	)
+	var tunnel := (
+		game._interior_rooms.get(FrogGame.RIVER_SUBWAY_TUNNEL_ID)
+		as PrototypeInteriorRoom
+	)
+	var tunnel_portal := junction.portal_by_id("service_tunnel")
+	var tunnel_return := tunnel.portal_by_id("return")
+	var valve := _find_target(game, "river_sewer_valve")
+	var signal_lamp := _find_target(game, "river_subway_signal")
+	_check(
+		not city_portal.is_empty()
+		and is_instance_valid(junction)
+		and is_instance_valid(tunnel)
+		and is_instance_valid(valve)
+		and is_instance_valid(signal_lamp)
+		and game._interior_rooms.size() == 7
+		and str(tunnel_portal["destination"])
+		== FrogGame.RIVER_SUBWAY_TUNNEL_ID
+		and str(tunnel_return["destination"])
+		== FrogGame.RIVER_SEWER_JUNCTION_ID
+		and junction.camera_follows_frog()
+		and tunnel.camera_follows_frog()
+		and valve.building_id == FrogGame.RIVER_SEWER_JUNCTION_ID
+		and signal_lamp.building_id
+		== FrogGame.RIVER_SUBWAY_TUNNEL_ID,
+		"River Park creates a two-section sewer and subway chain with scoped targets."
+	)
+	_check(
+		game._circle_position_clear(
+			city_portal["approach_position"] as Vector2,
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			junction.entry_position("from_city"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			junction.entry_position("from_tunnel"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			tunnel.entry_position("from_junction"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			junction.global_position,
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			tunnel.global_position,
+			44.0,
+			true
+		),
+		"Every sewer landing and both central routes are safe at maximum size."
+	)
+
+	game._begin_interior_transition(FrogGame.RIVER_SEWER_JUNCTION_ID)
+	_check(
+		game._active_interior_id.is_empty()
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE,
+		"Direct transition calls cannot bypass the River Park hatch."
+	)
+
+	var city_camera_rotation := -0.19
+	game._camera.rotation = city_camera_rotation
+	game._frog.global_position = Vector2(780, 550)
+	var handled_hatch := game._try_handle_interior_transition_tap(
+		city_portal["marker_position"] as Vector2
+	)
+	_check(
+		handled_hatch
+		and game._pending_interior_transition
+		== FrogGame.RIVER_SEWER_JUNCTION_ID
+		and game._pending_interior_portal_id == "river_sewer_hatch",
+		"The River Park hatch routes the frog to its authored approach."
+	)
+	game._frog.global_position = city_portal["approach_position"] as Vector2
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._on_frog_move_reached(game._frog.global_position)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id
+		== FrogGame.RIVER_SEWER_JUNCTION_ID
+		and game._frog.global_position
+		== junction.entry_position("from_city"),
+		"Entering the sewer uses its safe landing and clears active pursuit."
+	)
+	game._spawn_pursuer()
+	_check(
+		not is_instance_valid(game._pursuer),
+		"Remote pursuit stays blocked throughout the sewer chain."
+	)
+
+	game._frog.global_position = valve.global_position + Vector2(0, 100)
+	game._swallow_target(valve, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].movement_bounds == junction.interior_rect(),
+		"Swallowing the Valve Wheel preserves sewer-junction bounds."
+	)
+	game._spit_item(0)
+	var spat_valve := _find_target(game, "river_sewer_valve")
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_valve)
+		and junction.interior_rect().has_point(spat_valve.global_position),
+		"Spitting the Valve Wheel returns it inside the sewer junction."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._pending_growth_tier = 2
+	game._frog.global_position = junction.global_position
+	game._last_safe_ground_position = junction.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1,
+		"The sewer junction supports safe maximum-size growth."
+	)
+
+	game._frog.global_position = junction.portal_approach_position(
+		tunnel_portal
+	)
+	game._begin_interior_transition(
+		FrogGame.RIVER_SUBWAY_TUNNEL_ID,
+		"service_tunnel"
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		game._active_interior_id
+		== FrogGame.RIVER_SUBWAY_TUNNEL_ID
+		and game._frog.global_position
+		== tunnel.entry_position("from_junction")
+		and game._camera.zoom == tunnel.camera_zoom,
+		"The sewer junction connects forward to the subway service tunnel."
+	)
+	game._frog.global_position = tunnel.global_position
+	game._last_safe_ground_position = tunnel.global_position
+	_check(
+		game._find_safe_frog_position(44.0) != Vector2.INF,
+		"The subway tunnel retains navigable maximum-size central space."
+	)
+
+	game._frog.global_position = (
+		signal_lamp.global_position + Vector2(0, 110)
+	)
+	game._swallow_target(signal_lamp, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id == "river_subway_signal"
+		and game._belly[0].movement_bounds == tunnel.interior_rect(),
+		"Swallowing the Signal Lamp preserves service-tunnel bounds."
+	)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = tunnel.portal_approach_position(
+		tunnel_return
+	)
+	game._begin_interior_transition(
+		FrogGame.RIVER_SEWER_JUNCTION_ID,
+		"return"
+	)
+	_check(
+		game._active_interior_id == FrogGame.RIVER_SEWER_JUNCTION_ID
+		and game._frog.global_position
+		== junction.entry_position("from_tunnel")
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE,
+		"Reduce motion returns immediately from the tunnel to the junction."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains("service tunnel"),
+		"A subway target cannot be spat into the sewer junction."
+	)
+
+	game._frog.global_position = junction.portal_approach_position(
+		tunnel_portal
+	)
+	game._begin_interior_transition(
+		FrogGame.RIVER_SUBWAY_TUNNEL_ID,
+		"service_tunnel"
+	)
+	game._digest_item(0)
+	game._frog.global_position = tunnel.portal_approach_position(
+		tunnel_return
+	)
+	game._begin_interior_transition(
+		FrogGame.RIVER_SEWER_JUNCTION_ID,
+		"return"
+	)
+	game._frog.global_position = junction.exit_approach_position()
+	game._begin_interior_transition("city", "return")
+	_check(
+		game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== (city_portal["approach_position"] as Vector2)
+		and is_equal_approx(game._camera.rotation, city_camera_rotation)
+		and game._camera.position_smoothing_enabled,
+		"Leaving both sewer sections restores the River Park position and city camera."
+	)
+
+	await create_timer(9.2, false).timeout
+	var restocked_signal := _find_target(game, "river_subway_signal")
+	_check(
+		is_instance_valid(restocked_signal)
+		and tunnel.interior_rect().has_point(
+			restocked_signal.global_position
+		),
+		"Digesting the Signal Lamp restocks it in the subway tunnel."
 	)
 
 	paused = false

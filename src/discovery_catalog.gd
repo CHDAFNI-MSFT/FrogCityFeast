@@ -53,6 +53,16 @@ const ENTRIES := [
 		"hint": "Explore River Park after growing once.",
 	},
 	{
+		"id": "river_sewer_valve",
+		"name": "Sewer Valve Wheel",
+		"hint": "Use the marked hatch in River Park.",
+	},
+	{
+		"id": "river_subway_signal",
+		"name": "Abandoned Signal Lamp",
+		"hint": "Follow the sewer junction into the old service tunnel.",
+	},
+	{
 		"id": "golden_cake",
 		"name": "Flying Golden Cake",
 		"hint": "Search the northern city for a rare moving treat.",

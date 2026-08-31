@@ -9,6 +9,13 @@ const ROAD_RECTS := [
 	Rect2(-1800, 690, 3600, 320),
 	Rect2(-1240, -1400, 320, 2800),
 ]
+const EXPLORATION_MARKERS := [
+	{
+		"position": Vector2(1050, 550),
+		"label": "SEWER HATCH",
+		"color": Color("60747b"),
+	},
+]
 
 
 func _ready() -> void:
@@ -43,3 +50,30 @@ func _draw() -> void:
 		28,
 		Color("d8f4c6")
 	)
+	for marker_value in EXPLORATION_MARKERS:
+		var marker := marker_value as Dictionary
+		var marker_position := marker["position"] as Vector2
+		var marker_color := marker["color"] as Color
+		draw_circle(marker_position, 46.0, marker_color.darkened(0.35))
+		draw_circle(
+			marker_position,
+			36.0,
+			marker_color,
+			false,
+			6.0
+		)
+		draw_line(
+			marker_position + Vector2(-24, 0),
+			marker_position + Vector2(24, 0),
+			marker_color.lightened(0.3),
+			4.0
+		)
+		draw_string(
+			ThemeDB.fallback_font,
+			marker_position + Vector2(-100, 76),
+			str(marker["label"]),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			200,
+			17,
+			Color("e7f0e9")
+		)
