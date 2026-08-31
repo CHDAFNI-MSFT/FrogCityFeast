@@ -94,6 +94,9 @@ Invoke-GodotCheck `
     -Label "startup" `
     -Arguments "--headless --path `"$repoRoot`" --quit-after 2"
 Invoke-GodotCheck `
+    -Label "navigation-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/navigation_smoke.gd"
+Invoke-GodotCheck `
     -Label "district-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/district_smoke.gd"
 Invoke-GodotCheck `
