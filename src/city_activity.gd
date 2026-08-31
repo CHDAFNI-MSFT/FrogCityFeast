@@ -9,6 +9,7 @@ const RAIN_STREAK_COUNT := 84
 const RAIN_LOOP_DURATION := 4.0
 const RAIN_FALL_SPEED := 745.0
 const RAIN_SLANT := Vector2(-10, 26)
+const FESTIVAL_SWAY_DURATION := 4.0
 const CROWD_CENTER := Vector2(950, 430)
 const CROWD_COVER_RADIUS := 145.0
 const CROWD_MEMBER_OFFSETS := [
@@ -24,6 +25,26 @@ const CROWD_MEMBER_COLORS := [
 	Color("a36452"),
 	Color("4f719d"),
 	Color("98713f"),
+]
+const FESTIVAL_CENTER := Vector2(-480, 420)
+const FESTIVAL_LANTERN_OFFSETS := [
+	Vector2(-310, -160),
+	Vector2(-310, 0),
+	Vector2(-310, 160),
+	Vector2(310, -160),
+	Vector2(310, 0),
+	Vector2(310, 160),
+	Vector2(-150, -240),
+	Vector2(150, -240),
+	Vector2(-150, 240),
+	Vector2(150, 240),
+]
+const FESTIVAL_LANTERN_COLORS := [
+	Color("f2bf55"),
+	Color("e77a68"),
+	Color("8fc7a1"),
+	Color("c18bd4"),
+	Color("ef9d55"),
 ]
 const WET_PATCHES := [
 	Vector2(-1480, -70),
@@ -199,6 +220,7 @@ const STREETLIGHT_POSITIONS := [
 var daylight := 0.5
 var rain_intensity := 0.0
 var crowd_intensity := 0.0
+var festival_intensity := 0.0
 var crowd_hide_progress := 0.0
 var crowd_cover_chase_active := false
 var motion_scale := 1.0
@@ -235,6 +257,14 @@ func set_crowd_intensity(value: float) -> void:
 	if is_equal_approx(crowd_intensity, next_intensity):
 		return
 	crowd_intensity = next_intensity
+	queue_redraw()
+
+
+func set_festival_intensity(value: float) -> void:
+	var next_intensity := clampf(value, 0.0, 1.0)
+	if is_equal_approx(festival_intensity, next_intensity):
+		return
+	festival_intensity = next_intensity
 	queue_redraw()
 
 
@@ -302,6 +332,14 @@ func active_crowd_member_count() -> int:
 	return CROWD_MEMBER_OFFSETS.size() if crowd_intensity >= 0.5 else 0
 
 
+func visible_festival_lantern_count() -> int:
+	return (
+		FESTIVAL_LANTERN_OFFSETS.size()
+		if festival_intensity > 0.01
+		else 0
+	)
+
+
 func crowd_cover_available() -> bool:
 	return crowd_intensity >= 0.8
 
@@ -325,6 +363,34 @@ func crowd_member_position(index: int) -> Vector2:
 		+ CROWD_MEMBER_OFFSETS[index]
 		+ Vector2(0, sin(phase * TAU) * 2.0)
 	)
+
+
+func festival_lantern_position(index: int) -> Vector2:
+	return festival_lantern_position_at(index, _animation_time)
+
+
+func festival_lantern_position_at(
+	index: int,
+	animation_time: float
+) -> Vector2:
+	if index < 0 or index >= FESTIVAL_LANTERN_OFFSETS.size():
+		return Vector2.INF
+	var phase := (
+		animation_time / FESTIVAL_SWAY_DURATION
+		+ float(index) / float(FESTIVAL_LANTERN_OFFSETS.size())
+	)
+	return (
+		FESTIVAL_CENTER
+		+ FESTIVAL_LANTERN_OFFSETS[index]
+		+ Vector2(0, sin(phase * TAU) * 2.5)
+	)
+
+
+func festival_signature() -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for index in FESTIVAL_LANTERN_OFFSETS.size():
+		result.append(festival_lantern_position(index))
+	return result
 
 
 func streetlight_intensity_for_daylight(value: float) -> float:
@@ -393,6 +459,8 @@ func activity_signature() -> PackedVector2Array:
 		result.append(vehicle_position(index))
 	for index in CROWD_MEMBER_OFFSETS.size():
 		result.append(crowd_member_position(index))
+	for position in festival_signature():
+		result.append(position)
 	return result
 
 
@@ -408,6 +476,7 @@ func _advance_animation(delta: float) -> void:
 
 func _draw() -> void:
 	_draw_streetlights()
+	_draw_night_bazaar()
 	for index in VEHICLE_ROUTES.size():
 		var alpha := (
 			_actor_alpha(
@@ -439,6 +508,45 @@ func _draw() -> void:
 	_draw_park_meetup()
 	_draw_rain()
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_night_bazaar() -> void:
+	if festival_intensity <= 0.01:
+		return
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	for index in FESTIVAL_LANTERN_OFFSETS.size():
+		var position := festival_lantern_position(index)
+		var color: Color = FESTIVAL_LANTERN_COLORS[
+			index % FESTIVAL_LANTERN_COLORS.size()
+		]
+		draw_circle(
+			position,
+			18.0,
+			Color(color.r, color.g, color.b, 0.12 * festival_intensity)
+		)
+		draw_line(
+			position + Vector2(0, -18),
+			position + Vector2(0, -8),
+			Color(0.16, 0.13, 0.2, 0.75 * festival_intensity),
+			2.0
+		)
+		color.a = 0.92 * festival_intensity
+		draw_circle(position, 7.0, color)
+		draw_line(
+			position + Vector2(-5, 0),
+			position + Vector2(5, 0),
+			Color(1.0, 0.9, 0.58, 0.8 * festival_intensity),
+			2.0
+		)
+	draw_string(
+		ThemeDB.fallback_font,
+		FESTIVAL_CENTER + Vector2(-130, -270),
+		"NIGHT BAZAAR",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		260,
+		20,
+		Color(1.0, 0.88, 0.56, 0.94 * festival_intensity)
+	)
 
 
 func _draw_streetlights() -> void:

@@ -46,6 +46,11 @@ func _run() -> void:
 		"The rain-streak budget matches the draw-only presentation cap."
 	)
 	_check(
+		BUDGETS.MAX_FESTIVAL_LANTERNS
+		== CityActivity.FESTIVAL_LANTERN_OFFSETS.size(),
+		"The night-bazaar budget matches the fixed lantern count."
+	)
+	_check(
 		BUDGETS.MAX_NET_PROJECTILES == 1,
 		"The Animal Control projectile budget remains capped at one."
 	)
@@ -489,8 +494,14 @@ func _check_scenario_expectations(
 			)
 		"night_shop":
 			_check(
-				bool(snapshot["oddities_shop_scheduled_open"]),
-				"Night-shop stress opens the intact Oddities Shop without adding structure."
+				bool(snapshot["oddities_shop_scheduled_open"])
+				and is_equal_approx(
+					float(snapshot["festival_intensity"]),
+					1.0
+				)
+				and int(snapshot["festival_lanterns"])
+				== BUDGETS.MAX_FESTIVAL_LANTERNS,
+				"Night stress opens Oddities Shop and activates the bounded bazaar without adding structure."
 			)
 		"busy_daytime":
 			_check(

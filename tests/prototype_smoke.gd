@@ -1134,7 +1134,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		is_instance_valid(activity)
 		and activity.get_child_count() == 0
 		and not _contains_collision_object(activity),
-		"City activity, the park meetup, and rain share one draw-only layer."
+		"City activity, the park meetup, rain, and the night bazaar share one draw-only layer."
 	)
 	_check(
 		game._targets.size() == 30 and DiscoveryCatalog.count() == 31,
@@ -1153,6 +1153,13 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 			FrogGame.crowd_intensity_for_clock(game._day_clock)
 		),
 		"The game forwards the initial meetup intensity to city activity."
+	)
+	_check(
+		is_equal_approx(
+			activity.festival_intensity,
+			FrogGame.festival_intensity_for_clock(game._day_clock)
+		),
+		"The game forwards the initial night-bazaar intensity to city activity."
 	)
 	_check(
 		is_zero_approx(FrogGame.rain_intensity_for_clock(0.57))
@@ -1208,6 +1215,36 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and is_zero_approx(FrogGame.rain_intensity_for_clock(0.56)),
 		"The River Park meetup has deterministic fades and disperses before rain."
 	)
+	_check(
+		is_zero_approx(FrogGame.festival_intensity_for_clock(0.77))
+		and is_zero_approx(
+			FrogGame.festival_intensity_for_clock(0.78)
+		)
+		and is_equal_approx(
+			FrogGame.festival_intensity_for_clock(0.80),
+			0.5
+		)
+		and is_equal_approx(
+			FrogGame.festival_intensity_for_clock(0.82),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.festival_intensity_for_clock(0.12),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.festival_intensity_for_clock(0.14),
+			0.5
+		)
+		and is_zero_approx(
+			FrogGame.festival_intensity_for_clock(0.16)
+		)
+		and is_equal_approx(
+			FrogGame.festival_intensity_for_clock(1.80),
+			0.5
+		),
+		"The Moonlight Market bazaar follows one wrapped deterministic night window with smooth fades."
+	)
 
 	game._day_clock = 0.5
 	game._update_day_night(0.0)
@@ -1215,12 +1252,14 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	var day_vehicles := activity.active_vehicle_count()
 	var day_crowd_members := activity.active_crowd_member_count()
 	var day_lights := activity.streetlight_intensity()
+	var day_lanterns := activity.visible_festival_lantern_count()
 	game._day_clock = 0.0
 	game._update_day_night(0.0)
 	var night_pedestrians := activity.active_pedestrian_count()
 	var night_vehicles := activity.active_vehicle_count()
 	var night_crowd_members := activity.active_crowd_member_count()
 	var night_lights := activity.streetlight_intensity()
+	var night_lanterns := activity.visible_festival_lantern_count()
 	_check(
 		day_pedestrians == CityActivity.PEDESTRIAN_ROUTES.size()
 		and night_pedestrians == 5
@@ -1244,6 +1283,13 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		is_zero_approx(day_lights) and night_lights > 0.99,
 		"Streetlights switch on at night without changing the world tint."
 	)
+	_check(
+		day_lanterns == 0
+		and night_lanterns
+		== CityActivity.FESTIVAL_LANTERN_OFFSETS.size()
+		and is_equal_approx(activity.festival_intensity, 1.0),
+		"The fixed Moonlight Market lantern set appears only during the night bazaar."
+	)
 	game._day_clock = 0.68
 	game._update_day_night(0.0)
 	var rainy_snapshot := game.performance_structure_snapshot()
@@ -1252,6 +1298,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and activity.active_pedestrian_count() == 4
 		and activity.active_vehicle_count() == 3
 		and activity.active_crowd_member_count() == 0
+		and activity.visible_festival_lantern_count() == 0
 		and activity.visible_rain_streak_count()
 		== CityActivity.RAIN_STREAK_COUNT,
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
@@ -1270,6 +1317,8 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	many_steps.set_motion_scale(1.0)
 	single_step.set_rain_intensity(1.0)
 	many_steps.set_rain_intensity(1.0)
+	single_step.set_festival_intensity(1.0)
+	many_steps.set_festival_intensity(1.0)
 	single_step._advance_animation(12.0)
 	for step in 120:
 		many_steps._advance_animation(0.1)
@@ -1298,6 +1347,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 
 	var frozen_position := single_step.pedestrian_position(0)
 	var frozen_rain := single_step.rain_signature()
+	var frozen_festival := single_step.festival_signature()
 	single_step.set_crowd_intensity(1.0)
 	var frozen_crowd_member := single_step.crowd_member_position(0)
 	single_step.set_motion_scale(0.0)
@@ -1306,25 +1356,30 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	_check(
 		single_step.pedestrian_position(0) == frozen_position
 		and single_step.rain_signature() == frozen_rain
+		and single_step.festival_signature() == frozen_festival
 		and single_step.crowd_member_position(0) == frozen_crowd_member
 		and single_step.active_pedestrian_count() == 4
 		and single_step.active_vehicle_count() == 2
 		and single_step.visible_rain_streak_count()
 		== CityActivity.RAIN_STREAK_COUNT
+		and single_step.visible_festival_lantern_count()
+		== CityActivity.FESTIVAL_LANTERN_OFFSETS.size()
 		and single_step.streetlight_intensity() > 0.99,
-		"Reduced motion freezes actors and rain while weather density and lighting still update."
+		"Reduced motion freezes actors, rain, and lanterns while event timing and lighting still update."
 	)
 	seed(20260830)
 	var expected_random := randf()
 	seed(20260830)
 	single_step.set_rain_intensity(0.5)
 	single_step.set_crowd_intensity(0.5)
+	single_step.set_festival_intensity(0.5)
 	single_step.rain_signature()
+	single_step.festival_signature()
 	single_step.activity_signature()
 	var actual_random := randf()
 	_check(
 		is_equal_approx(actual_random, expected_random),
-		"Rain presentation does not consume the gameplay random-number stream."
+		"Rain and festival presentation do not consume the gameplay random-number stream."
 	)
 
 	var loop_is_seamless := true
@@ -1381,9 +1436,21 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 			> 0.001
 		):
 			loop_is_seamless = false
+	for index in CityActivity.FESTIVAL_LANTERN_OFFSETS.size():
+		if (
+			single_step.festival_lantern_position_at(index, 17.25)
+			.distance_to(
+				single_step.festival_lantern_position_at(
+					index,
+					17.25 + CityActivity.LOOP_DURATION
+				)
+			)
+			> 0.001
+		):
+			loop_is_seamless = false
 	_check(
 		loop_is_seamless,
-		"Every authored activity route and rain streak loops seamlessly."
+		"Every authored activity route, rain streak, and lantern loops seamlessly."
 	)
 
 	var forbidden_areas: Array[Rect2] = [

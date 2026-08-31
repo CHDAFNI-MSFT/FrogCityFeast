@@ -57,6 +57,10 @@ const CROWD_START := 0.18
 const CROWD_FULL_START := 0.22
 const CROWD_FULL_END := 0.50
 const CROWD_END := 0.56
+const FESTIVAL_START := 0.78
+const FESTIVAL_FULL_START := 0.82
+const FESTIVAL_FULL_END := 0.12
+const FESTIVAL_END := 0.16
 const CROWD_HIDE_DURATION := 1.75
 const ODDITIES_SHOP_OPEN_START := 0.78
 const ODDITIES_SHOP_OPEN_END := 0.18
@@ -1785,10 +1789,14 @@ func performance_structure_snapshot() -> Dictionary:
 	var active_pedestrians := 0
 	var active_vehicles := 0
 	var active_crowd_members := 0
+	var festival_lanterns := 0
 	if is_instance_valid(_city_activity):
 		active_pedestrians = _city_activity.active_pedestrian_count()
 		active_vehicles = _city_activity.active_vehicle_count()
 		active_crowd_members = _city_activity.active_crowd_member_count()
+		festival_lanterns = (
+			_city_activity.visible_festival_lantern_count()
+		)
 	var audio_structure := AudioDirector.structure_snapshot()
 	return {
 		"game_nodes": counts["game_nodes"],
@@ -1830,6 +1838,12 @@ func performance_structure_snapshot() -> Dictionary:
 			if is_instance_valid(_city_activity)
 			else 0
 		),
+		"festival_intensity": (
+			_city_activity.festival_intensity
+			if is_instance_valid(_city_activity)
+			else 0.0
+		),
+		"festival_lanterns": festival_lanterns,
 		"crowd_intensity": _current_crowd_intensity,
 		"crowd_hide_progress": (
 			_crowd_hide_time / CROWD_HIDE_DURATION
@@ -3000,6 +3014,7 @@ func _update_day_night(delta: float) -> void:
 	var clear_color := night_color.lerp(Color.WHITE, 0.38 + daylight * 0.62)
 	var rain_intensity := rain_intensity_for_clock(_day_clock)
 	var crowd_intensity := crowd_intensity_for_clock(_day_clock)
+	var festival_intensity := festival_intensity_for_clock(_day_clock)
 	_current_rain_intensity = rain_intensity
 	_current_crowd_intensity = crowd_intensity
 	_world_tint.color = clear_color.lerp(
@@ -3010,6 +3025,7 @@ func _update_day_night(delta: float) -> void:
 		_city_activity.set_daylight(daylight)
 		_city_activity.set_rain_intensity(rain_intensity)
 		_city_activity.set_crowd_intensity(crowd_intensity)
+		_city_activity.set_festival_intensity(festival_intensity)
 	_update_oddities_shop_schedule()
 	AudioDirector.set_game_ambience(
 		self,
@@ -3037,6 +3053,27 @@ static func crowd_intensity_for_clock(value: float) -> float:
 	if clock > CROWD_FULL_END:
 		return 1.0 - smoothstep(CROWD_FULL_END, CROWD_END, clock)
 	return 1.0
+
+
+static func festival_intensity_for_clock(value: float) -> float:
+	var clock := fposmod(value, 1.0)
+	if clock >= FESTIVAL_START:
+		if clock < FESTIVAL_FULL_START:
+			return smoothstep(
+				FESTIVAL_START,
+				FESTIVAL_FULL_START,
+				clock
+			)
+		return 1.0
+	if clock <= FESTIVAL_END:
+		if clock > FESTIVAL_FULL_END:
+			return 1.0 - smoothstep(
+				FESTIVAL_FULL_END,
+				FESTIVAL_END,
+				clock
+			)
+		return 1.0
+	return 0.0
 
 
 static func oddities_shop_open_for_clock(value: float) -> bool:

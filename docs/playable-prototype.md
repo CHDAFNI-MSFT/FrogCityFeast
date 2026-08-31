@@ -71,6 +71,9 @@ The prototype includes:
   from late evening through early morning, defer daytime closure while the shop
   or doorway is occupied, and preserve permanent access after the shutter is
   eaten;
+- a deterministic Moonlight Market night bazaar with ten fixed draw-only
+  lanterns that fade in during late evening, remain active through midnight,
+  fade out before the daytime meetup, and freeze their sway with Reduce motion;
 - one deterministic 36-second daytime rain shower per 180-second cycle, with
   smooth fades, wet-road sheen, puddle highlights, and 84 capped draw-only rain
   streaks;
@@ -262,7 +265,9 @@ bash scripts/check-project.sh
 The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
 traffic, deterministic city-activity levels and routes, Oddities Shop hours and
 safe deferred closure through connected-cellar travel, growth- and
-destruction-gated room transitions, the bounded rain schedule and density change,
+destruction-gated room transitions, the bounded night-bazaar schedule,
+frame-step-independent lantern motion, the bounded rain schedule and density
+change,
 frame-step-independent rain, static reduced-motion weather, pursuit, net windup
 and wall clearance, dodging, tongue interruption, rapid-tap escape and timeout
 damage, flight and growth immunity, profile persistence, Field Guide catalog
@@ -331,6 +336,7 @@ The deterministic structural budgets are enforced in CI:
 | Reachable gameplay peak | 290 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
 | Populated Belly sample | 64 items and rows, 541 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
+| Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
@@ -343,17 +349,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 ```
 
 The harness uses fixed random seeds and covers baseline play, the night-open
-Oddities Shop, the active Leap Café stockroom, the active Canal Apartments
-upper hall, the progression-gated Moonlight Market rooftop garden, the
-fixture-gated Oddities Shop cellar, busy daytime, ordinary and crowd-cover
-pursuit, a temporary roadblock, a draw-only pursuit snare, an Animal Control
-net in flight, maximum growth, a finite maximum presentation burst, a 64-item
-Belly, the populated Field Guide, both accessibility options, and a reachable
-gameplay peak combining daytime activity, pursuit, growth, the roadblock, the
-snare, and presentation effects. It prints median FPS, frame-time percentiles,
-memory, and a post-sample render snapshot. The command-driven Windows run can
-show isolated scheduling/window stalls, so p95 is more useful than its maximum
-or arithmetic-mean FPS.
+Oddities Shop and Moonlight Market bazaar, the active Leap Café stockroom, the
+active Canal Apartments upper hall, the progression-gated Moonlight Market
+rooftop garden, the fixture-gated Oddities Shop cellar, busy daytime, ordinary
+and crowd-cover pursuit, a temporary roadblock, a draw-only pursuit snare, an
+Animal Control net in flight, maximum growth, a finite maximum presentation
+burst, a 64-item Belly, the populated Field Guide, both accessibility options,
+and a reachable gameplay peak combining daytime activity, pursuit, growth, the
+roadblock, the snare, and presentation effects. It prints median FPS,
+frame-time percentiles, memory, and a post-sample render snapshot. The
+command-driven Windows run can show isolated scheduling/window stalls, so p95
+is more useful than its maximum or arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.
@@ -407,7 +413,7 @@ The following parts of the full design are not implemented yet:
 - further authored multi-room interiors and connected exploration spaces;
 - pathfinding around complex city geometry;
 - additional pursuer types, trap varieties, and roadblock layouts;
-- storms, festivals, additional shop schedules, and random emergencies;
+- additional storms, festivals, shop schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
 - final art, authored animation, expanded audio content and target-device mix

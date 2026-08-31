@@ -24,6 +24,7 @@ const MAX_CITY_ACTORS := 20
 const MAX_ROADBLOCKS := 1
 const MAX_PURSUIT_TRAPS := 1
 const MAX_RAIN_STREAKS := 84
+const MAX_FESTIVAL_LANTERNS := 10
 const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
 const MAX_AUDIO_PLAYERS := 6
@@ -91,6 +92,7 @@ const STRUCTURAL_LIMITS := {
 		"targets": MAX_TARGETS,
 		"buildings": MAX_BUILDINGS,
 		"pursuers": 0,
+		"festival_lanterns": MAX_FESTIVAL_LANTERNS,
 	},
 	"busy_daytime": {
 		"game_nodes": 285,
