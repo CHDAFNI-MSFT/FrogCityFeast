@@ -300,7 +300,9 @@ func _create_game(
 		"Performance Smoke",
 		false,
 		discoveries,
-		preferences
+		preferences,
+		{},
+		BUDGETS.STRESS_RANDOM_SEED
 	)
 	root.add_child(game)
 	await process_frame
@@ -477,6 +479,7 @@ func _setup_gameplay_peak(game: FrogGame) -> void:
 	game._pursuit_trap_deploy_time = 0.0
 	game._update_pursuit_trap(0.1)
 	_setup_presentation_peak(game)
+	_exercise_navigation_detour(game, false)
 
 
 func _setup_generated_streaming(game: FrogGame) -> void:
@@ -484,6 +487,58 @@ func _setup_generated_streaming(game: FrogGame) -> void:
 		Vector2i(2, 2)
 	).get_center()
 	game._update_district_streaming()
+	_exercise_navigation_detour(game, true)
+
+
+func _exercise_navigation_detour(
+	game: FrogGame,
+	generated_only: bool
+) -> void:
+	game._update_navigation_paths()
+	var selected_building: PrototypeBuilding
+	for candidate in game._buildings:
+		if not is_instance_valid(candidate) or candidate.consumed:
+			continue
+		var generated := candidate.has_meta("district_coordinate")
+		if generated != generated_only:
+			continue
+		if (
+			generated
+			and candidate.get_meta("district_coordinate")
+			!= game._current_district_coordinate
+		):
+			continue
+		selected_building = candidate
+		break
+	_check(
+		is_instance_valid(selected_building),
+		"%s provides deterministic navigation geometry."
+		% ("Generated streaming" if generated_only else "Gameplay peak")
+	)
+	if not is_instance_valid(selected_building):
+		return
+	var footprint := selected_building.footprint_rect()
+	var offset := Vector2(
+		footprint.size.x * 0.5 + 150.0,
+		0.0
+	)
+	var route := game._navigation.find_path(
+		footprint.get_center() - offset,
+		footprint.get_center() + offset,
+		PrototypePursuer.NAVIGATION_RADIUS
+	)
+	var points := route["points"] as PackedVector2Array
+	_check(
+		bool(route["reachable"])
+			and not bool(route["fallback"])
+			and points.size() >= 4
+			and game._navigation.path_is_clear(
+				points,
+				PrototypePursuer.NAVIGATION_RADIUS
+			),
+		"%s creates a successful multi-corner navigation query."
+		% ("Generated streaming" if generated_only else "Gameplay peak")
+	)
 
 
 func _check_scenario_expectations(
@@ -653,6 +708,7 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_CITY_ACTORS,
 				"Gameplay peak combines reachable pursuit and daytime activity."
 			)
+			_check_navigation_stress(snapshot, "Gameplay peak")
 			_check_presentation_peak(snapshot)
 		"generated_streaming":
 			_check(
@@ -667,6 +723,7 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_GENERATED_TARGETS,
 				"Generated streaming reaches its bounded untouched 3x3 district ring."
 			)
+			_check_navigation_stress(snapshot, "Generated streaming")
 
 
 func _check_presentation_peak(snapshot: Dictionary) -> void:
@@ -676,6 +733,23 @@ func _check_presentation_peak(snapshot: Dictionary) -> void:
 			== BUDGETS.MAX_TOUCH_FEEDBACK
 			and int(snapshot["tongue_points"]) == 2,
 		"Presentation stress reaches the capped simultaneous feedback state."
+	)
+
+
+func _check_navigation_stress(
+	snapshot: Dictionary,
+	label: String
+) -> void:
+	_check(
+		int(snapshot["navigation_requests"]) > 0
+			and int(snapshot["navigation_successes"]) > 0
+			and int(snapshot["navigation_fallbacks"]) == 0
+			and int(snapshot["navigation_failures"]) == 0
+			and int(snapshot["navigation_max_query_cells"]) > 0
+			and int(snapshot["navigation_max_request_usec"]) > 0
+			and int(snapshot["navigation_max_path_points"]) >= 4
+			and int(snapshot["navigation_budget_rejections"]) == 0,
+		"%s exercises bounded multi-corner navigation queries." % label
 	)
 
 
@@ -775,6 +849,11 @@ func _measure_scenario(
 		]
 	)
 	var snapshot := game.performance_structure_snapshot()
+	if scenario_name in ["gameplay_peak", "generated_streaming"]:
+		_check_navigation_stress(
+			snapshot,
+			"%s rendered sample" % scenario_name.capitalize()
+		)
 	print("STRUCTURE %s | %s" % [scenario_name, JSON.stringify(snapshot)])
 
 

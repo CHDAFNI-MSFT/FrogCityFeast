@@ -336,7 +336,9 @@ Live render-server counters are deliberately omitted because polling them can
 disturb the frame being observed.
 The overlay also reports navigation topology revision, active obstacle and
 route-point counts, request/fallback/failure totals, and peak bounded query
-cells and request time.
+cells and request time. The gameplay-peak and generated-streaming harness
+states each issue a deterministic multi-corner query so these values are
+measured under obstacle-routing load rather than only direct movement.
 
 The prototype uses these **target-device acceptance budgets** for an A16 iPad
 release build at the 1280×960 reference presentation:
@@ -401,18 +403,27 @@ a post-sample render snapshot. The command-driven Windows run can show isolated
 scheduling/window stalls, so p95 is more useful than its maximum or
 arithmetic-mean FPS.
 
-An August 31, 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA
-RTX 4050 laptop measured the maximum nine-district ring at 8.62 ms frame-time
-p95, 47.3 MiB static memory, 21.3 MiB video memory, 47 draw calls, 438 rendered
-objects, and 3,648 primitives. Its structural snapshot was 505 game-subtree
-nodes, 94 collision objects, 124 collision shapes, 102 total targets, and 13
-total buildings. The same run measured the combined authored gameplay peak at
-8.63 ms frame-time p95, 45.9 MiB static memory, 21.5 MiB video memory, 426 draw
-calls, 1,035 rendered objects, and 25,320 primitives. Command-driven desktop
-measurements remain advisory and can contain scheduling outliers; both peaks
-still require explicit profiling on the A16 iPad. The unsigned Godot-to-Xcode
-pipeline is verified, but installing and profiling on the target device still
-requires a separately authorized, developer-signed device build.
+Repeated August 31, 2026 local GL Compatibility measurements at 1280×960 on an
+NVIDIA RTX 4050 laptop measured the fixed-seed maximum nine-district ring at
+8.49–16.88 ms frame-time p95, 47.7 MiB static memory, 21.3 MiB video memory, 54
+draw calls, 542 rendered objects, and 3,962 primitives. Its structural snapshot
+was 505 game-subtree nodes, 94 collision objects, 124 collision shapes, 102
+total targets, and 13 total buildings, at or within the deterministic ceilings
+above. Its successful deliberate multi-corner navigation request used 61
+active obstacle rectangles, 6,408 grid cells, 4 smoothed points, and at most
+2,986 microseconds across the repeated runs.
+
+The same runs measured the combined authored gameplay peak at 12.67–17.52 ms
+frame-time p95, 46.3 MiB static memory, 21.5 MiB video memory, 426 draw calls,
+1,035 rendered objects, and 25,320 primitives. Its structural snapshot was 300
+nodes, 37 collision objects, and 65 collision shapes. Four navigation requests
+all succeeded per run; the largest used 31 active obstacle rectangles, 6,480
+grid cells, 4 smoothed points, and at most 2,872 microseconds. Neither peak
+recorded a navigation fallback, failure, or budget rejection. Command-driven
+desktop measurements remain advisory and can contain scheduling outliers; both
+peaks still require explicit profiling on the A16 iPad. The unsigned
+Godot-to-Xcode pipeline is verified, but installing and profiling on the target
+device still requires a separately authorized, developer-signed device build.
 
 ## Unsigned iOS export verification
 

@@ -106,6 +106,14 @@ smoothed route points. A 16-pixel cardinal grid handles ordinary routes; a
 bounded 4-pixel refinement is used only for nearby physically valid narrow
 passages. Navigation state adds no scene nodes or physics bodies.
 
+Repeated fixed-seed August 31, 2026 rendered Windows stress runs included
+deliberate multi-corner queries in both peak states. The authored gameplay peak
+held 31 active obstacle rectangles and reached 6,480 query cells, 4 smoothed
+points, and 2,872 microseconds for its largest observed request. The maximum
+generated ring held 61 obstacles and reached 6,408 cells, 4 points, and 2,986
+microseconds. Both states completed every request without fallback, failure, or
+budget rejection.
+
 Reproducible stress coverage includes the maximum generated-district ring, all
 four connected rooms, the night
 bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
