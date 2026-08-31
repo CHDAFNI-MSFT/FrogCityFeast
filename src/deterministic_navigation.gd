@@ -2,14 +2,17 @@ class_name DeterministicNavigation2D
 extends RefCounted
 
 const CELL_SIZE := 16.0
-const CLEARANCE := 2.0
+const FINE_CELL_SIZE := 4.0
+const CLEARANCE := 0.0
 const QUERY_MARGINS := [192.0, 384.0, 704.0]
+const FINE_QUERY_MARGIN := 96.0
+const FINE_QUERY_DISTANCE_LIMIT := 1200.0
 const MAX_OBSTACLES := 160
 const MAX_TOTAL_QUERY_CELLS := 70000
 const MAX_PATH_POINTS := 512
 const MIN_AGENT_RADIUS := 20.0
-const ANCHOR_SEARCH_RINGS := 6
-const FALLBACK_SEARCH_RINGS := 40
+const ANCHOR_SEARCH_DISTANCE := 96.0
+const FALLBACK_SEARCH_DISTANCE := 640.0
 const POSITION_EPSILON := 0.01
 
 var _bounds := Rect2()
@@ -123,7 +126,8 @@ func find_path(
 			start,
 			clamped_destination,
 			navigation_bounds,
-			margin
+			margin,
+			CELL_SIZE
 		)
 		var query_cells := query_region.size.x * query_region.size.y
 		if (
@@ -136,51 +140,12 @@ func find_path(
 		_last_query_cells = total_query_cells
 		_max_query_cells = maxi(_max_query_cells, total_query_cells)
 
-		var grid := _build_grid(query_region, radius)
-		var start_id := _nearest_anchor(
-			grid,
-			query_region,
-			start,
-			radius,
-			ANCHOR_SEARCH_RINGS,
-			true
-		)
-		if start_id == Vector2i(-1, -1):
-			continue
-		var target_id := _nearest_anchor(
-			grid,
-			query_region,
-			clamped_destination,
-			radius,
-			(
-				ANCHOR_SEARCH_RINGS
-				if _position_clear(clamped_destination, radius)
-				else FALLBACK_SEARCH_RINGS
-			),
-			_position_clear(clamped_destination, radius)
-		)
-		if target_id == Vector2i(-1, -1):
-			continue
-
-		var id_path: Array[Vector2i] = grid.get_id_path(
-			start_id,
-			target_id,
-			true
-		)
-		_last_raw_path_points = id_path.size()
-		_max_raw_path_points = maxi(
-			_max_raw_path_points,
-			_last_raw_path_points
-		)
-		if id_path.is_empty():
-			continue
-		var reached_anchor := id_path[-1] == target_id
-		var candidate := _route_result(
-			id_path,
+		var candidate := _attempt_route(
 			start,
 			clamped_destination,
 			radius,
-			reached_anchor,
+			query_region,
+			CELL_SIZE,
 			exact_destination
 		)
 		if candidate.is_empty():
@@ -198,6 +163,58 @@ func find_path(
 			)
 		):
 			best_partial = candidate
+
+	if (
+		exact_destination
+		and (result.get("points", PackedVector2Array()) as PackedVector2Array)
+			.is_empty()
+		and start.distance_to(clamped_destination)
+		<= FINE_QUERY_DISTANCE_LIMIT
+	):
+		var fine_region := _query_region(
+			start,
+			clamped_destination,
+			navigation_bounds,
+			FINE_QUERY_MARGIN,
+			FINE_CELL_SIZE
+		)
+		var fine_cells := fine_region.size.x * fine_region.size.y
+		if (
+			fine_cells > 0
+			and total_query_cells + fine_cells
+			<= MAX_TOTAL_QUERY_CELLS
+		):
+			total_query_cells += fine_cells
+			_last_query_cells = total_query_cells
+			_max_query_cells = maxi(_max_query_cells, total_query_cells)
+			var fine_candidate := _attempt_route(
+				start,
+				clamped_destination,
+				radius,
+				fine_region,
+				FINE_CELL_SIZE,
+				exact_destination
+			)
+			if (
+				not fine_candidate.is_empty()
+				and bool(fine_candidate["reached_anchor"])
+			):
+				result = fine_candidate
+			elif (
+				not fine_candidate.is_empty()
+				and (
+					best_partial.is_empty()
+					or (
+						(fine_candidate["resolved_destination"] as Vector2)
+							.distance_squared_to(clamped_destination)
+						< (best_partial["resolved_destination"] as Vector2)
+							.distance_squared_to(clamped_destination)
+					)
+				)
+			):
+				best_partial = fine_candidate
+		else:
+			_budget_rejection_count += 1
 
 	if bool(result.get("points", PackedVector2Array()).is_empty()):
 		result = best_partial
@@ -285,7 +302,8 @@ func _query_region(
 	start: Vector2,
 	destination: Vector2,
 	navigation_bounds: Rect2,
-	margin: float
+	margin: float,
+	cell_size: float
 ) -> Rect2i:
 	var request_rect := Rect2(
 		Vector2(
@@ -298,23 +316,88 @@ func _query_region(
 		)
 	).grow(margin)
 	request_rect = request_rect.intersection(navigation_bounds)
-	var half_cell := CELL_SIZE * 0.5
+	var half_cell := cell_size * 0.5
 	var minimum := Vector2i(
-		ceili((request_rect.position.x - half_cell) / CELL_SIZE),
-		ceili((request_rect.position.y - half_cell) / CELL_SIZE)
+		ceili((request_rect.position.x - half_cell) / cell_size),
+		ceili((request_rect.position.y - half_cell) / cell_size)
 	)
 	var maximum := Vector2i(
-		floori((request_rect.end.x - half_cell) / CELL_SIZE),
-		floori((request_rect.end.y - half_cell) / CELL_SIZE)
+		floori((request_rect.end.x - half_cell) / cell_size),
+		floori((request_rect.end.y - half_cell) / cell_size)
 	)
 	return Rect2i(minimum, maximum - minimum + Vector2i.ONE)
 
 
-func _build_grid(region: Rect2i, radius: float) -> AStarGrid2D:
+func _attempt_route(
+	start: Vector2,
+	destination: Vector2,
+	radius: float,
+	query_region: Rect2i,
+	cell_size: float,
+	exact_destination: bool
+) -> Dictionary:
+	var grid := _build_grid(query_region, radius, cell_size)
+	var start_id := _nearest_anchor(
+		grid,
+		query_region,
+		start,
+		radius,
+		ceili(ANCHOR_SEARCH_DISTANCE / cell_size),
+		true,
+		cell_size
+	)
+	if start_id == Vector2i(-1, -1):
+		return {}
+	var destination_clear := _position_clear(destination, radius)
+	var target_id := _nearest_anchor(
+		grid,
+		query_region,
+		destination,
+		radius,
+		ceili(
+			(
+				ANCHOR_SEARCH_DISTANCE
+				if destination_clear
+				else FALLBACK_SEARCH_DISTANCE
+			) / cell_size
+		),
+		destination_clear,
+		cell_size
+	)
+	if target_id == Vector2i(-1, -1):
+		return {}
+	var id_path: Array[Vector2i] = grid.get_id_path(
+		start_id,
+		target_id,
+		true
+	)
+	_last_raw_path_points = id_path.size()
+	_max_raw_path_points = maxi(
+		_max_raw_path_points,
+		_last_raw_path_points
+	)
+	if id_path.is_empty():
+		return {}
+	return _route_result(
+		id_path,
+		grid,
+		start,
+		destination,
+		radius,
+		id_path[-1] == target_id,
+		exact_destination
+	)
+
+
+func _build_grid(
+	region: Rect2i,
+	radius: float,
+	cell_size: float
+) -> AStarGrid2D:
 	var grid := AStarGrid2D.new()
 	grid.region = region
-	grid.cell_size = Vector2.ONE * CELL_SIZE
-	grid.offset = Vector2.ONE * (CELL_SIZE * 0.5)
+	grid.cell_size = Vector2.ONE * cell_size
+	grid.offset = Vector2.ONE * (cell_size * 0.5)
 	grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	grid.default_compute_heuristic = AStarGrid2D.HEURISTIC_MANHATTAN
 	grid.default_estimate_heuristic = AStarGrid2D.HEURISTIC_MANHATTAN
@@ -324,22 +407,22 @@ func _build_grid(region: Rect2i, radius: float) -> AStarGrid2D:
 		var expanded := obstacle.grow(radius + CLEARANCE)
 		var minimum := Vector2i(
 			ceili(
-				(expanded.position.x - CELL_SIZE * 0.5)
-				/ CELL_SIZE
+				(expanded.position.x - cell_size * 0.5)
+				/ cell_size
 			),
 			ceili(
-				(expanded.position.y - CELL_SIZE * 0.5)
-				/ CELL_SIZE
+				(expanded.position.y - cell_size * 0.5)
+				/ cell_size
 			)
 		)
 		var maximum := Vector2i(
 			floori(
-				(expanded.end.x - CELL_SIZE * 0.5)
-				/ CELL_SIZE
+				(expanded.end.x - cell_size * 0.5)
+				/ cell_size
 			),
 			floori(
-				(expanded.end.y - CELL_SIZE * 0.5)
-				/ CELL_SIZE
+				(expanded.end.y - cell_size * 0.5)
+				/ cell_size
 			)
 		)
 		minimum.x = maxi(minimum.x, region.position.x)
@@ -362,9 +445,10 @@ func _nearest_anchor(
 	world_position: Vector2,
 	radius: float,
 	max_rings: int,
-	require_visible: bool
+	require_visible: bool,
+	cell_size: float
 ) -> Vector2i:
-	var origin := _world_to_cell(world_position)
+	var origin := _world_to_cell(world_position, cell_size)
 	for ring in range(max_rings + 1):
 		var candidates: Array[Vector2i] = []
 		for x_offset in range(-ring, ring + 1):
@@ -409,6 +493,7 @@ func _nearest_anchor(
 
 func _route_result(
 	id_path: Array[Vector2i],
+	grid: AStarGrid2D,
 	start: Vector2,
 	destination: Vector2,
 	radius: float,
@@ -417,7 +502,7 @@ func _route_result(
 ) -> Dictionary:
 	var raw_points := PackedVector2Array([start])
 	for point_id in id_path:
-		var point := _cell_to_world(point_id)
+		var point := grid.get_point_position(point_id)
 		if raw_points[-1].distance_squared_to(point) > POSITION_EPSILON:
 			raw_points.append(point)
 	var resolved_destination := raw_points[-1]
@@ -529,17 +614,10 @@ func _segment_clear(from: Vector2, to: Vector2, radius: float) -> bool:
 	return true
 
 
-func _world_to_cell(position: Vector2) -> Vector2i:
+func _world_to_cell(position: Vector2, cell_size: float) -> Vector2i:
 	return Vector2i(
-		floori(position.x / CELL_SIZE),
-		floori(position.y / CELL_SIZE)
-	)
-
-
-func _cell_to_world(point_id: Vector2i) -> Vector2:
-	return (
-		Vector2(point_id) * CELL_SIZE
-		+ Vector2.ONE * (CELL_SIZE * 0.5)
+		floori(position.x / cell_size),
+		floori(position.y / cell_size)
 	)
 
 

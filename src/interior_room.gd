@@ -46,6 +46,28 @@ func contains_world_point(world_position: Vector2) -> bool:
 	return footprint_rect().has_point(world_position)
 
 
+func navigation_obstacle_rects() -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	if (
+		not is_instance_valid(_collision_body)
+		or _collision_body.collision_layer == 0
+	):
+		return result
+	for child in _collision_body.get_children():
+		var collision := child as CollisionShape2D
+		if (
+			not is_instance_valid(collision)
+			or collision.disabled
+			or not collision.shape is RectangleShape2D
+		):
+			continue
+		var rectangle := collision.shape as RectangleShape2D
+		var global_scale := collision.global_transform.get_scale().abs()
+		var size := rectangle.size * global_scale
+		result.append(Rect2(collision.global_position - size / 2.0, size))
+	return result
+
+
 func _build_collision() -> void:
 	_collision_body = StaticBody2D.new()
 	_collision_body.collision_layer = 1

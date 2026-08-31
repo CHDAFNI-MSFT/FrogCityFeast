@@ -38,6 +38,12 @@ func _build_environment_collision() -> void:
 	add_child(_environment_body)
 
 
+func navigation_obstacle_rects() -> Array[Rect2]:
+	if definition == null:
+		return []
+	return definition.obstacles.duplicate()
+
+
 func _draw() -> void:
 	if definition == null:
 		return

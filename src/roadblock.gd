@@ -47,6 +47,10 @@ func remaining_hits() -> int:
 	return maxi(0, REQUIRED_HITS - _hits)
 
 
+func navigation_obstacle_rect() -> Rect2:
+	return Rect2(global_position - barrier_size / 2.0, barrier_size)
+
+
 func dismiss(broken: bool) -> void:
 	if _removing:
 		return

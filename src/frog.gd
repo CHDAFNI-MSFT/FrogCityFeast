@@ -7,12 +7,16 @@ const TIER_SCALES := [1.0, 1.28, 1.62]
 const TIER_RADII := [28.0, 35.0, 44.0]
 const TIER_SPEEDS := [330.0, 350.0, 365.0]
 const TIER_TONGUE_RANGES := [390.0, 540.0, 720.0]
+const WAYPOINT_TOLERANCE := 1.0
 
 var growth_tier := 0
 var movement_enabled := true
 var is_flying := false
 var _move_target := Vector2.ZERO
 var _has_move_target := false
+var _move_path := PackedVector2Array()
+var _move_path_index := 0
+var _move_path_revision := -1
 var _knockback_velocity := Vector2.ZERO
 var _knockback_time := 0.0
 var _visual_scale := 1.0
@@ -53,15 +57,24 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
-	var offset := _move_target - global_position
-	if offset.length() <= 12.0:
-		_has_move_target = false
-		velocity = Vector2.ZERO
-		move_reached.emit(global_position)
+	var waypoint := _current_waypoint()
+	while global_position.distance_to(waypoint) <= WAYPOINT_TOLERANCE:
+		if _move_path_index < _move_path.size() - 1:
+			_move_path_index += 1
+			waypoint = _current_waypoint()
+			continue
+		_finish_move()
 		return
 
+	var offset := waypoint - global_position
 	var speed_multiplier := 1.45 if is_flying else 1.0
-	velocity = offset.normalized() * TIER_SPEEDS[growth_tier] * speed_multiplier
+	var movement_speed: float = (
+		TIER_SPEEDS[growth_tier] * speed_multiplier
+	)
+	velocity = offset.normalized() * minf(
+		movement_speed,
+		offset.length() / maxf(delta, 0.0001)
+	)
 	rotation = velocity.angle() + PI / 2.0
 	move_and_slide()
 
@@ -69,13 +82,47 @@ func _physics_process(delta: float) -> void:
 func move_to(world_position: Vector2) -> void:
 	if not movement_enabled:
 		return
+	_move_path = PackedVector2Array()
+	_move_path_index = 0
+	_move_path_revision = -1
 	_move_target = world_position
 	_has_move_target = true
 
 
+func follow_path(points: PackedVector2Array, revision: int) -> bool:
+	if (
+		not movement_enabled
+		or is_flying
+		or knockback_active()
+		or points.size() < 2
+	):
+		return false
+	_move_path = points.duplicate()
+	_move_path_index = 1
+	_move_path_revision = revision
+	_move_target = _move_path[-1]
+	_has_move_target = true
+	return true
+
+
 func stop_moving() -> void:
 	_has_move_target = false
+	_move_path = PackedVector2Array()
+	_move_path_index = 0
+	_move_path_revision = -1
 	velocity = Vector2.ZERO
+
+
+func has_active_path() -> bool:
+	return _has_move_target and not _move_path.is_empty()
+
+
+func active_path_revision() -> int:
+	return _move_path_revision
+
+
+func active_path_point_count() -> int:
+	return _move_path.size()
 
 
 func clear_knockback() -> void:
@@ -94,7 +141,7 @@ func knock_back_from(source_position: Vector2) -> void:
 		direction = Vector2.DOWN
 	_knockback_velocity = direction * 620.0
 	_knockback_time = 0.32
-	_has_move_target = false
+	stop_moving()
 
 
 func set_growth_tier(next_tier: int) -> void:
@@ -136,6 +183,22 @@ func set_flying(value: bool) -> void:
 	is_flying = value
 	collision_mask = 0 if is_flying else 1
 	queue_redraw()
+
+
+func _current_waypoint() -> Vector2:
+	if (
+		not _move_path.is_empty()
+		and _move_path_index >= 0
+		and _move_path_index < _move_path.size()
+	):
+		return _move_path[_move_path_index]
+	return _move_target
+
+
+func _finish_move() -> void:
+	var reached_position := _move_target
+	stop_moving()
+	move_reached.emit(reached_position)
 
 
 func _draw() -> void:

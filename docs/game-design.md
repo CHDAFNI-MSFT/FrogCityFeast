@@ -99,6 +99,13 @@ collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
 
+Ground navigation uses a deterministic, world-aligned `AStarGrid2D` query
+window over the active room or loaded district bounds. Requests are fail-closed
+at 160 obstacle rectangles, 70,000 total coarse/fine query cells, and 512
+smoothed route points. A 16-pixel cardinal grid handles ordinary routes; a
+bounded 4-pixel refinement is used only for nearby physically valid narrow
+passages. Navigation state adds no scene nodes or physics bodies.
+
 Reproducible stress coverage includes the maximum generated-district ring, all
 four connected rooms, the night
 bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
@@ -114,6 +121,10 @@ exact commands and current local measurement notes are recorded in
 The player controls a frog.
 
 - Tap a location on the ground to make the frog run there.
+- Ground movement preserves the exact tapped destination when it is reachable,
+  routes around successive collision obstacles, and visibly redirects to the
+  nearest safe reachable point when the requested location is blocked or
+  outside loaded city space.
 - Double-tap a target to shoot the frog's tongue at it.
 - Use a second finger to rotate the camera.
 - Brief draw-only cues confirm accepted movement, tongue attempts, and camera
@@ -271,9 +282,9 @@ things to eat.
   remove the Address Plaque, grow once and win an interior struggle with the
   Lobby Bench, then strip the Entry Canopy. The remaining wall-side furniture
   keeps the Tenant's Cat and Lobby Lamp exploration paths intact.
-- Leap Café and Canal Apartments use wall-hugging solid furniture with wide
-  central aisles, keeping the single-world prototype navigable without
-  pathfinding. Their interior targets require the frog to enter, remain
+- Leap Café and Canal Apartments use wall-hugging solid furniture with
+  collision-aware routes through their central aisles. Their interior targets
+  require the frog to enter, remain
   associated with their rooms when restocked, and reward exploring the space.
 - Leap Café also has the prototype's first separate room: a marked rear door
   leads through a short fade to a compact stockroom with solid shelving, a

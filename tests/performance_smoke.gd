@@ -67,6 +67,15 @@ func _run() -> void:
 		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
+		BUDGETS.MAX_NAVIGATION_OBSTACLES
+			== DeterministicNavigation2D.MAX_OBSTACLES
+			and BUDGETS.MAX_NAVIGATION_QUERY_CELLS
+			== DeterministicNavigation2D.MAX_TOTAL_QUERY_CELLS
+			and BUDGETS.MAX_NAVIGATION_PATH_POINTS
+			== DeterministicNavigation2D.MAX_PATH_POINTS,
+		"The navigation budgets match the deterministic router caps."
+	)
+	_check(
 		BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
 			== DistrictGenerator.MAX_LOADED_GENERATED_DISTRICTS
 			and BUDGETS.MAX_GENERATED_BUILDINGS

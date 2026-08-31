@@ -16,6 +16,9 @@ The prototype includes:
 - a third-person 2D camera composition with the frog in the lower part of the
   view;
 - tap-to-move controls;
+- deterministic collision-aware tap routes around multiple building corners,
+  exact reachable destinations, and clear nearest-safe fallback feedback for
+  blocked or unloaded destinations;
 - double-tap tongue aiming at the exact touched location;
 - two-finger camera rotation;
 - equivalent mouse controls for desktop testing;
@@ -326,6 +329,9 @@ generated target and building counts, pursuit, city actors, effects, and
 overlay data.
 Live render-server counters are deliberately omitted because polling them can
 disturb the frame being observed.
+The overlay also reports navigation topology revision, active obstacle and
+route-point counts, request/fallback/failure totals, and peak bounded query
+cells and request time.
 
 The prototype uses these **target-device acceptance budgets** for an A16 iPad
 release build at the 1280×960 reference presentation:
@@ -360,6 +366,7 @@ The deterministic structural budgets are enforced in CI:
 | Roadblock pursuit | 299 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock |
 | Reachable gameplay peak | 300 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
 | Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 505 nodes, 94 collision objects, and 124 collision shapes including the authored core |
+| Navigation query | At most 160 active obstacle rectangles, 70,000 total coarse/fine grid cells, and 512 smoothed route points per request |
 | Populated Belly sample | 64 items and rows, 551 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
@@ -446,7 +453,6 @@ The following parts of the full design are not implemented yet:
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
-- pathfinding around complex city geometry;
 - additional pursuer types, trap varieties, and roadblock layouts;
 - additional storms, festivals, shop schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;

@@ -24,6 +24,7 @@ const GENERATED_DISTRICT_SCRIPT := preload("res://src/generated_district.gd")
 const PURSUER_SCRIPT := preload("res://src/pursuer.gd")
 const ROADBLOCK_SCRIPT := preload("res://src/roadblock.gd")
 const PURSUIT_TRAP_SCRIPT := preload("res://src/pursuit_trap.gd")
+const NAVIGATION_SCRIPT := preload("res://src/deterministic_navigation.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
 )
@@ -401,6 +402,10 @@ var _next_session_instance_id := 1
 var _pursuer: PrototypePursuer
 var _roadblock: PrototypeRoadblock
 var _pursuit_trap: PrototypePursuitTrap
+var _navigation: DeterministicNavigation2D = NAVIGATION_SCRIPT.new()
+var _navigation_dirty := true
+var _frog_route_requested_destination := Vector2.INF
+var _frog_route_fallback := false
 
 var _tongue_recovery := 0.0
 var _tongue_phase := TonguePhase.HIDDEN
@@ -506,6 +511,7 @@ func _ready() -> void:
 	_build_prototype_city()
 	_current_district_coordinate = DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
 	_update_district_streaming(true)
+	_refresh_navigation_geometry()
 	_city_camera_zoom = _camera.zoom
 	_update_day_night(0.0)
 	if not _accessibility_configured:
@@ -741,6 +747,7 @@ func _load_generated_district(coordinate: Vector2i) -> void:
 			state,
 			spawned_instances
 		)
+	_invalidate_navigation()
 
 
 func _unload_generated_district(coordinate: Vector2i) -> void:
@@ -783,6 +790,7 @@ func _unload_generated_district(coordinate: Vector2i) -> void:
 	_district_definitions.erase(key)
 	_loaded_districts.erase(coordinate)
 	root.queue_free()
+	_invalidate_navigation()
 
 
 func _district_definition(coordinate: Vector2i) -> DistrictDefinition:
@@ -1102,6 +1110,7 @@ func _process(delta: float) -> void:
 	_update_pursuit_roadblock(delta)
 	_update_pursuit_trap(delta)
 	_update_district_streaming()
+	_update_navigation_paths()
 
 	if is_instance_valid(_pull_target):
 		_pull_time_left -= delta
@@ -1114,6 +1123,7 @@ func _process(delta: float) -> void:
 		):
 			_cancel_pull()
 		else:
+			_cancel_frog_navigation()
 			_frog.move_to(pull_end)
 
 	_update_camera()
@@ -1245,12 +1255,7 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 		and _tutorial.step == TutorialController.Step.MOVE
 	):
 		movement_destination = _tutorial.marker_position
-	var final_destination := _clamp_circle_to_world(
-		movement_destination,
-		_frog.collision_radius()
-	)
-	_frog.move_to(final_destination)
-	_touch_feedback.show_move(final_destination)
+	_request_frog_navigation(movement_destination)
 
 
 func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
@@ -1274,10 +1279,19 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 		) <= 130.0:
 			_begin_interior_transition("city")
 		else:
-			_pending_interior_transition = "city"
-			_frog.move_to(active_room.exit_approach_position())
-			_touch_feedback.show_move(active_room.exit_approach_position())
-			_show_status("Moving to the %s exit." % active_room.display_name)
+			var route := _request_frog_navigation(
+				active_room.exit_approach_position(),
+				false,
+				false
+			)
+			if bool(route["reachable"]):
+				_pending_interior_transition = "city"
+				_show_status(
+					"Moving to the %s exit." % active_room.display_name
+				)
+			else:
+				_pending_interior_transition = ""
+				_show_status("No safe route reaches that exit.")
 		return true
 
 	var building := _transition_building_at(world_position)
@@ -1301,10 +1315,17 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 	if _frog.global_position.distance_to(approach_position) <= 130.0:
 		_begin_interior_transition(destination)
 	else:
-		_pending_interior_transition = destination
-		_frog.move_to(approach_position)
-		_touch_feedback.show_move(approach_position)
-		_show_status("Moving to the %s entrance." % building.display_name)
+		var route := _request_frog_navigation(
+			approach_position,
+			false,
+			false
+		)
+		if bool(route["reachable"]):
+			_pending_interior_transition = destination
+			_show_status("Moving to the %s entrance." % building.display_name)
+		else:
+			_pending_interior_transition = ""
+			_show_status("No safe route reaches that entrance.")
 	return true
 
 
@@ -1387,7 +1408,7 @@ func _begin_interior_transition(destination: String) -> void:
 
 	_pending_interior_transition = ""
 	_interior_transition_destination = destination
-	_frog.stop_moving()
+	_cancel_frog_navigation()
 	_frog.clear_knockback()
 	_frog.movement_enabled = false
 	_reset_touch_input_state()
@@ -1463,6 +1484,7 @@ func _complete_interior_transfer() -> void:
 			)
 		)
 	_last_safe_ground_position = _frog.global_position
+	_invalidate_navigation()
 	_update_camera()
 	_camera.reset_smoothing()
 
@@ -1616,6 +1638,7 @@ func _begin_struggle(target: EdibleTarget, accuracy: float, hit_offset: Vector2)
 	_struggle_title.text = TARGET_STRUGGLE_TITLE
 	_struggle_hint.text = TARGET_STRUGGLE_HINT
 	_struggle_panel.visible = true
+	_cancel_frog_navigation()
 	_frog.movement_enabled = false
 	if _tongue_phase == TonguePhase.HIDDEN:
 		_show_tongue(target.global_position + hit_offset)
@@ -1767,6 +1790,7 @@ func _open_belly() -> void:
 	):
 		_show_status(_tutorial.current_instruction())
 		return
+	_cancel_frog_navigation()
 	_rebuild_belly_list()
 	_reset_touch_input_state()
 	_clear_camera_shake()
@@ -1806,6 +1830,7 @@ func _open_guide() -> void:
 		return
 	if _belly_overlay.visible or _options_overlay.visible:
 		return
+	_cancel_frog_navigation()
 	_rebuild_guide()
 	_reset_touch_input_state()
 	_clear_camera_shake()
@@ -1825,6 +1850,7 @@ func _close_guide() -> void:
 func _open_options() -> void:
 	if _belly_overlay.visible or _guide_overlay.visible:
 		return
+	_cancel_frog_navigation()
 	_update_accessibility_controls()
 	_reset_touch_input_state()
 	_clear_camera_shake()
@@ -2279,6 +2305,7 @@ func _apply_growth_tier(tier: int) -> void:
 	_growth_tier = tier
 	_pending_growth_tier = -1
 	_frog.set_growth_tier(_growth_tier)
+	_invalidate_navigation()
 	_frog.celebrate_growth(_motion_scale)
 	_effects.emit_growth(_frog.global_position)
 	AudioDirector.play_effect(FrogAudioDirector.GROWTH)
@@ -2342,6 +2369,7 @@ func performance_structure_snapshot() -> Dictionary:
 		):
 			generated_buildings += 1
 	var audio_structure := AudioDirector.structure_snapshot()
+	var navigation_metrics := _navigation.metrics_snapshot()
 	return {
 		"game_nodes": counts["game_nodes"],
 		"canvas_items": counts["canvas_items"],
@@ -2422,6 +2450,38 @@ func performance_structure_snapshot() -> Dictionary:
 		"larger_text_controls": _larger_text_controls_enabled,
 		"performance_instrumentation": is_instance_valid(
 			_performance_instrumentation
+		),
+		"navigation_revision": navigation_metrics["navigation_revision"],
+		"navigation_obstacles": navigation_metrics["navigation_obstacles"],
+		"navigation_requests": navigation_metrics["navigation_requests"],
+		"navigation_successes": navigation_metrics["navigation_successes"],
+		"navigation_fallbacks": navigation_metrics["navigation_fallbacks"],
+		"navigation_failures": navigation_metrics["navigation_failures"],
+		"navigation_budget_rejections": navigation_metrics[
+			"navigation_budget_rejections"
+		],
+		"navigation_last_request_usec": navigation_metrics[
+			"navigation_last_request_usec"
+		],
+		"navigation_max_request_usec": navigation_metrics[
+			"navigation_max_request_usec"
+		],
+		"navigation_last_query_cells": navigation_metrics[
+			"navigation_last_query_cells"
+		],
+		"navigation_max_query_cells": navigation_metrics[
+			"navigation_max_query_cells"
+		],
+		"navigation_last_path_points": navigation_metrics[
+			"navigation_last_path_points"
+		],
+		"navigation_max_path_points": navigation_metrics[
+			"navigation_max_path_points"
+		],
+		"navigation_active_frog_points": (
+			_frog.active_path_point_count()
+			if is_instance_valid(_frog)
+			else 0
 		),
 		"audio_nodes": audio_structure["audio_nodes"],
 		"audio_players": audio_structure["audio_players"],
@@ -2863,6 +2923,7 @@ func _apply_damage(source_position: Vector2, penalty: int, message: String) -> v
 		return
 	_damage_cooldown = DAMAGE_COOLDOWN
 	_score = maxi(0, _score - penalty)
+	_cancel_frog_navigation()
 	_frog.knock_back_from(source_position)
 	_effects.emit_damage(_frog.global_position)
 	_trigger_camera_shake(8.0, 0.24)
@@ -2929,6 +2990,7 @@ func _spawn_roadblock() -> bool:
 	roadblock.removed.connect(_on_roadblock_removed)
 	_world.add_child(roadblock)
 	_roadblock = roadblock
+	_invalidate_navigation()
 	_show_status("Animal Control blocked a nearby road!")
 	return true
 
@@ -3032,6 +3094,7 @@ func _on_roadblock_removed(
 ) -> void:
 	if _roadblock == roadblock:
 		_roadblock = null
+		_invalidate_navigation()
 
 
 func _update_pursuit_trap(delta: float) -> void:
@@ -3284,7 +3347,7 @@ func _on_pursuer_netted(source_position: Vector2) -> void:
 	_struggle_title.text = "Caught in Animal Control's net!"
 	_struggle_hint.text = "Tap rapidly anywhere to break free!"
 	_struggle_panel.visible = true
-	_frog.stop_moving()
+	_cancel_frog_navigation()
 	_frog.movement_enabled = false
 	_reset_touch_input_state()
 	_show_status("Animal Control netted you! Tap rapidly to escape.")
@@ -3398,6 +3461,7 @@ func _start_pull(target: EdibleTarget, hit_offset: Vector2) -> void:
 	_pull_target = target
 	_pull_time_left = 1.8
 	_pull_hit_offset = hit_offset
+	_cancel_frog_navigation()
 	_frog.movement_enabled = true
 	target.pulse_feedback(_motion_scale)
 	_show_tongue(target.global_position + _pull_hit_offset)
@@ -3552,7 +3616,14 @@ func _has_live_target_id(target_id: String) -> bool:
 
 func _activate_flight(duration: float) -> void:
 	_flight_time_left = maxf(_flight_time_left, duration)
+	var destination := _frog_route_requested_destination
+	_cancel_frog_navigation()
 	_frog.set_flying(true)
+	if destination != Vector2.INF:
+		_frog_route_requested_destination = destination
+		_frog.move_to(
+			_clamp_circle_to_world(destination, _frog.collision_radius())
+		)
 	_show_status("Flight power! The frog can fly over walls for one minute.")
 	_update_power_label()
 
@@ -3568,6 +3639,10 @@ func _update_flight(delta: float) -> void:
 			_update_power_label()
 			return
 		_frog.set_flying(false)
+		if _frog._has_move_target:
+			var destination := _frog._move_target
+			_frog.stop_moving()
+			_request_frog_navigation(destination, false)
 		_show_status("The flight power wore off.")
 	_update_power_label()
 
@@ -4062,6 +4137,163 @@ func _clamp_circle_to_world(position: Vector2, radius: float) -> Vector2:
 	)
 
 
+func _request_frog_navigation(
+	destination: Vector2,
+	show_unreachable_status: bool = true,
+	allow_fallback: bool = true
+) -> Dictionary:
+	var failed := {
+		"requested_destination": destination,
+		"resolved_destination": _frog.global_position,
+		"reachable": false,
+		"fallback": true,
+		"revision": _navigation.revision(),
+		"points": PackedVector2Array(),
+	}
+	if not _frog.movement_enabled or _frog.knockback_active():
+		return failed
+	_frog_route_requested_destination = destination
+	if _frog.is_flying:
+		var flight_destination := _clamp_circle_to_world(
+			destination,
+			_frog.collision_radius()
+		)
+		_frog.move_to(flight_destination)
+		_frog_route_fallback = not flight_destination.is_equal_approx(
+			destination
+		)
+		_touch_feedback.show_move(flight_destination)
+		failed["resolved_destination"] = flight_destination
+		failed["reachable"] = not _frog_route_fallback
+		failed["fallback"] = _frog_route_fallback
+		failed["points"] = PackedVector2Array([
+			_frog.global_position,
+			flight_destination,
+		])
+		return failed
+
+	_refresh_navigation_geometry()
+	var route := _navigation.find_path(
+		_frog.global_position,
+		destination,
+		_frog.collision_radius()
+	)
+	var points := route["points"] as PackedVector2Array
+	if (
+		points.is_empty()
+		or (not allow_fallback and not bool(route["reachable"]))
+		or not _frog.follow_path(
+		points,
+		int(route["revision"])
+		)
+	):
+		_cancel_frog_navigation()
+		if show_unreachable_status:
+			_show_status("No safe route is available from here.")
+		return route
+	_frog_route_fallback = bool(route["fallback"])
+	var resolved := route["resolved_destination"] as Vector2
+	_touch_feedback.show_move(resolved)
+	if _frog_route_fallback and show_unreachable_status:
+		_show_status(
+			"That spot is blocked. Moving to the nearest reachable place."
+		)
+	return route
+
+
+func _cancel_frog_navigation() -> void:
+	_frog_route_requested_destination = Vector2.INF
+	_frog_route_fallback = false
+	_pending_interior_transition = ""
+	if is_instance_valid(_frog):
+		_frog.stop_moving()
+
+
+func _invalidate_navigation() -> void:
+	_navigation_dirty = true
+	if (
+		is_instance_valid(_frog)
+		and _frog.has_active_path()
+	):
+		_frog.stop_moving()
+	if (
+		is_instance_valid(_pursuer)
+		and _pursuer.has_method("invalidate_navigation")
+	):
+		_pursuer.call("invalidate_navigation")
+
+
+func _update_navigation_paths() -> void:
+	if not _navigation_dirty:
+		return
+	var pending_destination := _frog_route_requested_destination
+	_refresh_navigation_geometry()
+	if (
+		pending_destination == Vector2.INF
+		or not _frog.movement_enabled
+		or _frog.is_flying
+		or _frog.knockback_active()
+		or is_instance_valid(_struggle_target)
+		or is_instance_valid(_pull_target)
+		or _net_escape_active
+		or _interior_transition_phase != InteriorTransitionPhase.NONE
+	):
+		return
+	var route := _request_frog_navigation(pending_destination, false)
+	if (
+		not _pending_interior_transition.is_empty()
+		and not bool(route["reachable"])
+	):
+		_pending_interior_transition = ""
+		_cancel_frog_navigation()
+		_show_status("The route changed and no longer reaches that entrance.")
+		return
+	if not bool(route["reachable"]) and (
+		route["points"] as PackedVector2Array
+	).is_empty():
+		_show_status("The route changed and no safe path remains.")
+	elif bool(route["fallback"]):
+		_show_status(
+			"The route changed. Moving to the nearest reachable place."
+		)
+
+
+func _refresh_navigation_geometry() -> void:
+	if not _navigation_dirty:
+		return
+	var bounds := _active_navigation_rect()
+	var obstacles: Array[Rect2] = []
+	if not _active_interior_id.is_empty():
+		var room := (
+			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
+		)
+		if is_instance_valid(room):
+			for rect in room.navigation_obstacle_rects():
+				if rect.intersects(bounds):
+					obstacles.append(rect)
+	else:
+		for building in _buildings:
+			if not is_instance_valid(building) or building.consumed:
+				continue
+			for rect in building.navigation_obstacle_rects():
+				if rect.intersects(bounds):
+					obstacles.append(rect)
+		for district_value in _loaded_districts.values():
+			var district := district_value as GeneratedDistrict
+			if not is_instance_valid(district):
+				continue
+			for rect in district.navigation_obstacle_rects():
+				if rect.intersects(bounds):
+					obstacles.append(rect)
+		if (
+			is_instance_valid(_roadblock)
+			and _roadblock.collision_layer != 0
+		):
+			obstacles.append(_roadblock.navigation_obstacle_rect())
+	_navigation.update_geometry(bounds, obstacles)
+	_navigation_dirty = false
+
+
 func _active_navigation_rect() -> Rect2:
 	if not _active_interior_id.is_empty():
 		var room := (
@@ -4429,9 +4661,31 @@ func _close_belly_after_tutorial_digest() -> void:
 
 
 func _on_frog_move_reached(world_position: Vector2) -> void:
+	_frog_route_requested_destination = Vector2.INF
+	_frog_route_fallback = false
 	if not _pending_interior_transition.is_empty():
 		var destination := _pending_interior_transition
 		_pending_interior_transition = ""
+		var expected_position := Vector2.INF
+		if destination == "city":
+			var room := (
+				_interior_rooms.get(_active_interior_id)
+				as PrototypeInteriorRoom
+			)
+			if is_instance_valid(room):
+				expected_position = room.exit_approach_position()
+		else:
+			var building := _building_for_interior_room(destination)
+			if is_instance_valid(building):
+				expected_position = (
+					building.transition_door_approach_position()
+				)
+		if (
+			expected_position == Vector2.INF
+			or world_position.distance_to(expected_position) > 130.0
+		):
+			_show_status("The frog could not reach that entrance.")
+			return
 		_begin_interior_transition(destination)
 		return
 	movement_reached.emit(world_position)
@@ -4794,10 +5048,15 @@ func _spawn_building(
 	building.interior_props = interior_props.duplicate()
 	building.entrance_part_style = entrance_part_style
 	building.z_as_relative = false
+	building.navigation_changed.connect(_on_building_navigation_changed)
 	(parent if parent != null else _world).add_child(building)
 	_buildings.append(building)
 	_building_by_id[building_id] = building
 	return building
+
+
+func _on_building_navigation_changed() -> void:
+	_invalidate_navigation()
 
 
 func _spawn_interior_room(

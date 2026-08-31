@@ -1,6 +1,8 @@
 class_name PrototypeBuilding
 extends Node2D
 
+signal navigation_changed
+
 const PART_SIGN := "sign"
 const PART_DOOR := "door"
 const PART_COUNTER := "counter"
@@ -211,6 +213,7 @@ func set_entrance_part_temporarily_open(value: bool) -> void:
 			_door_body,
 			not value and not is_part_removed(PART_DOOR)
 		)
+		navigation_changed.emit()
 	queue_redraw()
 
 
@@ -250,8 +253,10 @@ func remove_part(part_id: String) -> bool:
 	match part_id:
 		PART_DOOR:
 			_set_body_enabled(_door_body, false)
+			navigation_changed.emit()
 		PART_COUNTER:
 			_set_body_enabled(_counter_body, false)
+			navigation_changed.emit()
 	queue_redraw()
 	return true
 
@@ -286,13 +291,18 @@ func part_body_rid(part_id: String) -> RID:
 
 
 func consume() -> void:
+	if consumed:
+		return
 	consumed = true
 	visible = false
 	for body in _structural_bodies:
 		_set_body_enabled(body, false)
+	navigation_changed.emit()
 
 
 func restore() -> void:
+	if not consumed:
+		return
 	consumed = false
 	visible = true
 	for body in _structural_bodies:
@@ -304,7 +314,32 @@ func restore() -> void:
 			and not entrance_part_temporarily_open
 		)
 		_set_body_enabled(_counter_body, not is_part_removed(PART_COUNTER))
+	navigation_changed.emit()
 	queue_redraw()
+
+
+func navigation_obstacle_rects() -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	for body in _structural_bodies:
+		if (
+			not is_instance_valid(body)
+			or body.collision_layer == 0
+			or body.is_queued_for_deletion()
+		):
+			continue
+		for child in body.get_children():
+			var collision := child as CollisionShape2D
+			if (
+				not is_instance_valid(collision)
+				or collision.disabled
+				or not collision.shape is RectangleShape2D
+			):
+				continue
+			var rectangle := collision.shape as RectangleShape2D
+			var global_scale := collision.global_transform.get_scale().abs()
+			var size := rectangle.size * global_scale
+			result.append(Rect2(collision.global_position - size / 2.0, size))
+	return result
 
 
 func _draw_entrance_schedule_status() -> void:
