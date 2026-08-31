@@ -19,6 +19,8 @@ signal audio_changed(preferences: Dictionary)
 const EDIBLE_SCRIPT := preload("res://src/edible.gd")
 const BUILDING_SCRIPT := preload("res://src/building.gd")
 const INTERIOR_ROOM_SCRIPT := preload("res://src/interior_room.gd")
+const DISTRICT_GENERATOR_SCRIPT := preload("res://src/district_generator.gd")
+const GENERATED_DISTRICT_SCRIPT := preload("res://src/generated_district.gd")
 const PURSUER_SCRIPT := preload("res://src/pursuer.gd")
 const ROADBLOCK_SCRIPT := preload("res://src/roadblock.gd")
 const PURSUIT_TRAP_SCRIPT := preload("res://src/pursuit_trap.gd")
@@ -111,14 +113,15 @@ const NET_ESCAPE_TAPS := 6
 const TARGET_STRUGGLE_TITLE := "It is trying to escape!"
 const TARGET_STRUGGLE_HINT := "Tap rapidly anywhere!"
 const STOCKROOM_ID := "leap_cafe_stockroom"
-const STOCKROOM_POSITION := Vector2(3400, 0)
+const INTERIOR_SPACE_ORIGIN := Vector2(0, 10000000)
+const STOCKROOM_POSITION := INTERIOR_SPACE_ORIGIN
 const STOCKROOM_CAMERA_ZOOM := Vector2(1.2, 1.2)
 const CANAL_UPPER_HALL_ID := "canal_apartments_upper_hall"
-const CANAL_UPPER_HALL_POSITION := Vector2(3400, 1200)
+const CANAL_UPPER_HALL_POSITION := INTERIOR_SPACE_ORIGIN + Vector2(0, 1200)
 const MARKET_ROOFTOP_ID := "moonlight_market_rooftop"
-const MARKET_ROOFTOP_POSITION := Vector2(3400, 2400)
+const MARKET_ROOFTOP_POSITION := INTERIOR_SPACE_ORIGIN + Vector2(0, 2400)
 const ODDITIES_CELLAR_ID := "oddities_shop_cellar"
-const ODDITIES_CELLAR_POSITION := Vector2(3400, 3600)
+const ODDITIES_CELLAR_POSITION := INTERIOR_SPACE_ORIGIN + Vector2(0, 3600)
 const INTERIOR_TRANSITION_DURATION := 0.18
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
@@ -389,6 +392,12 @@ var _buildings: Array[PrototypeBuilding] = []
 var _building_by_id: Dictionary = {}
 var _interior_rooms: Dictionary = {}
 var _interior_room_building_ids: Dictionary = {}
+var _session_seed := 0
+var _district_definitions: Dictionary = {}
+var _district_states: Dictionary = {}
+var _loaded_districts: Dictionary = {}
+var _current_district_coordinate := Vector2i.ZERO
+var _next_session_instance_id := 1
 var _pursuer: PrototypePursuer
 var _roadblock: PrototypeRoadblock
 var _pursuit_trap: PrototypePursuitTrap
@@ -495,6 +504,8 @@ func _ready() -> void:
 	_challenges.challenge_completed.connect(_on_challenge_completed)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	_build_prototype_city()
+	_current_district_coordinate = DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+	_update_district_streaming(true)
 	_city_camera_zoom = _camera.zoom
 	_update_day_night(0.0)
 	if not _accessibility_configured:
@@ -538,7 +549,8 @@ func configure(
 	tutorial_required: bool,
 	discovered_ids: PackedStringArray = PackedStringArray(),
 	accessibility_preferences: Dictionary = {},
-	audio_preferences: Dictionary = {}
+	audio_preferences: Dictionary = {},
+	session_seed: int = 0
 ) -> void:
 	_profile_id = profile_id
 	_display_name = display_name
@@ -564,7 +576,447 @@ func configure(
 		_audio_preferences = AudioPreferences.sanitize_preferences(
 			audio_preferences
 		)
+	_session_seed = (
+		session_seed
+		if session_seed != 0
+		else _create_session_seed(profile_id)
+	)
 	_configured = true
+
+
+func _create_session_seed(profile_id: String) -> int:
+	var entropy := "%s:%d:%d" % [
+		profile_id,
+		Time.get_unix_time_from_system(),
+		Time.get_ticks_usec(),
+	]
+	return maxi(1, absi(entropy.hash()))
+
+
+func _update_district_streaming(force: bool = false) -> void:
+	if not _active_interior_id.is_empty():
+		return
+	var next_coordinate := DISTRICT_GENERATOR_SCRIPT.coordinate_for_position(
+		_frog.global_position
+	)
+	var coordinate_changed := (
+		next_coordinate != _current_district_coordinate
+	)
+	_current_district_coordinate = next_coordinate
+	var desired := _desired_generated_districts(
+		next_coordinate,
+		_frog.global_position
+	)
+	for coordinate_value in desired:
+		var coordinate := coordinate_value as Vector2i
+		if not _loaded_districts.has(coordinate):
+			_load_generated_district(coordinate)
+	for coordinate_value in _loaded_districts.keys().duplicate():
+		var coordinate := coordinate_value as Vector2i
+		if not desired.has(coordinate):
+			_unload_generated_district(coordinate)
+	if coordinate_changed and not force:
+		_clear_roadblock()
+		_clear_pursuit_trap()
+
+
+func _desired_generated_districts(
+	current: Vector2i,
+	frog_position: Vector2
+) -> Dictionary:
+	var desired := {}
+	if current != DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE:
+		for x_offset in range(-1, 2):
+			for y_offset in range(-1, 2):
+				var coordinate := current + Vector2i(x_offset, y_offset)
+				if coordinate != DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE:
+					desired[coordinate] = true
+		return desired
+
+	var bounds := DISTRICT_GENERATOR_SCRIPT.CORE_BOUNDS
+	var near_west := (
+		frog_position.x - bounds.position.x
+		<= DISTRICT_GENERATOR_SCRIPT.STREAM_MARGIN
+	)
+	var near_east := (
+		bounds.end.x - frog_position.x
+		<= DISTRICT_GENERATOR_SCRIPT.STREAM_MARGIN
+	)
+	var near_north := (
+		frog_position.y - bounds.position.y
+		<= DISTRICT_GENERATOR_SCRIPT.STREAM_MARGIN
+	)
+	var near_south := (
+		bounds.end.y - frog_position.y
+		<= DISTRICT_GENERATOR_SCRIPT.STREAM_MARGIN
+	)
+	if near_west:
+		desired[Vector2i(-1, 0)] = true
+	if near_east:
+		desired[Vector2i(1, 0)] = true
+	if near_north:
+		desired[Vector2i(0, -1)] = true
+	if near_south:
+		desired[Vector2i(0, 1)] = true
+	if near_west and near_north:
+		desired[Vector2i(-1, -1)] = true
+	if near_west and near_south:
+		desired[Vector2i(-1, 1)] = true
+	if near_east and near_north:
+		desired[Vector2i(1, -1)] = true
+	if near_east and near_south:
+		desired[Vector2i(1, 1)] = true
+	return desired
+
+
+func _load_generated_district(coordinate: Vector2i) -> void:
+	if (
+		coordinate == DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+		or _loaded_districts.has(coordinate)
+	):
+		return
+	var definition := _district_definition(coordinate)
+	var root := GENERATED_DISTRICT_SCRIPT.new() as GeneratedDistrict
+	root.configure(definition)
+	root.set_meta("district_coordinate", coordinate)
+	_world.add_child(root)
+	_loaded_districts[coordinate] = root
+
+	var state := _district_state(coordinate)
+	var spawned_instances := {}
+	for index in definition.buildings.size():
+		var building_data := definition.buildings[index] as Dictionary
+		var building_id := "%s_building_%d" % [
+			definition.district_id,
+			index,
+		]
+		var building := _spawn_building(
+			building_data["position"] as Vector2,
+			building_data["size"] as Vector2,
+			str(building_data["name"]),
+			str(building_data["door_side"]),
+			building_data["color"] as Color,
+			building_id,
+			true,
+			building_data["counter_position"] as Vector2,
+			[],
+			PrototypeBuilding.ENTRANCE_PART_AWNING,
+			building_data["counter_size"] as Vector2,
+			root
+		)
+		building.set_meta("district_coordinate", coordinate)
+		_apply_generated_building_state(building, state)
+		_spawn_generated_building_targets(
+			building,
+			coordinate,
+			root,
+			state,
+			spawned_instances
+		)
+
+	for target_data_value in definition.targets:
+		_spawn_generated_target(
+			target_data_value as Dictionary,
+			coordinate,
+			root,
+			state,
+			spawned_instances
+		)
+	var target_states := state["target_states"] as Dictionary
+	var removed_targets := state["removed_targets"] as Dictionary
+	for instance_id_value in target_states:
+		var instance_id := str(instance_id_value)
+		if (
+			spawned_instances.has(instance_id)
+			or removed_targets.has(instance_id)
+		):
+			continue
+		_spawn_generated_target(
+			target_states[instance_id] as Dictionary,
+			coordinate,
+			root,
+			state,
+			spawned_instances
+		)
+
+
+func _unload_generated_district(coordinate: Vector2i) -> void:
+	var root := _loaded_districts.get(coordinate) as GeneratedDistrict
+	if not is_instance_valid(root):
+		_loaded_districts.erase(coordinate)
+		return
+	var state := _district_state(coordinate)
+	var target_states := {}
+	for target in _targets.duplicate():
+		if (
+			is_instance_valid(target)
+			and target.district_coordinate == coordinate
+			and not target.world_instance_id.is_empty()
+		):
+			target_states[target.world_instance_id] = _serialize_target(target)
+			_targets.erase(target)
+	state["target_states"] = target_states
+	for building in _buildings.duplicate():
+		if (
+			is_instance_valid(building)
+			and building.has_meta("district_coordinate")
+			and building.get_meta("district_coordinate") == coordinate
+		):
+			_capture_generated_building_state(building)
+			_buildings.erase(building)
+			_building_by_id.erase(building.building_id)
+	_district_states[_district_key(coordinate)] = state
+	_district_definitions.erase(_district_key(coordinate))
+	_loaded_districts.erase(coordinate)
+	root.queue_free()
+
+
+func _district_definition(coordinate: Vector2i) -> DistrictDefinition:
+	var key := _district_key(coordinate)
+	if not _district_definitions.has(key):
+		_district_definitions[key] = DISTRICT_GENERATOR_SCRIPT.generate(
+			_session_seed,
+			coordinate
+		)
+	return _district_definitions[key] as DistrictDefinition
+
+
+func _district_state(coordinate: Vector2i) -> Dictionary:
+	var key := _district_key(coordinate)
+	if not _district_states.has(key):
+		_district_states[key] = {
+			"removed_targets": {},
+			"target_states": {},
+			"building_states": {},
+		}
+	return _district_states[key] as Dictionary
+
+
+func _district_key(coordinate: Vector2i) -> String:
+	return "%d,%d" % [coordinate.x, coordinate.y]
+
+
+func _apply_generated_building_state(
+	building: PrototypeBuilding,
+	state: Dictionary
+) -> void:
+	var building_states := state["building_states"] as Dictionary
+	var building_state := (
+		building_states.get(building.building_id, {}) as Dictionary
+	)
+	var removed_parts := (
+		building_state.get("removed_parts", {}) as Dictionary
+	)
+	for part_id in [
+		PrototypeBuilding.PART_SIGN,
+		PrototypeBuilding.PART_DOOR,
+		PrototypeBuilding.PART_COUNTER,
+	]:
+		if bool(removed_parts.get(part_id, false)):
+			building.remove_part(part_id)
+	if bool(building_state.get("consumed", false)):
+		building.consume()
+
+
+func _spawn_generated_building_targets(
+	building: PrototypeBuilding,
+	coordinate: Vector2i,
+	parent: Node,
+	state: Dictionary,
+	spawned_instances: Dictionary
+) -> void:
+	var part_definitions := [
+		{
+			"part_id": PrototypeBuilding.PART_SIGN,
+			"id": "generated_building_sign",
+			"name": "%s Sign" % building.display_name,
+			"value": 38,
+			"radius": 31.0,
+			"color": building.floor_color.lightened(0.26),
+		},
+		{
+			"part_id": PrototypeBuilding.PART_DOOR,
+			"id": "generated_building_awning",
+			"name": "%s Awning" % building.display_name,
+			"value": 58,
+			"tier": 1,
+			"radius": 35.0,
+			"color": building.floor_color.lightened(0.18),
+		},
+		{
+			"part_id": PrototypeBuilding.PART_COUNTER,
+			"id": "generated_building_fixture",
+			"name": "%s Fixture" % building.display_name,
+			"value": 82,
+			"tier": 1,
+			"radius": 39.0,
+			"resistant": true,
+			"taps": 8,
+			"color": building.floor_color.darkened(0.16),
+		},
+	]
+	for part_value in part_definitions:
+		var part := (part_value as Dictionary).duplicate(true)
+		var part_id := str(part["part_id"])
+		var instance_id := "%s_%s" % [building.building_id, part_id]
+		if building.is_part_removed(part_id):
+			continue
+		part.erase("part_id")
+		part["instance_id"] = instance_id
+		part["position"] = building.part_world_position(part_id)
+		part["kind"] = "building_part"
+		part["restockable"] = false
+		part["building_id"] = building.building_id
+		part["building_part_id"] = part_id
+		_spawn_generated_target(
+			part,
+			coordinate,
+			parent,
+			state,
+			spawned_instances
+		)
+
+	var whole_instance_id := "%s_whole" % building.building_id
+	if building.consumed:
+		return
+	_spawn_generated_target(
+		{
+			"instance_id": whole_instance_id,
+			"id": "generated_building",
+			"name": building.display_name,
+			"position": building.global_position,
+			"value": 430,
+			"tier": 2,
+			"kind": "building",
+			"radius": 150.0,
+			"resistant": true,
+			"taps": 15,
+			"color": building.floor_color,
+			"restockable": false,
+			"building_id": building.building_id,
+			"hidden": not building.is_ready_to_swallow(),
+			"selectable": building.is_ready_to_swallow(),
+		},
+		coordinate,
+		parent,
+		state,
+		spawned_instances
+	)
+
+
+func _spawn_generated_target(
+	data: Dictionary,
+	coordinate: Vector2i,
+	parent: Node,
+	state: Dictionary,
+	spawned_instances: Dictionary
+) -> EdibleTarget:
+	var instance_id := str(data.get("instance_id", ""))
+	if instance_id.is_empty():
+		push_error("Generated target is missing a world instance ID.")
+		return null
+	var removed_targets := state["removed_targets"] as Dictionary
+	if removed_targets.has(instance_id):
+		return null
+	var target_data := data.duplicate(true)
+	var target_states := state["target_states"] as Dictionary
+	if target_states.has(instance_id):
+		target_data.merge(
+			target_states[instance_id] as Dictionary,
+			true
+		)
+	target_data["world_instance_id"] = instance_id
+	target_data["district_coordinate"] = coordinate
+	target_data["bounds"] = target_data.get(
+		"bounds",
+		_district_definition(coordinate).bounds.grow(-100.0)
+	)
+	target_data["motion_seed"] = int(target_data.get(
+		"motion_seed",
+		DISTRICT_GENERATOR_SCRIPT.seed_for_coordinate(
+			_session_seed + instance_id.hash(),
+			coordinate
+		)
+	))
+	var target := _spawn_target(target_data, parent)
+	spawned_instances[instance_id] = true
+	return target
+
+
+func _capture_generated_building_state(
+	building: PrototypeBuilding
+) -> void:
+	if (
+		not is_instance_valid(building)
+		or not building.has_meta("district_coordinate")
+	):
+		return
+	var coordinate := building.get_meta("district_coordinate") as Vector2i
+	var state := _district_state(coordinate)
+	var building_states := state["building_states"] as Dictionary
+	building_states[building.building_id] = {
+		"consumed": building.consumed,
+		"removed_parts": {
+			PrototypeBuilding.PART_SIGN: building.is_part_removed(
+				PrototypeBuilding.PART_SIGN
+			),
+			PrototypeBuilding.PART_DOOR: building.is_part_removed(
+				PrototypeBuilding.PART_DOOR
+			),
+			PrototypeBuilding.PART_COUNTER: building.is_part_removed(
+				PrototypeBuilding.PART_COUNTER
+			),
+		},
+	}
+
+
+func _mark_generated_target_removed(target: EdibleTarget) -> void:
+	if target.world_instance_id.is_empty():
+		return
+	var state := _district_state(target.district_coordinate)
+	var removed_targets := state["removed_targets"] as Dictionary
+	var target_states := state["target_states"] as Dictionary
+	removed_targets[target.world_instance_id] = true
+	target_states.erase(target.world_instance_id)
+
+
+func _mark_generated_target_present(target: EdibleTarget) -> void:
+	if target.world_instance_id.is_empty():
+		return
+	var state := _district_state(target.district_coordinate)
+	var removed_targets := state["removed_targets"] as Dictionary
+	var target_states := state["target_states"] as Dictionary
+	removed_targets.erase(target.world_instance_id)
+	target_states[target.world_instance_id] = _serialize_target(target)
+
+
+func _serialize_target(target: EdibleTarget) -> Dictionary:
+	return {
+		"instance_id": target.world_instance_id,
+		"id": target.target_id,
+		"name": target.display_name,
+		"position": target.global_position,
+		"value": target.base_value,
+		"tier": target.size_tier,
+		"kind": target.kind,
+		"rare": target.rare,
+		"resistant": target.resistant,
+		"taps": target.taps_required,
+		"radius": target.pick_radius,
+		"velocity": target.velocity,
+		"unpredictable": target.unpredictable,
+		"bounds": target.move_bounds,
+		"dangerous": target.dangerous_location,
+		"color": target.target_color,
+		"restockable": target.restockable,
+		"building_id": target.building_id,
+		"building_part_id": target.building_part_id,
+		"selectable": target.selectable,
+		"hidden": not target.visible,
+		"world_instance_id": target.world_instance_id,
+		"district_coordinate": target.district_coordinate,
+		"motion_seed": target.motion_seed,
+	}
 
 
 func activate_audio_context() -> void:
@@ -609,6 +1061,7 @@ func _process(delta: float) -> void:
 	_update_crowd_hiding(delta)
 	_update_pursuit_roadblock(delta)
 	_update_pursuit_trap(delta)
+	_update_district_streaming()
 
 	if is_instance_valid(_pull_target):
 		_pull_time_left -= delta
@@ -1209,6 +1662,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	var swallowed_building := target.kind == "building"
 	var chased := _is_actively_chased()
 	var item := target.make_belly_item(accuracy, target.dangerous_location, chased)
+	_mark_generated_target_removed(target)
 	_normalize_tutorial_belly_item(item)
 	_record_discovery(item.target_id, item.display_name)
 	_challenges.record_swallow(item.target_id, item.accuracy)
@@ -1224,6 +1678,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 				_activate_next_ordered_building_part(building)
 		elif target.kind == "building":
 			building.consume()
+		_capture_generated_building_state(building)
 	_belly.append(item)
 	_targets.erase(target)
 	target.queue_free()
@@ -1686,6 +2141,16 @@ func _spit_item(index: int) -> void:
 	if target.kind == "building_part":
 		target.building_id = ""
 		target.building_part_id = ""
+	target.district_coordinate = _current_district_coordinate
+	if (
+		target.world_instance_id.is_empty()
+		and _current_district_coordinate
+		!= DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+	):
+		target.world_instance_id = "session_spit_%d" % (
+			_next_session_instance_id
+		)
+		_next_session_instance_id += 1
 	target.position = spawn_position
 	target.dangerous_location = false
 	if target.velocity != Vector2.ZERO and not target.is_vehicle:
@@ -1693,8 +2158,13 @@ func _spit_item(index: int) -> void:
 			spawn_position - Vector2(360, 260),
 			Vector2(720, 520)
 		).intersection(_active_navigation_rect().grow(-80))
-	_world.add_child(target)
+	var target_parent := _district_parent_for_coordinate(
+		target.district_coordinate
+	)
+	target.z_as_relative = false
+	target_parent.add_child(target)
 	_targets.append(target)
+	_mark_generated_target_present(target)
 	AudioDirector.play_effect(FrogAudioDirector.SPIT)
 	_show_status("%s was returned safely." % item.display_name)
 	_update_hud()
@@ -1705,11 +2175,27 @@ func _belly_item_matches_active_space(item: BellyItem) -> bool:
 	var item_room_id := ""
 	if _interior_rooms.has(item.building_id):
 		item_room_id = item.building_id
-	return item_room_id == _active_interior_id
+	if not item_room_id.is_empty():
+		return item_room_id == _active_interior_id
+	if not _active_interior_id.is_empty():
+		return false
+	if item.kind == "building":
+		return item.district_coordinate == _current_district_coordinate
+	return true
 
 
 func _belly_item_space_label(item: BellyItem) -> String:
 	if not _interior_rooms.has(item.building_id):
+		if item.kind == "building":
+			if (
+				item.district_coordinate
+				== DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+			):
+				return "the central district"
+			return "district %d,%d" % [
+				item.district_coordinate.x,
+				item.district_coordinate.y,
+			]
 		return "the city"
 	var room := _interior_rooms.get(item.building_id) as PrototypeInteriorRoom
 	return (
@@ -1801,6 +2287,20 @@ func performance_structure_snapshot() -> Dictionary:
 		festival_lanterns = (
 			_city_activity.visible_festival_lantern_count()
 		)
+	var generated_targets := 0
+	for target in _targets:
+		if (
+			is_instance_valid(target)
+			and not target.world_instance_id.is_empty()
+		):
+			generated_targets += 1
+	var generated_buildings := 0
+	for building in _buildings:
+		if (
+			is_instance_valid(building)
+			and building.has_meta("district_coordinate")
+		):
+			generated_buildings += 1
 	var audio_structure := AudioDirector.structure_snapshot()
 	return {
 		"game_nodes": counts["game_nodes"],
@@ -1812,6 +2312,12 @@ func performance_structure_snapshot() -> Dictionary:
 		"physics_processing_nodes": counts["physics_processing_nodes"],
 		"targets": _targets.size(),
 		"buildings": _buildings.size(),
+		"generated_targets": generated_targets,
+		"generated_buildings": generated_buildings,
+		"loaded_generated_districts": _loaded_districts.size(),
+		"generated_district_records": _district_definitions.size(),
+		"district_state_records": _district_states.size(),
+		"current_district": _current_district_coordinate,
 		"interior_rooms": _interior_rooms.size(),
 		"active_interior": _active_interior_id,
 		"oddities_shop_scheduled_open": _oddities_shop_scheduled_open,
@@ -2390,7 +2896,7 @@ func _spawn_roadblock() -> bool:
 func _select_roadblock_anchor() -> Dictionary:
 	var selected := {}
 	var selected_distance := INF
-	for configuration_value in ROADBLOCK_ANCHORS:
+	for configuration_value in _current_roadblock_anchors():
 		var configuration := configuration_value as Dictionary
 		var position := configuration["position"] as Vector2
 		var distance := position.distance_to(_frog.global_position)
@@ -2410,7 +2916,9 @@ func _roadblock_anchor_clear(configuration: Dictionary) -> bool:
 	var position := configuration["position"] as Vector2
 	var size := configuration["size"] as Vector2
 	var footprint := Rect2(position - size / 2.0, size)
-	if not WORLD_RECT.encloses(footprint.grow(24.0)):
+	if not _navigation_rect_for_position(position).encloses(
+		footprint.grow(24.0)
+	):
 		return false
 	var shape := RectangleShape2D.new()
 	shape.size = size
@@ -2556,7 +3064,7 @@ func _spawn_pursuit_trap() -> bool:
 func _select_pursuit_trap_anchor() -> Vector2:
 	var selected := Vector2.INF
 	var selected_distance := INF
-	for position_value in PURSUIT_TRAP_ANCHORS:
+	for position_value in _current_pursuit_trap_anchors():
 		var position := position_value as Vector2
 		var distance := position.distance_to(_frog.global_position)
 		if (
@@ -2573,13 +3081,37 @@ func _select_pursuit_trap_anchor() -> Vector2:
 
 func _pursuit_trap_anchor_clear(position: Vector2) -> bool:
 	var radius := PrototypePursuitTrap.RADIUS + 18.0
-	if not WORLD_RECT.grow(-radius).has_point(position):
+	if not _navigation_rect_for_position(position).grow(-radius).has_point(
+		position
+	):
 		return false
 	if not _circle_position_clear(position, radius, false):
 		return false
 	if _position_overlaps_target(position, radius, 12.0):
 		return false
 	return not _position_inside_building(position)
+
+
+func _current_roadblock_anchors() -> Array:
+	if (
+		_current_district_coordinate
+		== DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+	):
+		return ROADBLOCK_ANCHORS
+	return _district_definition(
+		_current_district_coordinate
+	).roadblock_anchors
+
+
+func _current_pursuit_trap_anchors() -> Array:
+	if (
+		_current_district_coordinate
+		== DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+	):
+		return PURSUIT_TRAP_ANCHORS
+	return _district_definition(
+		_current_district_coordinate
+	).pursuit_trap_anchors
 
 
 func _clear_pursuit_trap() -> void:
@@ -2801,7 +3333,10 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	item.accuracy = accuracy
 	item.captured_while_chased = true
 	item.target_color = Color("da7462")
-	item.movement_bounds = WORLD_RECT.grow(-100)
+	item.movement_bounds = DISTRICT_GENERATOR_SCRIPT.bounds_for_coordinate(
+		_current_district_coordinate
+	).grow(-100)
+	item.district_coordinate = _current_district_coordinate
 	item.restockable = false
 	_record_discovery(item.target_id, item.display_name)
 	_challenges.record_swallow(item.target_id, item.accuracy)
@@ -3494,7 +4029,7 @@ func _active_navigation_rect() -> Rect2:
 		)
 		if is_instance_valid(room):
 			return room.interior_rect()
-	return WORLD_RECT
+	return _loaded_world_navigation_rect()
 
 
 func _navigation_rect_for_position(position: Vector2) -> Rect2:
@@ -3502,7 +4037,33 @@ func _navigation_rect_for_position(position: Vector2) -> Rect2:
 		var room := room_value as PrototypeInteriorRoom
 		if is_instance_valid(room) and room.contains_world_point(position):
 			return room.interior_rect()
-	return WORLD_RECT
+	var coordinate := DISTRICT_GENERATOR_SCRIPT.coordinate_for_position(
+		position
+	)
+	if (
+		coordinate == _current_district_coordinate
+		or _loaded_districts.has(coordinate)
+	):
+		return _loaded_world_navigation_rect()
+	return DISTRICT_GENERATOR_SCRIPT.bounds_for_coordinate(coordinate)
+
+
+func _loaded_world_navigation_rect() -> Rect2:
+	var bounds := DISTRICT_GENERATOR_SCRIPT.bounds_for_coordinate(
+		_current_district_coordinate
+	)
+	for coordinate_value in _loaded_districts:
+		var coordinate := coordinate_value as Vector2i
+		if (
+			absi(coordinate.x - _current_district_coordinate.x) <= 1
+			and absi(coordinate.y - _current_district_coordinate.y) <= 1
+		):
+			bounds = bounds.merge(
+				DISTRICT_GENERATOR_SCRIPT.bounds_for_coordinate(
+					coordinate
+				)
+			)
+	return bounds
 
 
 func _position_overlaps_target(
@@ -3536,9 +4097,19 @@ func _restore_building_from_belly(item: BellyItem) -> bool:
 	target.velocity = Vector2.ZERO
 	target.move_bounds = Rect2()
 	target.unpredictable = false
-	_world.add_child(target)
+	target.z_as_relative = false
+	_district_parent_for_coordinate(item.district_coordinate).add_child(target)
 	_targets.append(target)
+	_capture_generated_building_state(building)
+	_mark_generated_target_present(target)
 	return true
+
+
+func _district_parent_for_coordinate(coordinate: Vector2i) -> Node:
+	if coordinate == DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE:
+		return _world
+	var district := _loaded_districts.get(coordinate) as GeneratedDistrict
+	return district if is_instance_valid(district) else _world
 
 
 func _building_footprint_clear(building: PrototypeBuilding) -> bool:
@@ -4167,7 +4738,8 @@ func _spawn_building(
 	counter_position: Vector2 = Vector2(0, 64),
 	interior_props: Array[Rect2] = [],
 	entrance_part_style: String = PrototypeBuilding.ENTRANCE_PART_DOOR,
-	counter_size: Vector2 = Vector2(140, 52)
+	counter_size: Vector2 = Vector2(140, 52),
+	parent: Node = null
 ) -> PrototypeBuilding:
 	var building := BUILDING_SCRIPT.new() as PrototypeBuilding
 	building.position = building_position
@@ -4181,7 +4753,8 @@ func _spawn_building(
 	building.counter_size = counter_size
 	building.interior_props = interior_props.duplicate()
 	building.entrance_part_style = entrance_part_style
-	_world.add_child(building)
+	building.z_as_relative = false
+	(parent if parent != null else _world).add_child(building)
 	_buildings.append(building)
 	_building_by_id[building_id] = building
 	return building
@@ -4258,7 +4831,10 @@ func _spawn_destruction_targets(building: PrototypeBuilding) -> void:
 	_spawn_target(whole_data)
 
 
-func _spawn_target(data: Dictionary) -> EdibleTarget:
+func _spawn_target(
+	data: Dictionary,
+	parent: Node = null
+) -> EdibleTarget:
 	var target := EDIBLE_SCRIPT.new() as EdibleTarget
 	target.target_id = str(data.get("id", "target"))
 	target.display_name = str(data.get("name", "Target"))
@@ -4272,7 +4848,18 @@ func _spawn_target(data: Dictionary) -> EdibleTarget:
 	target.pick_radius = float(data.get("radius", 28.0))
 	target.velocity = data.get("velocity", Vector2.ZERO)
 	target.unpredictable = bool(data.get("unpredictable", false))
-	target.move_bounds = data.get("bounds", WORLD_RECT.grow(-100))
+	var district_coordinate_value: Variant = data.get(
+		"district_coordinate",
+		DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+	)
+	if district_coordinate_value is Vector2i:
+		target.district_coordinate = district_coordinate_value as Vector2i
+	target.move_bounds = data.get(
+		"bounds",
+		DISTRICT_GENERATOR_SCRIPT.bounds_for_coordinate(
+			target.district_coordinate
+		).grow(-100)
+	)
 	target.dangerous_location = bool(data.get("dangerous", false))
 	target.target_color = data.get("color", Color("f5a84b"))
 	target.is_vehicle = target.kind == "vehicle"
@@ -4280,8 +4867,11 @@ func _spawn_target(data: Dictionary) -> EdibleTarget:
 	target.building_id = str(data.get("building_id", ""))
 	target.building_part_id = str(data.get("building_part_id", ""))
 	target.selectable = bool(data.get("selectable", true))
+	target.world_instance_id = str(data.get("world_instance_id", ""))
+	target.motion_seed = int(data.get("motion_seed", 0))
 	target.visible = not bool(data.get("hidden", false))
 	target.set_presentation_motion_scale(_motion_scale)
-	_world.add_child(target)
+	target.z_as_relative = false
+	(parent if parent != null else _world).add_child(target)
 	_targets.append(target)
 	return target

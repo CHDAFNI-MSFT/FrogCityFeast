@@ -9,8 +9,14 @@ const DISTRICT_SIZE := Vector2(3520, 2720)
 const MAIN_ROAD_WIDTH := 360.0
 const BUILDINGS_PER_DISTRICT := 2
 const LOOSE_TARGETS_PER_DISTRICT := 4
-const STREAM_MARGIN := 900.0
+const STREAM_MARGIN := 800.0
 const MAX_LOADED_GENERATED_DISTRICTS := 9
+const GENERATED_BUILDING_DISCOVERY_IDS := [
+	"generated_building_sign",
+	"generated_building_awning",
+	"generated_building_fixture",
+	"generated_building",
+]
 
 const ARCHETYPES := [
 	{
@@ -232,6 +238,18 @@ static func generate(
 		center + Vector2(560, 250),
 	]
 	return definition
+
+
+static func discovery_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for archetype_value in ARCHETYPES:
+		var archetype := archetype_value as Dictionary
+		var target_id := str(archetype["target_id"])
+		if not result.has(target_id):
+			result.append(target_id)
+	for target_id in GENERATED_BUILDING_DISCOVERY_IDS:
+		result.append(str(target_id))
+	return result
 
 
 static func validation_errors(

@@ -22,8 +22,12 @@ var building_id := ""
 var building_part_id := ""
 var selectable := true
 var highlighted := false
+var world_instance_id := ""
+var district_coordinate := Vector2i.ZERO
+var motion_seed := 0
 
 var _turn_timer := 0.0
+var _motion_rng: RandomNumberGenerator
 var _presentation_scale := 1.0
 var _feedback_time := 0.0
 var _feedback_amount := 0.0
@@ -32,7 +36,10 @@ var _presentation_motion_scale := 1.0
 
 
 func _ready() -> void:
-	_turn_timer = randf_range(0.7, 1.8)
+	if motion_seed != 0:
+		_motion_rng = RandomNumberGenerator.new()
+		_motion_rng.seed = motion_seed
+	_turn_timer = _motion_randf_range(0.7, 1.8)
 	z_index = 4
 	queue_redraw()
 
@@ -54,8 +61,8 @@ func _process(delta: float) -> void:
 	if unpredictable:
 		_turn_timer -= delta
 		if _turn_timer <= 0.0:
-			velocity = velocity.rotated(randf_range(-1.1, 1.1))
-			_turn_timer = randf_range(0.55, 1.5)
+			velocity = velocity.rotated(_motion_randf_range(-1.1, 1.1))
+			_turn_timer = _motion_randf_range(0.55, 1.5)
 
 	position += velocity * delta
 	if move_bounds.size != Vector2.ZERO:
@@ -152,6 +159,9 @@ func make_belly_item(
 	item.building_id = building_id
 	item.building_part_id = building_part_id
 	item.selectable = selectable
+	item.world_instance_id = world_instance_id
+	item.district_coordinate = district_coordinate
+	item.motion_seed = motion_seed
 	return item
 
 
@@ -175,7 +185,16 @@ func configure_from_belly(item: BellyItem) -> void:
 	building_id = item.building_id
 	building_part_id = item.building_part_id
 	selectable = item.selectable
+	world_instance_id = item.world_instance_id
+	district_coordinate = item.district_coordinate
+	motion_seed = item.motion_seed
 	queue_redraw()
+
+
+func _motion_randf_range(from: float, to: float) -> float:
+	if _motion_rng != null:
+		return _motion_rng.randf_range(from, to)
+	return randf_range(from, to)
 
 
 func _draw() -> void:

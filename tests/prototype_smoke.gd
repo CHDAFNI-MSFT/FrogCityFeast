@@ -1138,8 +1138,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, rain, and the night bazaar share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 30 and DiscoveryCatalog.count() == 31,
-		"Ambient city life does not add gameplay targets or Field Guide entries."
+		game._targets.size() == 30
+			and DiscoveryCatalog.count()
+			== 31 + DistrictGenerator.discovery_ids().size(),
+		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
 		sin(game._day_clock * TAU - PI / 2.0) + 1.0
@@ -1705,7 +1707,7 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 287
+		and int(net_snapshot["game_nodes"]) == 297
 		and int(net_snapshot["collision_objects"]) == 36,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
@@ -2352,6 +2354,8 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 	for target in game._targets:
 		startup_ids[target.target_id] = true
 	startup_ids["animal_control"] = true
+	for target_id in DistrictGenerator.discovery_ids():
+		startup_ids[target_id] = true
 	var catalog_ids := {}
 	for target_id in DiscoveryCatalog.ids():
 		catalog_ids[target_id] = true
@@ -2363,8 +2367,8 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		if not catalog_ids.has(target_id):
 			catalog_matches_targets = false
 	_check(
-		catalog_matches_targets and DiscoveryCatalog.count() == 31,
-		"Field Guide catalog exactly matches every swallowable prototype target."
+		catalog_matches_targets,
+		"Field Guide catalog exactly matches authored and generated target types."
 	)
 	_check(
 		game._known_discovery_count() == 1

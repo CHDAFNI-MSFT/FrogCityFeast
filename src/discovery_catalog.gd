@@ -157,6 +157,56 @@ const ENTRIES := [
 		"name": "Animal Control Officer",
 		"hint": "At maximum size, let a resistant target escape, then eat what comes looking.",
 	},
+	{
+		"id": "generated_downtown_lunch",
+		"name": "Downtown Find",
+		"hint": "Explore a generated downtown district.",
+	},
+	{
+		"id": "generated_residential_gnome",
+		"name": "Neighborhood Find",
+		"hint": "Search a generated apartment neighborhood.",
+	},
+	{
+		"id": "generated_industrial_toolbox",
+		"name": "Industrial Find",
+		"hint": "Explore a generated industrial district.",
+	},
+	{
+		"id": "generated_waterfront_crate",
+		"name": "Waterfront Find",
+		"hint": "Follow the endless streets to a generated waterfront.",
+	},
+	{
+		"id": "generated_shopping_bag",
+		"name": "Shopping Find",
+		"hint": "Search a generated shopping district.",
+	},
+	{
+		"id": "generated_park_picnic",
+		"name": "Park Find",
+		"hint": "Explore a generated parks-and-gardens district.",
+	},
+	{
+		"id": "generated_building_sign",
+		"name": "District Sign",
+		"hint": "Start dismantling a generated district building.",
+	},
+	{
+		"id": "generated_building_awning",
+		"name": "District Awning",
+		"hint": "Pull another part from a generated building.",
+	},
+	{
+		"id": "generated_building_fixture",
+		"name": "District Fixture",
+		"hint": "Enter a generated building and remove its fixture.",
+	},
+	{
+		"id": "generated_building",
+		"name": "Generated Building",
+		"hint": "Remove all three parts and reach maximum size.",
+	},
 ]
 
 

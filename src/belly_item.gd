@@ -22,6 +22,9 @@ var restockable := true
 var building_id := ""
 var building_part_id := ""
 var selectable := true
+var world_instance_id := ""
+var district_coordinate := Vector2i.ZERO
+var motion_seed := 0
 
 
 func score_value() -> int:
