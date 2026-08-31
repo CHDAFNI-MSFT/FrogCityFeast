@@ -78,7 +78,7 @@ profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
 prototype permits 27 gameplay targets, 4 buildings, 1 separate interior room,
-1 pursuer, 15 draw-only city actors, 84 draw-only rain streaks, 1 draw-only
+1 pursuer, 20 draw-only city actors, 84 draw-only rain streaks, 1 draw-only
 Animal Control net projectile, 24 capped world effects, 3 touch cues, and 6
 fixed audio players including 4 reusable effect voices. Baseline and stockroom
 states permit up to 249 game-subtree nodes, 32 collision objects, and 39
@@ -89,11 +89,11 @@ unlimited gameplay semantics. The populated Field Guide contains exactly 28
 rows.
 
 Reproducible stress coverage includes busy daytime city activity, peak rain,
-pursuit, a net in flight, maximum growth, a finite simultaneous presentation
-burst, a 64-item Belly, the fully populated Field Guide, both accessibility
-settings, and a reachable gameplay peak. Desktop measurements are advisory; the
-target iPad release build is authoritative. The exact commands and current
-local measurement notes are recorded in
+pursuit, active crowd cover, a net in flight, maximum growth, a finite
+simultaneous presentation burst, a 64-item Belly, the fully populated Field
+Guide, both accessibility settings, and a reachable gameplay peak. Desktop
+measurements are advisory; the target iPad release build is authoritative. The
+exact commands and current local measurement notes are recorded in
 [`playable-prototype.md`](playable-prototype.md).
 
 ## Player character and touch controls
@@ -262,7 +262,7 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements two small deterministic dynamic-city
+The fixed-city prototype now implements three small deterministic dynamic-city
 slices. The day and night cycle changes the visible pedestrian crowd, secondary
 traffic level, streetlight glow, and restrained synthesized ambience. Once per
 180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
@@ -272,6 +272,15 @@ pedestrians and 5 vehicles to 4 pedestrians and 3 vehicles. Reduce motion keeps
 the wet presentation and lower density but freezes the streaks with the other
 decorative movement. Rain adds no audio asset, physics, targeting, scoring,
 save data, random-number use, or Field Guide entry.
+
+Earlier in the same cycle, five draw-only visitors gather for a 68-second River
+Park meetup, including a 50-second steady interval, then disperse before rain
+begins. During pursuit, the marked 145-unit meetup area becomes crowd cover. A
+small or medium ground frog that remains free inside it for 1.75 seconds loses
+Animal Control. Leaving the area resets progress; flight, maximum growth,
+knockback, netting, tongue pulls, and target struggles cannot build cover.
+Reduce motion freezes the visitors while preserving event and hiding timing.
+The meetup adds no collision, target, save, audio, or gameplay-random behavior.
 
 Ambient pedestrians and vehicles use authored routes and are decorative rather
 than targets, hazards, or persistent world state. The labeled Delivery Van
@@ -317,6 +326,12 @@ loss and knockback. Flight and maximum growth are immune. Reduce motion removes
 the telegraph and escape scale pulses while preserving the gameplay timing and
 static net information. The attack is deterministic, uses no gameplay random
 numbers, adds no collision or scene nodes, and reuses existing audio.
+
+The River Park meetup implements the first crowd-based pursuit escape. While
+the daytime meetup is active, pursuit changes its marked area to `HIDE HERE`
+and a static progress ring fills as an eligible frog stays within the crowd.
+Completing the short hold dismisses Animal Control without awarding score,
+growth, challenge progress, or Field Guide credit.
 
 Some obstacles temporarily block the tongue, cause it to bounce away, and can
 be broken after repeated hits.

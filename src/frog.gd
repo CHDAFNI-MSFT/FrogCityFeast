@@ -84,6 +84,10 @@ func clear_knockback() -> void:
 	velocity = Vector2.ZERO
 
 
+func knockback_active() -> bool:
+	return _knockback_time > 0.0
+
+
 func knock_back_from(source_position: Vector2) -> void:
 	var direction := (global_position - source_position).normalized()
 	if direction == Vector2.ZERO:

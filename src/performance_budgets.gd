@@ -19,7 +19,8 @@ const MAX_INTERIOR_ROOMS := 1
 const MAX_PURSUERS := 1
 const MAX_VISUAL_EFFECTS := 24
 const MAX_TOUCH_FEEDBACK := 3
-const MAX_CITY_ACTORS := 15
+const MAX_CROWD_MEMBERS := 5
+const MAX_CITY_ACTORS := 20
 const MAX_RAIN_STREAKS := 84
 const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
@@ -77,6 +78,15 @@ const STRUCTURAL_LIMITS := {
 		"collision_shapes": 40,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
+	},
+	"crowd_pursuit": {
+		"game_nodes": 251,
+		"collision_objects": 33,
+		"collision_shapes": 40,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"active_crowd_members": MAX_CROWD_MEMBERS,
 	},
 	"net_attack": {
 		"game_nodes": 251,

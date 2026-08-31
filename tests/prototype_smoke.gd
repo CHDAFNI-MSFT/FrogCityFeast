@@ -348,6 +348,7 @@ func _run() -> void:
 	await _test_building_interiors(game_scene)
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
+	await _test_crowd_pursuit_escape(game_scene)
 	await _test_pursuer_net_escape(game_scene)
 	await _test_accessibility(game_scene)
 	await _test_game_feel(game_scene)
@@ -1127,7 +1128,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		is_instance_valid(activity)
 		and activity.get_child_count() == 0
 		and not _contains_collision_object(activity),
-		"City activity and rain share one draw-only layer with no physics bodies."
+		"City activity, the park meetup, and rain share one draw-only layer."
 	)
 	_check(
 		game._targets.size() == 27 and DiscoveryCatalog.count() == 28,
@@ -1139,6 +1140,13 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	_check(
 		is_equal_approx(activity.daylight, expected_daylight),
 		"The game forwards its initial day-night value to city activity."
+	)
+	_check(
+		is_equal_approx(
+			activity.crowd_intensity,
+			FrogGame.crowd_intensity_for_clock(game._day_clock)
+		),
+		"The game forwards the initial meetup intensity to city activity."
 	)
 	_check(
 		is_zero_approx(FrogGame.rain_intensity_for_clock(0.57))
@@ -1163,16 +1171,49 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and is_zero_approx(FrogGame.rain_intensity_for_clock(1.57)),
 		"Rain follows one bounded deterministic shower with smooth fades per day-night cycle."
 	)
+	_check(
+		is_zero_approx(FrogGame.crowd_intensity_for_clock(0.17))
+		and is_zero_approx(
+			FrogGame.crowd_intensity_for_clock(0.18)
+		)
+		and is_equal_approx(
+			FrogGame.crowd_intensity_for_clock(0.20),
+			0.5
+		)
+		and is_equal_approx(
+			FrogGame.crowd_intensity_for_clock(0.22),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.crowd_intensity_for_clock(0.50),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.crowd_intensity_for_clock(0.53),
+			0.5
+		)
+		and is_zero_approx(
+			FrogGame.crowd_intensity_for_clock(0.56)
+		)
+		and is_equal_approx(
+			FrogGame.crowd_intensity_for_clock(1.20),
+			0.5
+		)
+		and is_zero_approx(FrogGame.rain_intensity_for_clock(0.56)),
+		"The River Park meetup has deterministic fades and disperses before rain."
+	)
 
 	game._day_clock = 0.5
 	game._update_day_night(0.0)
 	var day_pedestrians := activity.active_pedestrian_count()
 	var day_vehicles := activity.active_vehicle_count()
+	var day_crowd_members := activity.active_crowd_member_count()
 	var day_lights := activity.streetlight_intensity()
 	game._day_clock = 0.0
 	game._update_day_night(0.0)
 	var night_pedestrians := activity.active_pedestrian_count()
 	var night_vehicles := activity.active_vehicle_count()
+	var night_crowd_members := activity.active_crowd_member_count()
 	var night_lights := activity.streetlight_intensity()
 	_check(
 		day_pedestrians == CityActivity.PEDESTRIAN_ROUTES.size()
@@ -1187,6 +1228,13 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Daylight deterministically changes secondary traffic levels."
 	)
 	_check(
+		day_crowd_members == CityActivity.CROWD_MEMBER_OFFSETS.size()
+		and night_crowd_members == 0
+		and activity.crowd_cover_contains(CityActivity.CROWD_CENTER)
+		== false,
+		"The River Park meetup gathers only during its authored daytime window."
+	)
+	_check(
 		is_zero_approx(day_lights) and night_lights > 0.99,
 		"Streetlights switch on at night without changing the world tint."
 	)
@@ -1197,6 +1245,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		is_equal_approx(activity.rain_intensity, 1.0)
 		and activity.active_pedestrian_count() == 4
 		and activity.active_vehicle_count() == 3
+		and activity.active_crowd_member_count() == 0
 		and activity.visible_rain_streak_count()
 		== CityActivity.RAIN_STREAK_COUNT,
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
@@ -1243,12 +1292,15 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 
 	var frozen_position := single_step.pedestrian_position(0)
 	var frozen_rain := single_step.rain_signature()
+	single_step.set_crowd_intensity(1.0)
+	var frozen_crowd_member := single_step.crowd_member_position(0)
 	single_step.set_motion_scale(0.0)
 	single_step._advance_animation(8.0)
 	single_step.set_daylight(0.0)
 	_check(
 		single_step.pedestrian_position(0) == frozen_position
 		and single_step.rain_signature() == frozen_rain
+		and single_step.crowd_member_position(0) == frozen_crowd_member
 		and single_step.active_pedestrian_count() == 4
 		and single_step.active_vehicle_count() == 2
 		and single_step.visible_rain_streak_count()
@@ -1260,7 +1312,9 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	var expected_random := randf()
 	seed(20260830)
 	single_step.set_rain_intensity(0.5)
+	single_step.set_crowd_intensity(0.5)
 	single_step.rain_signature()
+	single_step.activity_signature()
 	var actual_random := randf()
 	_check(
 		is_equal_approx(actual_random, expected_random),
@@ -1308,6 +1362,15 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 					index,
 					17.25 + CityActivity.RAIN_LOOP_DURATION
 				)
+			)
+			> 0.001
+		):
+			loop_is_seamless = false
+	for index in CityActivity.CROWD_MEMBER_OFFSETS.size():
+		if (
+			single_step.crowd_member_position(index)
+			.distance_to(
+				many_steps.crowd_member_position(index)
 			)
 			> 0.001
 		):
@@ -1368,6 +1431,133 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 
 	single_step.free()
 	many_steps.free()
+	game.queue_free()
+	await process_frame
+
+
+func _test_crowd_pursuit_escape(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("crowd_escape_test", "Crowd Escape Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	game._frog.global_position = CityActivity.CROWD_CENTER
+	game._spawn_pursuer()
+	var pursuer := game._pursuer
+	_check(
+		is_instance_valid(pursuer)
+		and game._city_activity.crowd_cover_available()
+		and game._city_activity.active_crowd_member_count() == 5
+		and game._circle_position_clear(
+			CityActivity.CROWD_CENTER,
+			44.0,
+			true
+		),
+		"The daytime River Park meetup provides collision-free crowd cover."
+	)
+	if not is_instance_valid(pursuer):
+		game.queue_free()
+		await process_frame
+		return
+	pursuer.set_physics_process(false)
+
+	var score_before := game._score
+	var growth_before := game._growth_points
+	var targets_before := game._targets.size()
+	var discoveries_before := game._known_discovery_count()
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION * 0.5)
+	_check(
+		is_instance_valid(game._pursuer)
+		and is_equal_approx(
+			game._crowd_hide_time,
+			FrogGame.CROWD_HIDE_DURATION * 0.5
+		)
+		and is_equal_approx(
+			game._city_activity.crowd_hide_progress,
+			0.5
+		)
+		and game._city_activity.crowd_cover_chase_active,
+		"Staying inside the meetup advances visible pursuit-cover progress."
+	)
+
+	game._frog.global_position = (
+		CityActivity.CROWD_CENTER
+		+ Vector2.RIGHT * (CityActivity.CROWD_COVER_RADIUS + 1.0)
+	)
+	game._update_crowd_hiding(0.1)
+	_check(
+		is_zero_approx(game._crowd_hide_time)
+		and is_zero_approx(
+			game._city_activity.crowd_hide_progress
+		)
+		and game._city_activity.crowd_cover_chase_active,
+		"Leaving the meetup resets progress while keeping the cover cue visible."
+	)
+
+	game._frog.global_position = CityActivity.CROWD_CENTER
+	game._growth_tier = 2
+	game._frog.set_growth_tier(2)
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
+	var maximum_growth_blocked := is_zero_approx(game._crowd_hide_time)
+	game._growth_tier = 0
+	game._frog.set_growth_tier(0)
+	game._frog.set_flying(true)
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
+	var flight_blocked := is_zero_approx(game._crowd_hide_time)
+	game._frog.set_flying(false)
+	game._frog.knock_back_from(pursuer.global_position)
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
+	var knockback_blocked := is_zero_approx(game._crowd_hide_time)
+	game._frog.clear_knockback()
+	game._net_escape_active = true
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
+	var net_blocked := is_zero_approx(game._crowd_hide_time)
+	game._net_escape_active = false
+	var blocker_target := _find_target(game, "street_donut")
+	game._struggle_target = blocker_target
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
+	var struggle_blocked := is_zero_approx(game._crowd_hide_time)
+	game._struggle_target = null
+	game._pull_target = blocker_target
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
+	var pull_blocked := is_zero_approx(game._crowd_hide_time)
+	game._pull_target = null
+	_check(
+		maximum_growth_blocked
+		and flight_blocked
+		and knockback_blocked
+		and net_blocked
+		and struggle_blocked
+		and pull_blocked
+		and is_instance_valid(game._pursuer),
+		"Growth, flight, knockback, netting, struggles, and pulls block crowd hiding."
+	)
+
+	game.set_motion_scale(0.0)
+	var frozen_member := game._city_activity.crowd_member_position(0)
+	seed(20260830)
+	var expected_random := randf()
+	seed(20260830)
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
+	var actual_random := randf()
+	_check(
+		not is_instance_valid(game._pursuer)
+		and game._status_label.text.contains("lost you")
+		and game._city_activity.crowd_member_position(0) == frozen_member
+		and is_equal_approx(actual_random, expected_random)
+		and game._score == score_before
+		and game._growth_points == growth_before
+		and game._targets.size() == targets_before
+		and game._known_discovery_count() == discoveries_before,
+		"Crowd cover escapes pursuit under Reduce motion without progression or RNG changes."
+	)
+
 	game.queue_free()
 	await process_frame
 

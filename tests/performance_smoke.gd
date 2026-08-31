@@ -32,8 +32,14 @@ func _run() -> void:
 		== (
 			CityActivity.PEDESTRIAN_ROUTES.size()
 			+ CityActivity.VEHICLE_ROUTES.size()
+			+ CityActivity.CROWD_MEMBER_OFFSETS.size()
 		),
 		"The city-actor budget matches the authored route count."
+	)
+	_check(
+		BUDGETS.MAX_CROWD_MEMBERS
+		== CityActivity.CROWD_MEMBER_OFFSETS.size(),
+		"The River Park meetup budget matches its fixed crowd."
 	)
 	_check(
 		BUDGETS.MAX_RAIN_STREAKS == CityActivity.RAIN_STREAK_COUNT,
@@ -92,6 +98,12 @@ func _run() -> void:
 		{
 			"name": "pursuit",
 			"setup": _setup_pursuit,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "crowd_pursuit",
+			"setup": _setup_crowd_pursuit,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -239,6 +251,15 @@ func _setup_pursuit(game: FrogGame) -> void:
 	game._spawn_pursuer()
 
 
+func _setup_crowd_pursuit(game: FrogGame) -> void:
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	game._frog.global_position = CityActivity.CROWD_CENTER
+	game._spawn_pursuer()
+	game._pursuer.set_physics_process(false)
+	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION * 0.5)
+
+
 func _setup_net_attack(game: FrogGame) -> void:
 	game._spawn_pursuer()
 	game._pursuer._begin_net_attack()
@@ -334,8 +355,10 @@ func _check_scenario_expectations(
 		"busy_daytime":
 			_check(
 				int(snapshot["active_city_actors"])
-				== BUDGETS.MAX_CITY_ACTORS,
-				"Busy daytime activates every authored city route."
+				== BUDGETS.MAX_CITY_ACTORS
+				and int(snapshot["active_crowd_members"])
+				== BUDGETS.MAX_CROWD_MEMBERS,
+				"Busy daytime activates every route and the River Park meetup."
 			)
 		"rainy_day":
 			_check(
@@ -350,6 +373,14 @@ func _check_scenario_expectations(
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS,
 				"Pursuit stress contains one Animal Control pursuer."
+			)
+		"crowd_pursuit":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["active_crowd_members"])
+				== BUDGETS.MAX_CROWD_MEMBERS
+				and float(snapshot["crowd_hide_progress"]) > 0.0,
+				"Crowd-pursuit stress exercises active cover before escape."
 			)
 		"net_attack":
 			_check(
@@ -431,6 +462,15 @@ func _measure_scenario(
 		game._pursuer._advance_net_attack(
 			PrototypePursuer.NET_WINDUP_DURATION
 		)
+	elif scenario_name == "crowd_pursuit":
+		game._day_clock = 0.5
+		game._update_day_night(0.0)
+		game._frog.global_position = CityActivity.CROWD_CENTER
+		game._frog.clear_knockback()
+		game._reset_crowd_hiding()
+		if not is_instance_valid(game._pursuer):
+			game._spawn_pursuer()
+		game._pursuer.set_physics_process(false)
 	var last_tick := Time.get_ticks_usec()
 	var sample_seconds := (
 		BUDGETS.TRANSIENT_SAMPLE_SECONDS
@@ -438,6 +478,7 @@ func _measure_scenario(
 			"presentation_peak",
 			"gameplay_peak",
 			"net_attack",
+			"crowd_pursuit",
 		]
 		else BUDGETS.LOCAL_SAMPLE_SECONDS
 	)

@@ -9,6 +9,22 @@ const RAIN_STREAK_COUNT := 84
 const RAIN_LOOP_DURATION := 4.0
 const RAIN_FALL_SPEED := 745.0
 const RAIN_SLANT := Vector2(-10, 26)
+const CROWD_CENTER := Vector2(950, 430)
+const CROWD_COVER_RADIUS := 145.0
+const CROWD_MEMBER_OFFSETS := [
+	Vector2(-70, -35),
+	Vector2(-30, 50),
+	Vector2(0, -55),
+	Vector2(35, 38),
+	Vector2(72, -10),
+]
+const CROWD_MEMBER_COLORS := [
+	Color("765a8d"),
+	Color("4d7f72"),
+	Color("a36452"),
+	Color("4f719d"),
+	Color("98713f"),
+]
 const WET_PATCHES := [
 	Vector2(-1480, -70),
 	Vector2(-690, 95),
@@ -182,6 +198,9 @@ const STREETLIGHT_POSITIONS := [
 
 var daylight := 0.5
 var rain_intensity := 0.0
+var crowd_intensity := 0.0
+var crowd_hide_progress := 0.0
+var crowd_cover_chase_active := false
 var motion_scale := 1.0
 var _animation_time := 0.0
 
@@ -208,6 +227,29 @@ func set_rain_intensity(value: float) -> void:
 	if is_equal_approx(rain_intensity, next_intensity):
 		return
 	rain_intensity = next_intensity
+	queue_redraw()
+
+
+func set_crowd_intensity(value: float) -> void:
+	var next_intensity := clampf(value, 0.0, 1.0)
+	if is_equal_approx(crowd_intensity, next_intensity):
+		return
+	crowd_intensity = next_intensity
+	queue_redraw()
+
+
+func set_crowd_hide_progress(value: float) -> void:
+	var next_progress := clampf(value, 0.0, 1.0)
+	if is_equal_approx(crowd_hide_progress, next_progress):
+		return
+	crowd_hide_progress = next_progress
+	queue_redraw()
+
+
+func set_crowd_cover_chase_active(value: bool) -> void:
+	if crowd_cover_chase_active == value:
+		return
+	crowd_cover_chase_active = value
 	queue_redraw()
 
 
@@ -254,6 +296,35 @@ func active_pedestrian_count() -> int:
 
 func active_vehicle_count() -> int:
 	return vehicle_count_for_conditions(daylight, rain_intensity)
+
+
+func active_crowd_member_count() -> int:
+	return CROWD_MEMBER_OFFSETS.size() if crowd_intensity >= 0.5 else 0
+
+
+func crowd_cover_available() -> bool:
+	return crowd_intensity >= 0.8
+
+
+func crowd_cover_contains(world_position: Vector2) -> bool:
+	return (
+		crowd_cover_available()
+		and world_position.distance_to(CROWD_CENTER) <= CROWD_COVER_RADIUS
+	)
+
+
+func crowd_member_position(index: int) -> Vector2:
+	if index < 0 or index >= CROWD_MEMBER_OFFSETS.size():
+		return Vector2.INF
+	var phase := (
+		_animation_time / 3.0
+		+ float(index) / float(CROWD_MEMBER_OFFSETS.size())
+	)
+	return (
+		CROWD_CENTER
+		+ CROWD_MEMBER_OFFSETS[index]
+		+ Vector2(0, sin(phase * TAU) * 2.0)
+	)
 
 
 func streetlight_intensity_for_daylight(value: float) -> float:
@@ -320,6 +391,8 @@ func activity_signature() -> PackedVector2Array:
 		result.append(pedestrian_position(index))
 	for index in VEHICLE_ROUTES.size():
 		result.append(vehicle_position(index))
+	for index in CROWD_MEMBER_OFFSETS.size():
+		result.append(crowd_member_position(index))
 	return result
 
 
@@ -363,6 +436,7 @@ func _draw() -> void:
 		)
 		if alpha > 0.01:
 			_draw_pedestrian(index, alpha)
+	_draw_park_meetup()
 	_draw_rain()
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -437,6 +511,72 @@ func _draw_pedestrian(index: int, alpha: float) -> void:
 	var head_color := color.lightened(0.22)
 	head_color.a = alpha * 0.92
 	draw_circle(Vector2(0, -7), 6.5, head_color)
+
+
+func _draw_park_meetup() -> void:
+	if crowd_intensity <= 0.01:
+		return
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var cover_color := Color(0.54, 0.88, 0.68, 0.16 * crowd_intensity)
+	draw_circle(CROWD_CENTER, CROWD_COVER_RADIUS, cover_color)
+	draw_arc(
+		CROWD_CENTER,
+		CROWD_COVER_RADIUS,
+		0.0,
+		TAU,
+		48,
+		Color(0.64, 0.96, 0.76, 0.72 * crowd_intensity),
+		4.0
+	)
+	if crowd_hide_progress > 0.0:
+		draw_arc(
+			CROWD_CENTER,
+			CROWD_COVER_RADIUS - 9.0,
+			-PI / 2.0,
+			-PI / 2.0 + TAU * crowd_hide_progress,
+			48,
+			Color(1.0, 0.9, 0.42, 0.92),
+			7.0
+		)
+	draw_string(
+		ThemeDB.fallback_font,
+		CROWD_CENTER + Vector2(-120, -CROWD_COVER_RADIUS - 18),
+		"HIDE HERE" if crowd_cover_chase_active else "PARK MEETUP",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		240,
+		20,
+		Color(0.94, 1.0, 0.9, 0.92 * crowd_intensity)
+	)
+	for index in CROWD_MEMBER_OFFSETS.size():
+		var position := crowd_member_position(index)
+		var color: Color = CROWD_MEMBER_COLORS[index]
+		color.a = 0.9 * crowd_intensity
+		draw_set_transform(
+			position,
+			PI if index % 2 == 0 else 0.0,
+			Vector2.ONE
+		)
+		draw_circle(
+			Vector2(3, 5),
+			12.0,
+			Color(0.04, 0.06, 0.07, 0.18 * crowd_intensity)
+		)
+		draw_line(
+			Vector2(-7, 7),
+			Vector2(-12, 15),
+			Color(0.16, 0.2, 0.21, crowd_intensity),
+			4.0
+		)
+		draw_line(
+			Vector2(7, 7),
+			Vector2(12, 15),
+			Color(0.16, 0.2, 0.21, crowd_intensity),
+			4.0
+		)
+		draw_circle(Vector2(0, 3), 9.0, color)
+		var head_color := color.lightened(0.22)
+		head_color.a = 0.94 * crowd_intensity
+		draw_circle(Vector2(0, -7), 6.5, head_color)
 
 
 func _draw_rain() -> void:

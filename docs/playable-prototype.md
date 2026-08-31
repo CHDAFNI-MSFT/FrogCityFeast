@@ -47,6 +47,9 @@ The prototype includes:
 - short, deterministic, eight-pixel-or-less camera shake for damage and whole
   building captures, suppressed during camera gestures and struggles;
 - pursuit escape after sufficient time or distance;
+- a deterministic River Park meetup where five draw-only visitors provide
+  marked crowd cover and a 1.75-second Animal Control escape for an eligible
+  small or medium frog;
 - the ability to swallow Animal Control at maximum growth;
 - harmless return of digested living targets at collision-safe locations,
   with indoor residents returning inside their building;
@@ -62,6 +65,12 @@ The prototype includes:
 - peak rain that reduces ambient activity from 10 pedestrians and 5 secondary
   vehicles to 4 pedestrians and 3 vehicles without changing gameplay targets,
   collision, scoring, saves, the Field Guide, or the day/night audio;
+- one deterministic 68-second daytime River Park meetup per cycle, with a
+  50-second steady interval, five capped draw-only visitors, and no overlap
+  with the rain shower;
+- crowd-cover progress that resets when the frog leaves and is unavailable
+  during flight, maximum growth, knockback, netting, tongue pulls, or target
+  struggles;
 - deterministic, draw-only pedestrians on fixed sidewalk routes, with a
   smaller night crowd and no collision, targeting, scoring, or Field Guide
   behavior;
@@ -277,9 +286,10 @@ The deterministic structural budgets are enforced in CI:
 |---|---|
 | Baseline, stockroom, busy daytime, maximum growth, Field Guide, or options | 249 game-subtree nodes, 32 collision objects, 39 collision shapes, 27 targets, 4 buildings, 1 separate room |
 | Pursuit or gameplay peak | 251 nodes, 33 collision objects, 40 collision shapes, 1 pursuer |
+| Pursuit in active crowd cover | Pursuit structure remains at 251 nodes, 33 collision objects, and 40 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
 | Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 251 nodes, 33 collision objects, and 40 collision shapes |
 | Populated Belly sample | 64 items and rows, 505 nodes; this is a stress sample, not a gameplay capacity limit |
-| Busy daytime activity | 10 pedestrians plus 5 secondary vehicles, all draw-only |
+| Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
@@ -292,13 +302,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 ```
 
 The harness uses fixed random seeds and covers baseline play, the active Leap
-Café stockroom, busy daytime, pursuit, an Animal Control net in flight, maximum
-growth, a finite maximum presentation burst, a 64-item Belly, the populated
-Field Guide, both accessibility options, and a reachable gameplay peak
-combining daytime activity, pursuit, growth, and presentation effects. It
-prints median FPS, frame-time percentiles, memory, and a post-sample render
-snapshot. The command-driven Windows run can show isolated scheduling/window
-stalls, so p95 is more useful than its maximum or arithmetic-mean FPS.
+Café stockroom, busy daytime, ordinary and crowd-cover pursuit, an Animal
+Control net in flight, maximum growth, a finite maximum presentation burst, a
+64-item Belly, the populated Field Guide, both accessibility options, and a
+reachable gameplay peak combining daytime activity, pursuit, growth, and
+presentation effects. It prints median FPS, frame-time percentiles, memory, and
+a post-sample render snapshot. The command-driven Windows run can show isolated
+scheduling/window stalls, so p95 is more useful than its maximum or
+arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.

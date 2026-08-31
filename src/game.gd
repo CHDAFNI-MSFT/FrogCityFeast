@@ -51,6 +51,11 @@ const RAIN_START := 0.58
 const RAIN_FULL_START := 0.62
 const RAIN_FULL_END := 0.74
 const RAIN_END := 0.78
+const CROWD_START := 0.18
+const CROWD_FULL_START := 0.22
+const CROWD_FULL_END := 0.50
+const CROWD_END := 0.56
+const CROWD_HIDE_DURATION := 1.75
 const NET_ESCAPE_DURATION := 3.0
 const NET_ESCAPE_TAPS := 6
 const TARGET_STRUGGLE_TITLE := "It is trying to escape!"
@@ -342,6 +347,8 @@ var _flight_time_left := 0.0
 var _day_clock := 0.23
 var _current_daylight := 0.0
 var _current_rain_intensity := 0.0
+var _current_crowd_intensity := 0.0
+var _crowd_hide_time := 0.0
 var _last_safe_ground_position := Vector2.ZERO
 var _rare_respawn_pending: Dictionary = {}
 var _pending_growth_tier := -1
@@ -535,6 +542,7 @@ func _process(delta: float) -> void:
 			_fail_struggle()
 	if _net_escape_active:
 		_update_net_escape(delta)
+	_update_crowd_hiding(delta)
 
 	if is_instance_valid(_pull_target):
 		_pull_time_left -= delta
@@ -1633,9 +1641,11 @@ func performance_structure_snapshot() -> Dictionary:
 	_count_performance_nodes(self, counts)
 	var active_pedestrians := 0
 	var active_vehicles := 0
+	var active_crowd_members := 0
 	if is_instance_valid(_city_activity):
 		active_pedestrians = _city_activity.active_pedestrian_count()
 		active_vehicles = _city_activity.active_vehicle_count()
+		active_crowd_members = _city_activity.active_crowd_member_count()
 	var audio_structure := AudioDirector.structure_snapshot()
 	return {
 		"game_nodes": counts["game_nodes"],
@@ -1662,12 +1672,21 @@ func performance_structure_snapshot() -> Dictionary:
 		"known_discoveries": _known_discovery_count(),
 		"active_pedestrians": active_pedestrians,
 		"active_vehicles": active_vehicles,
-		"active_city_actors": active_pedestrians + active_vehicles,
+		"active_crowd_members": active_crowd_members,
+		"active_city_actors": (
+			active_pedestrians
+			+ active_vehicles
+			+ active_crowd_members
+		),
 		"rain_intensity": _current_rain_intensity,
 		"rain_streaks": (
 			_city_activity.visible_rain_streak_count()
 			if is_instance_valid(_city_activity)
 			else 0
+		),
+		"crowd_intensity": _current_crowd_intensity,
+		"crowd_hide_progress": (
+			_crowd_hide_time / CROWD_HIDE_DURATION
 		),
 		"active_effects": (
 			_effects.active_effect_count()
@@ -2329,6 +2348,7 @@ func _on_pursuer_escaped() -> void:
 	if _net_escape_active:
 		_clear_net_escape()
 	_pursuer = null
+	_reset_crowd_hiding()
 	_show_status("You escaped Animal Control!")
 
 
@@ -2343,6 +2363,7 @@ func _is_actively_chased() -> bool:
 func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	if _net_escape_active:
 		_clear_net_escape()
+	_reset_crowd_hiding()
 	var effect_position := pursuer.global_position
 	var item := BellyItem.new()
 	item.target_id = "animal_control"
@@ -2580,7 +2601,9 @@ func _update_day_night(delta: float) -> void:
 	var night_color := Color(0.44, 0.56, 0.78)
 	var clear_color := night_color.lerp(Color.WHITE, 0.38 + daylight * 0.62)
 	var rain_intensity := rain_intensity_for_clock(_day_clock)
+	var crowd_intensity := crowd_intensity_for_clock(_day_clock)
 	_current_rain_intensity = rain_intensity
+	_current_crowd_intensity = crowd_intensity
 	_world_tint.color = clear_color.lerp(
 		Color(0.68, 0.76, 0.84),
 		rain_intensity * 0.3
@@ -2588,6 +2611,7 @@ func _update_day_night(delta: float) -> void:
 	if is_instance_valid(_city_activity):
 		_city_activity.set_daylight(daylight)
 		_city_activity.set_rain_intensity(rain_intensity)
+		_city_activity.set_crowd_intensity(crowd_intensity)
 	AudioDirector.set_game_ambience(
 		self,
 		daylight < NIGHT_AUDIO_THRESHOLD
@@ -2603,6 +2627,69 @@ static func rain_intensity_for_clock(value: float) -> float:
 	if clock > RAIN_FULL_END:
 		return 1.0 - smoothstep(RAIN_FULL_END, RAIN_END, clock)
 	return 1.0
+
+
+static func crowd_intensity_for_clock(value: float) -> float:
+	var clock := fposmod(value, 1.0)
+	if clock < CROWD_START or clock > CROWD_END:
+		return 0.0
+	if clock < CROWD_FULL_START:
+		return smoothstep(CROWD_START, CROWD_FULL_START, clock)
+	if clock > CROWD_FULL_END:
+		return 1.0 - smoothstep(CROWD_FULL_END, CROWD_END, clock)
+	return 1.0
+
+
+func _update_crowd_hiding(delta: float) -> void:
+	var can_attempt_hide := (
+		is_instance_valid(_pursuer)
+		and _pursuer.active
+		and _active_interior_id.is_empty()
+		and _growth_tier < 2
+		and not _frog.is_flying
+		and not _frog.knockback_active()
+		and _frog.movement_enabled
+		and not _net_escape_active
+		and not is_instance_valid(_struggle_target)
+		and not is_instance_valid(_pull_target)
+		and is_instance_valid(_city_activity)
+		and _city_activity.crowd_cover_available()
+	)
+	if is_instance_valid(_city_activity):
+		_city_activity.set_crowd_cover_chase_active(can_attempt_hide)
+	if not can_attempt_hide:
+		_reset_crowd_hiding()
+		return
+	if not _city_activity.crowd_cover_contains(_frog.global_position):
+		_reset_crowd_hide_progress()
+		return
+	if _crowd_hide_time <= 0.0:
+		_show_status("Stay in the River Park crowd to lose Animal Control.")
+	_crowd_hide_time = minf(
+		CROWD_HIDE_DURATION,
+		_crowd_hide_time + maxf(0.0, delta)
+	)
+	_city_activity.set_crowd_hide_progress(
+		_crowd_hide_time / CROWD_HIDE_DURATION
+	)
+	if _crowd_hide_time < CROWD_HIDE_DURATION:
+		return
+	var pursuer := _pursuer
+	_reset_crowd_hiding()
+	pursuer._escape()
+	_show_status("Animal Control lost you in the River Park crowd!")
+
+
+func _reset_crowd_hiding() -> void:
+	_reset_crowd_hide_progress()
+	if is_instance_valid(_city_activity):
+		_city_activity.set_crowd_cover_chase_active(false)
+
+
+func _reset_crowd_hide_progress() -> void:
+	_crowd_hide_time = 0.0
+	if is_instance_valid(_city_activity):
+		_city_activity.set_crowd_hide_progress(0.0)
 
 
 func _disable_belly_actions() -> void:
