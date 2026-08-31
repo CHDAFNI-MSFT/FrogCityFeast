@@ -23,6 +23,11 @@ const ENTRIES := [
 		"hint": "Visit Leap Cafe after growing once.",
 	},
 	{
+		"id": "cafe_stockroom_coffee_tin",
+		"name": "Stockroom Coffee Tin",
+		"hint": "Find the marked rear door inside Leap Cafe.",
+	},
+	{
 		"id": "leap_cafe_menu_board",
 		"name": "Sidewalk Menu Board",
 		"hint": "Start outside Leap Cafe at its sidewalk menu.",

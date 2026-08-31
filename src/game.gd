@@ -18,6 +18,7 @@ signal audio_changed(preferences: Dictionary)
 
 const EDIBLE_SCRIPT := preload("res://src/edible.gd")
 const BUILDING_SCRIPT := preload("res://src/building.gd")
+const INTERIOR_ROOM_SCRIPT := preload("res://src/interior_room.gd")
 const PURSUER_SCRIPT := preload("res://src/pursuer.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
@@ -28,6 +29,12 @@ enum TonguePhase {
 	EXTENDING,
 	HOLDING,
 	RETRACTING,
+}
+
+enum InteriorTransitionPhase {
+	NONE,
+	FADE_OUT,
+	FADE_IN,
 }
 
 const WORLD_RECT := Rect2(-1760, -1360, 3520, 2720)
@@ -48,6 +55,10 @@ const NET_ESCAPE_DURATION := 3.0
 const NET_ESCAPE_TAPS := 6
 const TARGET_STRUGGLE_TITLE := "It is trying to escape!"
 const TARGET_STRUGGLE_HINT := "Tap rapidly anywhere!"
+const STOCKROOM_ID := "leap_cafe_stockroom"
+const STOCKROOM_POSITION := Vector2(3400, 0)
+const STOCKROOM_CAMERA_ZOOM := Vector2(1.2, 1.2)
+const INTERIOR_TRANSITION_DURATION := 0.18
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
 const DISCOVERY_BANNER_DURATION := 2.2
@@ -302,6 +313,7 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _close_options_button: Button = %CloseOptionsButton
 @onready var _discovery_banner: PanelContainer = %DiscoveryBanner
 @onready var _discovery_banner_label: Label = %DiscoveryBannerLabel
+@onready var _interior_transition_fade: ColorRect = %InteriorTransitionFade
 
 var _profile_id := ""
 var _display_name := "Player"
@@ -314,6 +326,7 @@ var _belly: Array[BellyItem] = []
 var _targets: Array[EdibleTarget] = []
 var _buildings: Array[PrototypeBuilding] = []
 var _building_by_id: Dictionary = {}
+var _interior_rooms: Dictionary = {}
 var _pursuer: PrototypePursuer
 
 var _tongue_recovery := 0.0
@@ -342,6 +355,14 @@ var _net_escape_active := false
 var _net_escape_taps := 0
 var _net_escape_time_left := 0.0
 var _net_source_position := Vector2.ZERO
+var _active_interior_id := ""
+var _pending_interior_transition := ""
+var _interior_transition_destination := ""
+var _interior_transition_phase := InteriorTransitionPhase.NONE
+var _interior_transition_time := 0.0
+var _city_return_position := Vector2.ZERO
+var _city_camera_zoom := Vector2(0.9, 0.9)
+var _city_camera_rotation := 0.0
 var _pull_target: EdibleTarget
 var _pull_time_left := 0.0
 var _pull_hit_offset := Vector2.ZERO
@@ -403,6 +424,7 @@ func _ready() -> void:
 	_challenges.challenge_completed.connect(_on_challenge_completed)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	_build_prototype_city()
+	_city_camera_zoom = _camera.zoom
 	_update_day_night(0.0)
 	if not _accessibility_configured:
 		_reduce_motion_enabled = (
@@ -490,6 +512,12 @@ func _process(delta: float) -> void:
 		if _status_time <= 0.0:
 			_status_label.text = "Tap the ground to move. Double-tap a target to eat it."
 
+	if _interior_transition_phase != InteriorTransitionPhase.NONE:
+		_update_interior_transition(delta)
+		_update_camera()
+		_camera.offset = Vector2.ZERO
+		return
+
 	if get_tree().paused:
 		_update_camera()
 		_camera.offset = Vector2.ZERO
@@ -542,7 +570,10 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _overlay_blocking():
+	if (
+		_overlay_blocking()
+		or _interior_transition_phase != InteriorTransitionPhase.NONE
+	):
 		return
 
 	if event is InputEventScreenTouch:
@@ -627,6 +658,9 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 		_show_status("The tongue is pulling the frog right now.")
 		return
 	var world_position := _screen_to_world(screen_position)
+	if _try_handle_interior_transition_tap(world_position):
+		return
+	_pending_interior_transition = ""
 	if _find_target_at(world_position) != null:
 		_show_status("Double-tap that target to shoot your tongue.")
 		return
@@ -650,6 +684,166 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 	)
 	_frog.move_to(final_destination)
 	_touch_feedback.show_move(final_destination)
+
+
+func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
+	if (
+		is_instance_valid(_struggle_target)
+		or is_instance_valid(_pull_target)
+		or _net_escape_active
+	):
+		return false
+	if not _active_interior_id.is_empty():
+		var active_room := (
+			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
+		)
+		if (
+			not is_instance_valid(active_room)
+			or not active_room.exit_hit_test(world_position)
+		):
+			return false
+		if _frog.global_position.distance_to(
+			active_room.exit_approach_position()
+		) <= 130.0:
+			_begin_interior_transition("city")
+		else:
+			_pending_interior_transition = "city"
+			_frog.move_to(active_room.exit_approach_position())
+			_touch_feedback.show_move(active_room.exit_approach_position())
+			_show_status("Moving to the stockroom exit.")
+		return true
+
+	var cafe := (
+		_building_by_id.get("leap_cafe") as PrototypeBuilding
+	)
+	if (
+		not is_instance_valid(cafe)
+		or not cafe.transition_door_hit_test(world_position)
+	):
+		return false
+	if _tutorial != null and _tutorial.active:
+		_show_status("Finish or skip the tutorial before exploring the stockroom.")
+		return true
+	if not cafe.contains_world_point(_frog.global_position):
+		_show_status("Enter Leap Cafe before opening its stockroom.")
+		return true
+	var approach_position := cafe.transition_door_approach_position()
+	if _frog.global_position.distance_to(approach_position) <= 130.0:
+		_begin_interior_transition(STOCKROOM_ID)
+	else:
+		_pending_interior_transition = STOCKROOM_ID
+		_frog.move_to(approach_position)
+		_touch_feedback.show_move(approach_position)
+		_show_status("Moving to the Leap Cafe stockroom door.")
+	return true
+
+
+func _begin_interior_transition(destination: String) -> void:
+	if _interior_transition_phase != InteriorTransitionPhase.NONE:
+		return
+	if destination == STOCKROOM_ID:
+		var cafe := (
+			_building_by_id.get("leap_cafe") as PrototypeBuilding
+		)
+		if (
+			not _active_interior_id.is_empty()
+			or not is_instance_valid(cafe)
+			or cafe.consumed
+			or not cafe.contains_world_point(_frog.global_position)
+		):
+			_show_status("The Leap Cafe stockroom is not accessible from here.")
+			return
+	elif destination == "city":
+		if _active_interior_id != STOCKROOM_ID:
+			return
+	else:
+		push_error("Unknown interior transition destination: %s." % destination)
+		return
+
+	_pending_interior_transition = ""
+	_interior_transition_destination = destination
+	_frog.stop_moving()
+	_frog.clear_knockback()
+	_frog.movement_enabled = false
+	_reset_touch_input_state()
+	_clear_camera_shake()
+	if _motion_scale <= 0.0:
+		_complete_interior_transfer()
+		_finish_interior_transition()
+		return
+	_interior_transition_phase = InteriorTransitionPhase.FADE_OUT
+	_interior_transition_time = 0.0
+	_set_interior_fade_alpha(0.0)
+	_interior_transition_fade.visible = true
+	_sync_overlay_pause()
+
+
+func _update_interior_transition(delta: float) -> void:
+	if _interior_transition_phase == InteriorTransitionPhase.NONE:
+		return
+	_interior_transition_time += maxf(0.0, delta)
+	var progress := clampf(
+		_interior_transition_time / INTERIOR_TRANSITION_DURATION,
+		0.0,
+		1.0
+	)
+	if _interior_transition_phase == InteriorTransitionPhase.FADE_OUT:
+		_set_interior_fade_alpha(progress)
+		if progress >= 1.0:
+			_complete_interior_transfer()
+			_interior_transition_phase = InteriorTransitionPhase.FADE_IN
+			_interior_transition_time = 0.0
+	elif _interior_transition_phase == InteriorTransitionPhase.FADE_IN:
+		_set_interior_fade_alpha(1.0 - progress)
+		if progress >= 1.0:
+			_finish_interior_transition()
+
+
+func _complete_interior_transfer() -> void:
+	if _interior_transition_destination == STOCKROOM_ID:
+		var cafe := (
+			_building_by_id.get("leap_cafe") as PrototypeBuilding
+		)
+		var stockroom := (
+			_interior_rooms.get(STOCKROOM_ID) as PrototypeInteriorRoom
+		)
+		if not is_instance_valid(cafe) or not is_instance_valid(stockroom):
+			push_error("Leap Cafe stockroom transition is missing its room.")
+			return
+		_city_return_position = cafe.transition_door_approach_position()
+		_city_camera_rotation = _camera.rotation
+		_active_interior_id = STOCKROOM_ID
+		_frog.global_position = stockroom.entry_position()
+		_camera.zoom = STOCKROOM_CAMERA_ZOOM
+		_camera.rotation = 0.0
+		if is_instance_valid(_pursuer):
+			_pursuer._escape()
+		_show_status("Entered the Leap Cafe stockroom.")
+	else:
+		_active_interior_id = ""
+		_frog.global_position = _city_return_position
+		_camera.zoom = _city_camera_zoom
+		_camera.rotation = _city_camera_rotation
+		_show_status("Returned to Leap Cafe.")
+	_last_safe_ground_position = _frog.global_position
+	_update_camera()
+	_camera.reset_smoothing()
+
+
+func _finish_interior_transition() -> void:
+	_interior_transition_phase = InteriorTransitionPhase.NONE
+	_interior_transition_destination = ""
+	_interior_transition_time = 0.0
+	_interior_transition_fade.visible = false
+	_set_interior_fade_alpha(0.0)
+	_frog.movement_enabled = true
+	_sync_overlay_pause()
+
+
+func _set_interior_fade_alpha(value: float) -> void:
+	var fade_color := _interior_transition_fade.color
+	fade_color.a = clampf(value, 0.0, 1.0)
+	_interior_transition_fade.color = fade_color
 
 
 func _try_tongue_at_screen(screen_position: Vector2) -> void:
@@ -1016,6 +1210,7 @@ func _overlay_blocking() -> bool:
 		_belly_overlay.visible
 		or _guide_overlay.visible
 		or _options_overlay.visible
+		or _interior_transition_phase != InteriorTransitionPhase.NONE
 	)
 
 
@@ -1302,6 +1497,18 @@ func _spit_item(index: int) -> void:
 		return
 	_disable_belly_actions()
 	var item := _belly[index]
+	if not _belly_item_matches_active_space(item):
+		_show_status(
+			"Return to %s before spitting out %s."
+			% [
+				"the stockroom"
+				if item.building_id == STOCKROOM_ID
+				else "the city",
+				item.display_name,
+			]
+		)
+		_rebuild_belly_list()
+		return
 	if item.kind == "building":
 		if not _restore_building_from_belly(item):
 			_show_status(
@@ -1337,13 +1544,20 @@ func _spit_item(index: int) -> void:
 		target.move_bounds = Rect2(
 			spawn_position - Vector2(360, 260),
 			Vector2(720, 520)
-		).intersection(WORLD_RECT.grow(-80))
+		).intersection(_active_navigation_rect().grow(-80))
 	_world.add_child(target)
 	_targets.append(target)
 	AudioDirector.play_effect(FrogAudioDirector.SPIT)
 	_show_status("%s was returned safely." % item.display_name)
 	_update_hud()
 	_rebuild_belly_list()
+
+
+func _belly_item_matches_active_space(item: BellyItem) -> bool:
+	var item_room_id := ""
+	if _interior_rooms.has(item.building_id):
+		item_room_id = item.building_id
+	return item_room_id == _active_interior_id
 
 
 func _apply_growth_thresholds() -> void:
@@ -1433,6 +1647,8 @@ func performance_structure_snapshot() -> Dictionary:
 		"physics_processing_nodes": counts["physics_processing_nodes"],
 		"targets": _targets.size(),
 		"buildings": _buildings.size(),
+		"interior_rooms": _interior_rooms.size(),
+		"active_interior": _active_interior_id,
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
 		"net_projectiles": (
 			_pursuer.active_net_projectile_count()
@@ -1804,9 +2020,10 @@ func _screen_to_world(screen_position: Vector2) -> Vector2:
 
 
 func _clamp_to_world(world_position: Vector2) -> Vector2:
+	var bounds := _active_navigation_rect()
 	return Vector2(
-		clampf(world_position.x, WORLD_RECT.position.x, WORLD_RECT.end.x),
-		clampf(world_position.y, WORLD_RECT.position.y, WORLD_RECT.end.y)
+		clampf(world_position.x, bounds.position.x, bounds.end.x),
+		clampf(world_position.y, bounds.position.y, bounds.end.y)
 	)
 
 
@@ -1814,6 +2031,8 @@ func _rotate_camera(
 	screen_delta_x: float,
 	screen_position: Vector2 = Vector2.INF
 ) -> void:
+	if not _active_interior_id.is_empty():
+		return
 	if (
 		_tutorial != null
 		and _tutorial.active
@@ -1833,6 +2052,16 @@ func _rotate_camera(
 
 
 func _update_camera() -> void:
+	if not _active_interior_id.is_empty():
+		var room := (
+			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
+		)
+		_camera.global_position = (
+			room.global_position
+			if is_instance_valid(room)
+			else _frog.global_position
+		)
+		return
 	var forward := Vector2.UP.rotated(_camera.rotation)
 	_camera.global_position = _frog.global_position + forward * 220.0
 
@@ -1909,6 +2138,9 @@ func _apply_damage(source_position: Vector2, penalty: int, message: String) -> v
 
 func _spawn_pursuer() -> void:
 	if is_instance_valid(_pursuer):
+		return
+	if not _active_interior_id.is_empty():
+		_show_status("Animal Control cannot find the frog in here.")
 		return
 	var spawn_position := _find_pursuer_spawn_position()
 	if spawn_position == Vector2.INF:
@@ -2621,7 +2853,8 @@ func _circle_position_clear(
 	radius: float,
 	exclude_frog: bool
 ) -> bool:
-	if not WORLD_RECT.grow(-radius).has_point(position):
+	var bounds := _navigation_rect_for_position(position)
+	if not bounds.grow(-radius).has_point(position):
 		return false
 	var shape := CircleShape2D.new()
 	shape.radius = radius
@@ -2635,11 +2868,29 @@ func _circle_position_clear(
 
 
 func _clamp_circle_to_world(position: Vector2, radius: float) -> Vector2:
-	var inset := WORLD_RECT.grow(-radius)
+	var inset := _active_navigation_rect().grow(-radius)
 	return Vector2(
 		clampf(position.x, inset.position.x, inset.end.x),
 		clampf(position.y, inset.position.y, inset.end.y)
 	)
+
+
+func _active_navigation_rect() -> Rect2:
+	if not _active_interior_id.is_empty():
+		var room := (
+			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
+		)
+		if is_instance_valid(room):
+			return room.interior_rect()
+	return WORLD_RECT
+
+
+func _navigation_rect_for_position(position: Vector2) -> Rect2:
+	for room_value in _interior_rooms.values():
+		var room := room_value as PrototypeInteriorRoom
+		if is_instance_valid(room) and room.contains_world_point(position):
+			return room.interior_rect()
+	return WORLD_RECT
 
 
 func _position_overlaps_target(
@@ -2955,6 +3206,11 @@ func _close_belly_after_tutorial_digest() -> void:
 
 
 func _on_frog_move_reached(world_position: Vector2) -> void:
+	if not _pending_interior_transition.is_empty():
+		var destination := _pending_interior_transition
+		_pending_interior_transition = ""
+		_begin_interior_transition(destination)
+		return
 	movement_reached.emit(world_position)
 
 
@@ -3005,6 +3261,10 @@ func _build_prototype_city() -> void:
 		cafe_props,
 		PrototypeBuilding.ENTRANCE_PART_AWNING
 	)
+	cafe.transition_door_position = Vector2(145, -145)
+	cafe.transition_door_approach_offset = Vector2(0, 72)
+	cafe.transition_door_label = "STOCKROOM"
+	cafe.queue_redraw()
 	var apartments := _spawn_building(
 		Vector2(-610, 1210),
 		Vector2(510, 330),
@@ -3020,6 +3280,19 @@ func _build_prototype_city() -> void:
 	)
 	var cafe_bounds := cafe.interior_rect()
 	var apartment_bounds := apartments.interior_rect()
+	var stockroom := _spawn_interior_room(
+		STOCKROOM_ID,
+		"Leap Cafe Stockroom",
+		STOCKROOM_POSITION,
+		Vector2(1100, 820),
+		Color("a77b5f"),
+		[
+			Rect2(-430, -320, 260, 80),
+			Rect2(170, -320, 260, 80),
+			Rect2(-470, 20, 105, 180),
+			Rect2(365, -40, 105, 180),
+		]
+	)
 	var oddities_shop := _spawn_building(
 		Vector2(610, 1210),
 		Vector2(500, 330),
@@ -3071,6 +3344,17 @@ func _build_prototype_city() -> void:
 		"bounds": cafe_bounds,
 		"building_id": cafe.building_id,
 		"color": Color("4b8fc4"),
+	})
+	_spawn_target({
+		"id": "cafe_stockroom_coffee_tin",
+		"name": "Stockroom Coffee Tin",
+		"position": stockroom.global_position + Vector2(-280, -205),
+		"value": 34,
+		"kind": "object",
+		"radius": 28.0,
+		"bounds": stockroom.interior_rect(),
+		"building_id": STOCKROOM_ID,
+		"color": Color("8eb39a"),
 	})
 	_spawn_target({
 		"id": "park_chair",
@@ -3177,6 +3461,26 @@ func _spawn_building(
 	_buildings.append(building)
 	_building_by_id[building_id] = building
 	return building
+
+
+func _spawn_interior_room(
+	room_id: String,
+	room_name: String,
+	room_position: Vector2,
+	room_size: Vector2,
+	color: Color,
+	props: Array[Rect2]
+) -> PrototypeInteriorRoom:
+	var room := INTERIOR_ROOM_SCRIPT.new() as PrototypeInteriorRoom
+	room.room_id = room_id
+	room.display_name = room_name
+	room.position = room_position
+	room.room_size = room_size
+	room.floor_color = color
+	room.props = props.duplicate()
+	_world.add_child(room)
+	_interior_rooms[room_id] = room
+	return room
 
 
 func _spawn_destruction_targets(building: PrototypeBuilding) -> void:

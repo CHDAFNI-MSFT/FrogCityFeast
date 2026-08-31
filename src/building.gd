@@ -22,6 +22,9 @@ const WALL_THICKNESS := 24.0
 
 var consumed := false
 var interior_props: Array[Rect2] = []
+var transition_door_position := Vector2.INF
+var transition_door_approach_offset := Vector2.INF
+var transition_door_label := ""
 var _removed_parts := {
 	PART_SIGN: false,
 	PART_DOOR: false,
@@ -129,6 +132,7 @@ func _draw() -> void:
 		)
 	if destructible_parts and not is_part_removed(PART_DOOR):
 		_draw_entrance_part()
+	_draw_transition_door()
 
 
 func contains_world_point(world_point: Vector2) -> bool:
@@ -141,6 +145,33 @@ func footprint_rect() -> Rect2:
 
 func interior_rect() -> Rect2:
 	return footprint_rect().grow(-WALL_THICKNESS)
+
+
+func transition_door_world_position() -> Vector2:
+	if transition_door_position == Vector2.INF:
+		return Vector2.INF
+	return global_position + transition_door_position
+
+
+func transition_door_approach_position() -> Vector2:
+	if transition_door_position == Vector2.INF:
+		return Vector2.INF
+	if transition_door_approach_offset != Vector2.INF:
+		return (
+			global_position
+			+ transition_door_position
+			+ transition_door_approach_offset
+		)
+	var direction := (-transition_door_position).normalized()
+	return global_position + transition_door_position + direction * 72.0
+
+
+func transition_door_hit_test(world_position: Vector2) -> bool:
+	return (
+		not consumed
+		and transition_door_position != Vector2.INF
+		and transition_door_world_position().distance_to(world_position) <= 56.0
+	)
 
 
 func part_world_position(part_id: String) -> Vector2:
@@ -230,6 +261,37 @@ func restore() -> void:
 		_set_body_enabled(_door_body, not is_part_removed(PART_DOOR))
 		_set_body_enabled(_counter_body, not is_part_removed(PART_COUNTER))
 	queue_redraw()
+
+
+func _draw_transition_door() -> void:
+	if transition_door_position == Vector2.INF:
+		return
+	draw_rect(
+		Rect2(
+			transition_door_position - Vector2(48, 24),
+			Vector2(96, 48)
+		),
+		floor_color.darkened(0.48)
+	)
+	draw_rect(
+		Rect2(
+			transition_door_position - Vector2(40, 17),
+			Vector2(80, 34)
+		),
+		floor_color.lightened(0.3),
+		false,
+		4.0
+	)
+	if not transition_door_label.is_empty():
+		draw_string(
+			ThemeDB.fallback_font,
+			transition_door_position + Vector2(-70, 48),
+			transition_door_label,
+			HORIZONTAL_ALIGNMENT_CENTER,
+			140,
+			16,
+			Color("2f2822")
+		)
 
 
 func _draw_door_opening() -> void:

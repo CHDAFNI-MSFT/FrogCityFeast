@@ -78,6 +78,12 @@ func stop_moving() -> void:
 	velocity = Vector2.ZERO
 
 
+func clear_knockback() -> void:
+	_knockback_velocity = Vector2.ZERO
+	_knockback_time = 0.0
+	velocity = Vector2.ZERO
+
+
 func knock_back_from(source_position: Vector2) -> void:
 	var direction := (global_position - source_position).normalized()
 	if direction == Vector2.ZERO:

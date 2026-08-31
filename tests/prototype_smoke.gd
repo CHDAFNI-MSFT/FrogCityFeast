@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 26,
+		game._targets.size() == 27,
 		"Prototype targets, interiors, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -346,6 +346,7 @@ func _run() -> void:
 	await _test_leap_cafe_sequence(game_scene)
 	await _test_canal_apartments_sequence(game_scene)
 	await _test_building_interiors(game_scene)
+	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_pursuer_net_escape(game_scene)
 	await _test_accessibility(game_scene)
@@ -1129,7 +1130,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity and rain share one draw-only layer with no physics bodies."
 	)
 	_check(
-		game._targets.size() == 26 and DiscoveryCatalog.count() == 27,
+		game._targets.size() == 27 and DiscoveryCatalog.count() == 28,
 		"Ambient city life does not add gameplay targets or Field Guide entries."
 	)
 	var expected_daylight := (
@@ -1201,10 +1202,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 26
+		int(rainy_snapshot["targets"]) == 27
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 31
-		and int(rainy_snapshot["collision_shapes"]) == 31,
+		and int(rainy_snapshot["collision_objects"]) == 32
+		and int(rainy_snapshot["collision_shapes"]) == 39,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1440,8 +1441,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 238
-		and int(net_snapshot["collision_objects"]) == 32,
+		and int(net_snapshot["game_nodes"]) == 251
+		and int(net_snapshot["collision_objects"]) == 33,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -1597,7 +1598,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		if not catalog_ids.has(target_id):
 			catalog_matches_targets = false
 	_check(
-		catalog_matches_targets and DiscoveryCatalog.count() == 27,
+		catalog_matches_targets and DiscoveryCatalog.count() == 28,
 		"Field Guide catalog exactly matches every swallowable prototype target."
 	)
 	_check(
@@ -2984,6 +2985,266 @@ func _test_building_interiors(game_scene: PackedScene) -> void:
 		"Restoring a furnished building restores its interior prop collision."
 	)
 
+	game.queue_free()
+	await process_frame
+
+
+func _test_cafe_stockroom(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("stockroom_test", "Stockroom Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var cafe := (
+		game._building_by_id.get("leap_cafe") as PrototypeBuilding
+	)
+	var stockroom := (
+		game._interior_rooms.get(FrogGame.STOCKROOM_ID)
+		as PrototypeInteriorRoom
+	)
+	var coffee_tin := _find_target(
+		game,
+		"cafe_stockroom_coffee_tin"
+	)
+	_check(
+		is_instance_valid(cafe)
+		and is_instance_valid(stockroom)
+		and is_instance_valid(coffee_tin)
+		and game._interior_rooms.size() == 1
+		and stockroom.room_size == Vector2(1100, 820)
+		and stockroom._collision_body.get_child_count() == 8
+		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
+		and coffee_tin.move_bounds == stockroom.interior_rect(),
+		"Leap Cafe creates one solid stockroom and its room-scoped Coffee Tin."
+	)
+	_check(
+		cafe.transition_door_hit_test(
+			cafe.transition_door_world_position()
+		)
+		and game._circle_position_clear(
+			cafe.transition_door_approach_position(),
+			44.0,
+			true
+		),
+		"The marked cafe door has a maximum-size-safe approach point."
+	)
+	_check(
+		not game._circle_position_clear(
+			stockroom.global_position + stockroom.props[0].get_center(),
+			28.0,
+			true
+		)
+		and game._circle_position_clear(
+			stockroom.global_position,
+			44.0,
+			true
+		),
+		"Stockroom shelving is solid while the central aisle admits the maximum frog."
+	)
+
+	game._frog.global_position = cafe.global_position
+	var city_camera_rotation := 0.35
+	game._camera.rotation = city_camera_rotation
+	var handled_entry := game._try_handle_interior_transition_tap(
+		cafe.transition_door_world_position()
+	)
+	_check(
+		handled_entry
+		and game._pending_interior_transition == FrogGame.STOCKROOM_ID
+		and game._frog._has_move_target
+		and game._frog._move_target
+		== cafe.transition_door_approach_position(),
+		"A stockroom tap walks the frog to the cafe door when needed."
+	)
+	game._frog.global_position = cafe.transition_door_approach_position()
+	game._frog.knock_back_from(cafe.global_position + Vector2.LEFT)
+	game._on_frog_move_reached(game._frog.global_position)
+	game._update_interior_transition(
+		FrogGame.INTERIOR_TRANSITION_DURATION * 0.5
+	)
+	_check(
+		game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.FADE_OUT
+		and game._interior_transition_fade.visible
+		and is_equal_approx(
+			game._interior_transition_fade.color.a,
+			0.5
+		)
+		and is_zero_approx(game._frog._knockback_time)
+		and game._frog._knockback_velocity == Vector2.ZERO
+		and paused
+		and not game._frog.movement_enabled,
+		"Full-motion entry pauses play behind a short opaque fade."
+	)
+	game._update_interior_transition(
+		FrogGame.INTERIOR_TRANSITION_DURATION * 0.5
+	)
+	_check(
+		game._active_interior_id == FrogGame.STOCKROOM_ID
+		and game._frog.global_position == stockroom.entry_position()
+		and game._camera.global_position == stockroom.global_position
+		and game._camera.zoom == FrogGame.STOCKROOM_CAMERA_ZOOM
+		and is_zero_approx(game._camera.rotation)
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.FADE_IN,
+		"The fade midpoint transfers the frog and switches to the room camera."
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		not paused
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and not game._interior_transition_fade.visible
+		and game._frog.movement_enabled
+		and game._active_navigation_rect() == stockroom.interior_rect(),
+		"Completing entry resumes play with stockroom navigation bounds."
+	)
+	game._rotate_camera(180.0, Vector2(640, 480))
+	_check(
+		is_zero_approx(game._camera.rotation),
+		"Camera gestures cannot rotate the tightly framed stockroom."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._pending_growth_tier = 2
+	game._frog.global_position = stockroom.global_position
+	game._last_safe_ground_position = stockroom.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1
+		and stockroom.interior_rect().has_point(
+			game._frog.global_position
+		),
+		"The stockroom central aisle supports maximum-size growth."
+	)
+	game._spawn_pursuer()
+	_check(
+		not is_instance_valid(game._pursuer)
+		and game._status_label.text.contains("cannot find"),
+		"Animal Control cannot spawn remotely inside the stockroom."
+	)
+
+	game._frog.global_position = coffee_tin.global_position + Vector2(0, 100)
+	game._swallow_target(coffee_tin, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id
+		== "cafe_stockroom_coffee_tin"
+		and game._belly[0].movement_bounds
+		== stockroom.interior_rect(),
+		"Swallowing the Coffee Tin preserves its stockroom restock bounds."
+	)
+	game._spit_item(0)
+	var spat_tin := _find_target(
+		game,
+		"cafe_stockroom_coffee_tin"
+	)
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_tin)
+		and stockroom.interior_rect().has_point(spat_tin.global_position),
+		"Spitting the Coffee Tin while inside returns it within the stockroom."
+	)
+	game._swallow_target(spat_tin, 1.0)
+
+	game._frog.global_position = stockroom.exit_approach_position()
+	var handled_exit := game._try_handle_interior_transition_tap(
+		stockroom.exit_marker_position()
+	)
+	_check(
+		handled_exit
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.FADE_OUT,
+		"The stockroom return marker starts the same bounded transition."
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== cafe.transition_door_approach_position()
+		and game._camera.zoom == game._city_camera_zoom
+		and is_equal_approx(
+			game._camera.rotation,
+			city_camera_rotation
+		)
+		and game._active_navigation_rect() == FrogGame.WORLD_RECT,
+		"Exiting restores the cafe position, city zoom, and city navigation bounds."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id
+		== "cafe_stockroom_coffee_tin"
+		and game._status_label.text.contains("stockroom"),
+		"A Coffee Tin carried outside cannot be spat into the city."
+	)
+	game._digest_item(0)
+
+	game._spawn_pursuer()
+	var pursuing_before_entry := is_instance_valid(game._pursuer)
+	game._frog.global_position = cafe.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.STOCKROOM_ID)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuing_before_entry
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id == FrogGame.STOCKROOM_ID,
+		"Entering the stockroom breaks an active Animal Control pursuit."
+	)
+
+	game.set_motion_scale(0.0)
+	game._begin_interior_transition("city")
+	_check(
+		game._active_interior_id.is_empty()
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and not game._interior_transition_fade.visible
+		and not paused,
+		"Reduce motion changes stockroom travel to an immediate cut."
+	)
+
+	cafe.consume()
+	game._frog.global_position = cafe.global_position
+	_check(
+		not cafe.transition_door_hit_test(
+			cafe.transition_door_world_position()
+		)
+		and not game._try_handle_interior_transition_tap(
+			cafe.transition_door_world_position()
+		),
+		"Consuming Leap Cafe hides and disables stockroom entry."
+	)
+	cafe.restore()
+	_check(
+		cafe.transition_door_hit_test(
+			cafe.transition_door_world_position()
+		),
+		"Restoring Leap Cafe restores stockroom access."
+	)
+
+	await create_timer(9.2, false).timeout
+	var restocked_tin := _find_target(
+		game,
+		"cafe_stockroom_coffee_tin"
+	)
+	_check(
+		is_instance_valid(restocked_tin)
+		and stockroom.interior_rect().has_point(
+			restocked_tin.global_position
+		)
+		and game._active_interior_id.is_empty(),
+		"Digesting the Coffee Tin restocks it inside the room after returning to the city."
+	)
+
+	paused = false
 	game.queue_free()
 	await process_frame
 

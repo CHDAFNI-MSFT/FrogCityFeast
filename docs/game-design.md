@@ -77,14 +77,15 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-prototype permits 26 gameplay targets, 4 buildings, 1 pursuer, 15 draw-only city
-actors, 84 draw-only rain streaks, 1 draw-only Animal Control net projectile, 24
-capped world effects, 3 touch cues, and 6 fixed audio players including 4
-reusable effect voices. Baseline states permit up to 236 game-subtree nodes and
-31 collision objects/shapes; pursuit, net attack, and the reachable gameplay
-peak permit 238 nodes and 32 collision objects/shapes. The performance Belly
-scenario renders 64 item rows within 492 nodes without changing the belly's
-unlimited gameplay semantics. The populated Field Guide contains exactly 27
+prototype permits 27 gameplay targets, 4 buildings, 1 separate interior room,
+1 pursuer, 15 draw-only city actors, 84 draw-only rain streaks, 1 draw-only
+Animal Control net projectile, 24 capped world effects, 3 touch cues, and 6
+fixed audio players including 4 reusable effect voices. Baseline and stockroom
+states permit up to 249 game-subtree nodes, 32 collision objects, and 39
+collision shapes; pursuit, net attack, and the reachable gameplay peak permit
+251 nodes, 33 collision objects, and 40 collision shapes. The performance Belly
+scenario renders 64 item rows within 505 nodes without changing the belly's
+unlimited gameplay semantics. The populated Field Guide contains exactly 28
 rows.
 
 Reproducible stress coverage includes busy daytime city activity, peak rain,
@@ -241,6 +242,12 @@ things to eat.
   central aisles, keeping the single-world prototype navigable without
   pathfinding. Their interior targets require the frog to enter, remain
   associated with their rooms when restocked, and reward exploring the space.
+- Leap Café also has the prototype's first separate room: a marked rear door
+  leads through a short fade to a compact stockroom with solid shelving, a
+  centered room camera, a return door, and a Stockroom Coffee Tin target.
+  Entering hides the frog from active Animal Control pursuit. Reduce motion
+  replaces the fade with an immediate cut, and consuming the café disables the
+  stockroom entrance until the building is restored.
 
 ### Dynamic city events
 

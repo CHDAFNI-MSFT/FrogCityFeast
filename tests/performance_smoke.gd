@@ -44,6 +44,10 @@ func _run() -> void:
 		"The Animal Control projectile budget remains capped at one."
 	)
 	_check(
+		BUDGETS.MAX_INTERIOR_ROOMS == 1,
+		"The authored separate-room budget remains capped at one."
+	)
+	_check(
 		BUDGETS.FIELD_GUIDE_ROWS == DiscoveryCatalog.count(),
 		"The Field Guide budget matches the catalog."
 	)
@@ -62,6 +66,15 @@ func _run() -> void:
 			"name": "baseline",
 			"setup": _setup_baseline,
 			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "stockroom",
+			"setup": _setup_stockroom,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
 			"discoveries": PackedStringArray(),
 		},
 		{
@@ -204,6 +217,14 @@ func _setup_baseline(_game: FrogGame) -> void:
 	pass
 
 
+func _setup_stockroom(game: FrogGame) -> void:
+	var cafe := (
+		game._building_by_id.get("leap_cafe") as PrototypeBuilding
+	)
+	game._frog.global_position = cafe.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.STOCKROOM_ID)
+
+
 func _setup_busy_daytime(game: FrogGame) -> void:
 	game._day_clock = 0.5
 	game._update_day_night(0.0)
@@ -301,6 +322,14 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_AUDIO_EFFECT_VOICES
 				and not bool(snapshot["performance_instrumentation"]),
 				"Baseline contains the documented fixed gameplay and audio structure."
+			)
+		"stockroom":
+			_check(
+				str(snapshot["active_interior"]) == FrogGame.STOCKROOM_ID
+					and int(snapshot["interior_rooms"])
+					== BUDGETS.MAX_INTERIOR_ROOMS
+					and int(snapshot["pursuers"]) == 0,
+				"Stockroom stress activates one separate room without adding pursuit."
 			)
 		"busy_daytime":
 			_check(
