@@ -31,8 +31,8 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 30,
-		"Prototype targets, interiors, and all four destruction sequences are created."
+		game._targets.size() == 31,
+		"Prototype targets, connected spaces, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
 	_check(game._belly.is_empty(), "A new game starts with an empty belly.")
@@ -350,6 +350,7 @@ func _run() -> void:
 	await _test_building_interiors(game_scene)
 	await _test_market_rooftop(game_scene)
 	await _test_canal_upper_hall(game_scene)
+	await _test_canal_fire_escape(game_scene)
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
@@ -1138,9 +1139,9 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, rain, and the night bazaar share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 30
+		game._targets.size() == 31
 			and DiscoveryCatalog.count()
-			== 31 + DistrictGenerator.discovery_ids().size(),
+			== 32 + DistrictGenerator.discovery_ids().size(),
 		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
@@ -1307,10 +1308,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 30
+		int(rainy_snapshot["targets"]) == 31
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 35
-		and int(rainy_snapshot["collision_shapes"]) == 63,
+		and int(rainy_snapshot["collision_objects"]) == 36
+		and int(rainy_snapshot["collision_shapes"]) == 71,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1707,8 +1708,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 297
-		and int(net_snapshot["collision_objects"]) == 36,
+		and int(net_snapshot["game_nodes"]) == 309
+		and int(net_snapshot["collision_objects"]) == 37,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -3912,7 +3913,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 4
+		and game._interior_rooms.size() == 5
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -4172,7 +4173,7 @@ func _test_oddities_cellar(game_scene: PackedScene) -> void:
 		and is_instance_valid(cellar)
 		and is_instance_valid(shelf)
 		and is_instance_valid(music_box)
-		and game._interior_rooms.size() == 4
+		and game._interior_rooms.size() == 5
 		and shop.transition_room_id == FrogGame.ODDITIES_CELLAR_ID
 		and shop.transition_required_removed_part
 		== PrototypeBuilding.PART_COUNTER
@@ -4380,7 +4381,7 @@ func _test_market_rooftop(game_scene: PackedScene) -> void:
 		is_instance_valid(market)
 		and is_instance_valid(rooftop)
 		and is_instance_valid(beehive)
-		and game._interior_rooms.size() == 4
+		and game._interior_rooms.size() == 5
 		and market.transition_room_id == FrogGame.MARKET_ROOFTOP_ID
 		and market.transition_min_growth_tier == 1
 		and rooftop.return_label == "RETURN TO MARKET"
@@ -4560,7 +4561,7 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 		is_instance_valid(apartments)
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(vacuum)
-		and game._interior_rooms.size() == 4
+		and game._interior_rooms.size() == 5
 		and apartments.transition_room_id
 		== FrogGame.CANAL_UPPER_HALL_ID
 		and upper_hall.return_label == "RETURN TO LOBBY"
@@ -4692,6 +4693,257 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 			apartments.transition_door_world_position()
 		),
 		"Restoring Canal Apartments restores its upper-hall entrance."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
+func _test_canal_fire_escape(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("fire_escape_test", "Fire Escape Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var apartments := (
+		game._building_by_id.get("canal_apartments") as PrototypeBuilding
+	)
+	var upper_hall := (
+		game._interior_rooms.get(FrogGame.CANAL_UPPER_HALL_ID)
+		as PrototypeInteriorRoom
+	)
+	var fire_escape := (
+		game._interior_rooms.get(FrogGame.CANAL_FIRE_ESCAPE_ID)
+		as PrototypeInteriorRoom
+	)
+	var laundry := _find_target(game, "canal_fire_escape_laundry")
+	var outward_portal := upper_hall.portal_by_id("fire_escape_door")
+	var return_portal := fire_escape.portal_by_id("return")
+	_check(
+		is_instance_valid(apartments)
+		and is_instance_valid(upper_hall)
+		and is_instance_valid(fire_escape)
+		and is_instance_valid(laundry)
+		and game._interior_rooms.size() == 5
+		and str(outward_portal["destination"])
+		== FrogGame.CANAL_FIRE_ESCAPE_ID
+		and str(return_portal["destination"])
+		== FrogGame.CANAL_UPPER_HALL_ID
+		and fire_escape.camera_follows_frog()
+		and fire_escape.room_size == Vector2(1700, 1200)
+		and fire_escape._collision_body.get_child_count() == 8
+		and laundry.building_id == FrogGame.CANAL_FIRE_ESCAPE_ID
+		and laundry.move_bounds == fire_escape.interior_rect(),
+		"The apartment fire escape is a two-way room-chain destination with its own target."
+	)
+	_check(
+		game._circle_position_clear(
+			upper_hall.portal_approach_position(outward_portal),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			upper_hall.entry_position("from_fire_escape"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			fire_escape.portal_approach_position(return_portal),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			fire_escape.global_position,
+			44.0,
+			true
+		),
+		"The authored fire-escape entrances and central platform admit the maximum frog."
+	)
+
+	var city_camera_rotation := 0.27
+	game._camera.rotation = city_camera_rotation
+	game._frog.global_position = apartments.transition_door_approach_position()
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._begin_interior_transition(FrogGame.CANAL_UPPER_HALL_ID)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id == FrogGame.CANAL_UPPER_HALL_ID,
+		"Entering the apartment room chain clears active pursuit."
+	)
+
+	game._frog.global_position = upper_hall.portal_approach_position(
+		outward_portal
+	)
+	game._begin_interior_transition(
+		FrogGame.CANAL_FIRE_ESCAPE_ID,
+		"fire_escape_door"
+	)
+	_check(
+		game._active_interior_id == FrogGame.CANAL_UPPER_HALL_ID
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and game._status_label.text.contains("Grow once"),
+		"Direct transition calls cannot bypass the fire escape growth gate."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	var handled_outward := game._try_handle_interior_transition_tap(
+		upper_hall.portal_marker_position(outward_portal)
+	)
+	_check(
+		handled_outward
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.FADE_OUT,
+		"The upper-hall fire door starts the outward room-to-room transition."
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		game._active_interior_id == FrogGame.CANAL_FIRE_ESCAPE_ID
+		and game._frog.global_position
+		== fire_escape.entry_position("from_upper_hall")
+		and game._camera.zoom == fire_escape.camera_zoom
+		and game._active_navigation_rect() == fire_escape.interior_rect(),
+		"The fire escape uses its authored arrival and navigation bounds."
+	)
+	game._spawn_pursuer()
+	_check(
+		not is_instance_valid(game._pursuer)
+		and game._status_label.text.contains("cannot find"),
+		"Animal Control cannot spawn remotely on the fire escape."
+	)
+
+	game._frog.global_position = fire_escape.global_position
+	game._update_camera()
+	var camera_before_rotation := game._camera.global_position
+	game._rotate_camera(40.0, Vector2(640, 480))
+	game._update_camera()
+	game._camera.force_update_scroll()
+	var half_view := (
+		game.get_viewport().get_visible_rect().size
+		/ (game._camera.zoom * 2.0)
+	)
+	var cosine := absf(cos(game._camera.rotation))
+	var sine := absf(sin(game._camera.rotation))
+	var rotated_half_view := Vector2(
+		cosine * half_view.x + sine * half_view.y,
+		sine * half_view.x + cosine * half_view.y
+	)
+	_check(
+		not is_zero_approx(game._camera.rotation)
+		and absf(game._camera.rotation)
+		<= fire_escape.camera_rotation_limit
+		and not game._camera.position_smoothing_enabled
+		and game._camera.global_position != fire_escape.global_position
+		and game._camera.global_position != camera_before_rotation,
+		"The large fire escape uses a navigable follow camera."
+	)
+	_check(
+		fire_escape.interior_rect().encloses(
+			Rect2(
+				game._camera.global_position - rotated_half_view,
+				rotated_half_view * 2.0
+			)
+		),
+		"The unsmoothed fire-escape camera stays inside the authored room."
+	)
+
+	game._pending_growth_tier = 2
+	game._frog.global_position = fire_escape.global_position
+	game._last_safe_ground_position = fire_escape.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1
+		and fire_escape.interior_rect().has_point(
+			game._frog.global_position
+		),
+		"The fire escape keeps safe central space for maximum growth."
+	)
+
+	game._frog.global_position = laundry.global_position + Vector2(0, 110)
+	game._swallow_target(laundry, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id
+		== "canal_fire_escape_laundry"
+		and game._belly[0].movement_bounds
+		== fire_escape.interior_rect(),
+		"Swallowing the Laundry Basket preserves fire-escape restock bounds."
+	)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = fire_escape.portal_approach_position(
+		return_portal
+	)
+	var handled_return := game._try_handle_interior_transition_tap(
+		fire_escape.portal_marker_position(return_portal)
+	)
+	_check(
+		handled_return
+		and game._active_interior_id == FrogGame.CANAL_UPPER_HALL_ID
+		and game._frog.global_position
+		== upper_hall.entry_position("from_fire_escape")
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE,
+		"Reduce motion returns from the fire escape to the authored upper-hall landing."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains("fire escape"),
+		"A fire-escape target cannot be spat into the upper hall."
+	)
+
+	game._frog.global_position = upper_hall.exit_approach_position()
+	game._begin_interior_transition("city", "return")
+	_check(
+		game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== apartments.transition_door_approach_position()
+		and is_equal_approx(game._camera.rotation, city_camera_rotation),
+		"Leaving the room chain restores the original city camera and lobby position."
+	)
+	game._digest_item(0)
+	apartments.consume()
+	_check(
+		not apartments.transition_door_hit_test(
+			apartments.transition_door_world_position()
+		),
+		"Consuming Canal Apartments disables the whole upper-room chain."
+	)
+	apartments.restore()
+	_check(
+		apartments.transition_door_hit_test(
+			apartments.transition_door_world_position()
+		),
+		"Restoring Canal Apartments restores the fire-escape route."
+	)
+
+	await create_timer(9.2, false).timeout
+	var restocked_laundry := _find_target(
+		game,
+		"canal_fire_escape_laundry"
+	)
+	_check(
+		is_instance_valid(restocked_laundry)
+		and fire_escape.interior_rect().has_point(
+			restocked_laundry.global_position
+		)
+		and game._active_interior_id.is_empty(),
+		"Digesting the Laundry Basket restocks it on the fire escape."
 	)
 
 	paused = false

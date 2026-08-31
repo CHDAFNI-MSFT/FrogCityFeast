@@ -63,7 +63,7 @@ func _run() -> void:
 		"The Animal Control snare budget remains capped at one."
 	)
 	_check(
-		BUDGETS.MAX_INTERIOR_ROOMS == 4,
+		BUDGETS.MAX_INTERIOR_ROOMS == 5,
 		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
@@ -126,6 +126,15 @@ func _run() -> void:
 		{
 			"name": "upper_hall",
 			"setup": _setup_upper_hall,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "fire_escape",
+			"setup": _setup_fire_escape,
 			"preferences": {
 				"reduce_motion": true,
 				"larger_text_controls": false,
@@ -343,6 +352,27 @@ func _setup_upper_hall(game: FrogGame) -> void:
 	)
 	game._frog.global_position = apartments.transition_door_approach_position()
 	game._begin_interior_transition(FrogGame.CANAL_UPPER_HALL_ID)
+
+
+func _setup_fire_escape(game: FrogGame) -> void:
+	var apartments := (
+		game._building_by_id.get("canal_apartments")
+		as PrototypeBuilding
+	)
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._frog.global_position = apartments.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.CANAL_UPPER_HALL_ID)
+	var upper_hall := (
+		game._interior_rooms.get(FrogGame.CANAL_UPPER_HALL_ID)
+		as PrototypeInteriorRoom
+	)
+	var portal := upper_hall.portal_by_id("fire_escape_door")
+	game._frog.global_position = upper_hall.portal_approach_position(portal)
+	game._begin_interior_transition(
+		FrogGame.CANAL_FIRE_ESCAPE_ID,
+		"fire_escape_door"
+	)
 
 
 func _setup_market_rooftop(game: FrogGame) -> void:
@@ -567,7 +597,7 @@ func _check_scenario_expectations(
 					and int(snapshot["interior_rooms"])
 					== BUDGETS.MAX_INTERIOR_ROOMS
 					and int(snapshot["pursuers"]) == 0,
-				"Stockroom stress activates one of four separate rooms without adding pursuit."
+				"Stockroom stress activates one authored room without adding pursuit."
 			)
 		"upper_hall":
 			_check(
@@ -576,7 +606,17 @@ func _check_scenario_expectations(
 				and int(snapshot["interior_rooms"])
 				== BUDGETS.MAX_INTERIOR_ROOMS
 				and int(snapshot["pursuers"]) == 0,
-				"Upper-hall stress activates the second of four separate rooms without adding pursuit."
+				"Upper-hall stress activates one authored room without adding pursuit."
+			)
+		"fire_escape":
+			_check(
+				str(snapshot["active_interior"])
+				== FrogGame.CANAL_FIRE_ESCAPE_ID
+				and int(snapshot["interior_rooms"])
+				== BUDGETS.MAX_INTERIOR_ROOMS
+				and int(snapshot["pursuers"]) == 0
+				and int(snapshot["growth_tier"]) == 1,
+				"Fire-escape stress activates the navigable room-chain destination."
 			)
 		"market_rooftop":
 			_check(
@@ -586,7 +626,7 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_INTERIOR_ROOMS
 				and int(snapshot["pursuers"]) == 0
 				and int(snapshot["growth_tier"]) == 1,
-				"Rooftop stress activates the progression-gated third separate room."
+				"Rooftop stress activates the progression-gated separate room."
 			)
 		"oddities_cellar":
 			_check(
@@ -596,7 +636,7 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_INTERIOR_ROOMS
 				and int(snapshot["pursuers"]) == 0
 				and int(snapshot["growth_tier"]) == 1,
-				"Cellar stress activates the fixture-gated fourth separate room."
+				"Cellar stress activates the fixture-gated separate room."
 			)
 		"night_shop":
 			_check(

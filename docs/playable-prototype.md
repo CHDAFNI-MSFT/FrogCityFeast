@@ -131,7 +131,7 @@ The prototype includes:
   actions, safely resets failed guided struggles, and returns to the city after
   required belly actions;
 - a Skip action that marks the tutorial complete and restores normal play;
-- a persistent, per-profile Frog Field Guide covering all 30 target IDs in the
+- a persistent, per-profile Frog Field Guide covering all 31 target IDs in the
   prototype, including Golden Cake, all four destructible-building sequences,
   and Animal Control;
 - first-swallow discovery credit that never adds score or growth, cannot be
@@ -164,6 +164,14 @@ The prototype includes:
 - upper-hall hiding that ends active pursuit, blocks remote pursuer spawning,
   uses an immediate cut with Reduce motion, and becomes inaccessible while
   Canal Apartments is consumed;
+- a growth-gated fire door from the upper hall to a larger Canal Apartments
+  fire escape, providing the first two-stage room chain, paired authored
+  landings, bounded follow-camera movement, safe maximum-growth space, and a
+  room-scoped Balcony Laundry Basket;
+- fire-escape traversal that keeps the original city return and camera state
+  across both rooms, blocks remote pursuit, rejects cross-room Belly returns,
+  uses immediate cuts with Reduce motion, and is disabled with its apartment
+  building until restoration;
 - a marked Moonlight Market rooftop ladder that requires one growth tier,
   leads through the same bounded transition to a solid rooftop garden, uses a
   fixed room camera, and provides a return-to-market marker;
@@ -364,23 +372,23 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 295 game-subtree nodes, 35 collision objects, 63 collision shapes, 30 targets, 4 buildings, 4 separate rooms |
-| Ordinary pursuit | 297 nodes, 36 collision objects, 64 collision shapes, 1 pursuer |
-| Animal Control tongue deflection | Pursuit structure remains at 297 nodes, 36 collision objects, and 64 collision shapes; feedback is draw-only |
-| Pursuit in active crowd cover | Pursuit structure remains at 297 nodes, 36 collision objects, and 64 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 297 nodes, 36 collision objects, and 64 collision shapes |
-| Animal Control snare | 298 nodes, 36 collision objects, 64 collision shapes, 1 pursuer, 1 draw-only snare |
-| Roadblock pursuit | 299 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock |
-| Reachable gameplay peak | 300 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
-| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 505 nodes, 94 collision objects, and 124 collision shapes including the authored core |
+| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 307 game-subtree nodes, 36 collision objects, 71 collision shapes, 31 targets, 4 buildings, 5 separate rooms |
+| Ordinary pursuit | 309 nodes, 37 collision objects, 72 collision shapes, 1 pursuer |
+| Animal Control tongue deflection | Pursuit structure remains at 309 nodes, 37 collision objects, and 72 collision shapes; feedback is draw-only |
+| Pursuit in active crowd cover | Pursuit structure remains at 309 nodes, 37 collision objects, and 72 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 309 nodes, 37 collision objects, and 72 collision shapes |
+| Animal Control snare | 310 nodes, 37 collision objects, 72 collision shapes, 1 pursuer, 1 draw-only snare |
+| Roadblock pursuit | 311 nodes, 38 collision objects, 73 collision shapes, 1 pursuer, 1 roadblock |
+| Reachable gameplay peak | 312 nodes, 38 collision objects, 73 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
+| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 517 nodes, 95 collision objects, and 132 collision shapes including the authored core |
 | Navigation query | At most 160 active obstacle rectangles, 70,000 total coarse/fine grid cells, and 512 smoothed route points per request |
-| Populated Belly sample | 64 items and rows, 551 nodes; this is a stress sample, not a gameplay capacity limit |
+| Populated Belly sample | 64 items and rows, 563 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 41 rows, matching the fixed authored and generated-type catalog |
+| Populated Field Guide | 42 rows, matching the fixed authored and generated-type catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -390,8 +398,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 
 The harness uses fixed random seeds and covers baseline play, the night-open
 Oddities Shop and Moonlight Market bazaar, the active Leap Café stockroom, the
-active Canal Apartments upper hall, the progression-gated Moonlight Market
-rooftop garden, the fixture-gated Oddities Shop cellar, busy daytime, ordinary
+active Canal Apartments upper hall and connected fire escape, the
+progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
+Shop cellar, busy daytime, ordinary
 and crowd-cover pursuit, active tongue-deflection feedback, a temporary
 roadblock, a draw-only pursuit snare, an Animal Control net in flight, maximum
 growth, a finite maximum presentation burst, a 64-item Belly, the populated
@@ -405,18 +414,18 @@ arithmetic-mean FPS.
 
 Repeated August 31, 2026 local GL Compatibility measurements at 1280×960 on an
 NVIDIA RTX 4050 laptop measured the fixed-seed maximum nine-district ring at
-8.49–16.88 ms frame-time p95, 47.7 MiB static memory, 21.3 MiB video memory, 54
+8.49–16.88 ms frame-time p95, 48.0 MiB static memory, 21.3 MiB video memory, 54
 draw calls, 542 rendered objects, and 3,962 primitives. Its structural snapshot
-was 505 game-subtree nodes, 94 collision objects, 124 collision shapes, 102
+was 517 game-subtree nodes, 95 collision objects, 132 collision shapes, 103
 total targets, and 13 total buildings, at or within the deterministic ceilings
 above. Its successful deliberate multi-corner navigation request used 61
 active obstacle rectangles, 6,408 grid cells, 4 smoothed points, and at most
 2,986 microseconds across the repeated runs.
 
-The same runs measured the combined authored gameplay peak at 12.67–17.52 ms
-frame-time p95, 46.3 MiB static memory, 21.5 MiB video memory, 426 draw calls,
-1,035 rendered objects, and 25,320 primitives. Its structural snapshot was 300
-nodes, 37 collision objects, and 65 collision shapes. Four navigation requests
+The same runs measured the combined authored gameplay peak at 12.60–17.52 ms
+frame-time p95, 46.6 MiB static memory, 21.5 MiB video memory, 426 draw calls,
+1,035 rendered objects, and 25,320 primitives. Its structural snapshot was 312
+nodes, 38 collision objects, and 73 collision shapes. Four navigation requests
 all succeeded per run; the largest used 31 active obstacle rectangles, 6,480
 grid cells, 4 smoothed points, and at most 2,872 microseconds. Neither peak
 recorded a navigation fallback, failure, or budget rejection. Command-driven

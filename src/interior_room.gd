@@ -2,6 +2,8 @@ class_name PrototypeInteriorRoom
 extends Node2D
 
 const WALL_THICKNESS := 28.0
+const CAMERA_FIXED := "fixed"
+const CAMERA_FOLLOW := "follow"
 
 @export var room_id := ""
 @export var display_name := "Interior Room"
@@ -10,6 +12,12 @@ const WALL_THICKNESS := 28.0
 @export var return_label := "RETURN TO CITY"
 
 var props: Array[Rect2] = []
+var camera_mode := CAMERA_FIXED
+var camera_zoom := Vector2(1.2, 1.2)
+var camera_follow_distance := 160.0
+var camera_rotation_limit := 0.0
+var entries: Dictionary = {}
+var portals: Array[Dictionary] = []
 var _collision_body: StaticBody2D
 
 
@@ -26,20 +34,138 @@ func interior_rect() -> Rect2:
 	return footprint_rect().grow(-WALL_THICKNESS - 8.0)
 
 
-func entry_position() -> Vector2:
-	return global_position + Vector2(0, room_size.y * 0.31)
+func entry_position(entry_id: String = "default") -> Vector2:
+	var default_offset := Vector2(0, room_size.y * 0.31)
+	return global_position + (
+		entries.get(entry_id, entries.get("default", default_offset))
+		as Vector2
+	)
+
+
+func set_entry(entry_id: String, local_position: Vector2) -> void:
+	entries[entry_id] = local_position
+
+
+func add_portal(
+	portal_id: String,
+	label: String,
+	local_marker_position: Vector2,
+	local_approach_position: Vector2,
+	destination: String,
+	destination_entry_id: String = "default",
+	min_growth_tier: int = 0,
+	requirement_text: String = "",
+	required_discovery_id: String = "",
+	required_building_id: String = "",
+	required_removed_part: String = "",
+	required_weakness: int = 0
+) -> void:
+	portals.append({
+		"id": portal_id,
+		"label": label,
+		"marker_position": local_marker_position,
+		"approach_position": local_approach_position,
+		"destination": destination,
+		"destination_entry_id": destination_entry_id,
+		"min_growth_tier": min_growth_tier,
+		"requirement_text": requirement_text,
+		"required_discovery_id": required_discovery_id,
+		"required_building_id": required_building_id,
+		"required_removed_part": required_removed_part,
+		"required_weakness": required_weakness,
+		"visible": true,
+	})
+	queue_redraw()
+
+
+func portal_by_id(portal_id: String) -> Dictionary:
+	for portal_value in portals:
+		var portal := portal_value as Dictionary
+		if str(portal.get("id", "")) == portal_id:
+			return portal
+	return {}
+
+
+func portal_to_destination(destination: String) -> Dictionary:
+	for portal_value in portals:
+		var portal := portal_value as Dictionary
+		if str(portal.get("destination", "")) == destination:
+			return portal
+	return {}
+
+
+func portal_at(world_position: Vector2) -> Dictionary:
+	for portal_value in portals:
+		var portal := portal_value as Dictionary
+		if (
+			bool(portal.get("visible", true))
+			and portal_marker_position(portal).distance_to(world_position)
+			<= 62.0
+		):
+			return portal
+	return {}
+
+
+func portal_marker_position(portal: Dictionary) -> Vector2:
+	return global_position + (
+		portal.get("marker_position", Vector2.ZERO) as Vector2
+	)
+
+
+func portal_approach_position(portal: Dictionary) -> Vector2:
+	return global_position + (
+		portal.get("approach_position", Vector2.ZERO) as Vector2
+	)
+
+
+func set_portal_visible(portal_id: String, visible: bool) -> void:
+	for portal_value in portals:
+		var portal := portal_value as Dictionary
+		if str(portal.get("id", "")) == portal_id:
+			portal["visible"] = visible
+			queue_redraw()
+			return
+
+
+func set_portal_geometry(
+	portal_id: String,
+	local_marker_position: Vector2,
+	local_approach_position: Vector2
+) -> void:
+	for portal_value in portals:
+		var portal := portal_value as Dictionary
+		if str(portal.get("id", "")) == portal_id:
+			portal["marker_position"] = local_marker_position
+			portal["approach_position"] = local_approach_position
+			queue_redraw()
+			return
+
+
+func camera_follows_frog() -> bool:
+	return camera_mode == CAMERA_FOLLOW
 
 
 func exit_marker_position() -> Vector2:
+	var portal := portal_to_destination("city")
+	if not portal.is_empty():
+		return portal_marker_position(portal)
 	return global_position + Vector2(0, room_size.y * 0.4)
 
 
 func exit_approach_position() -> Vector2:
+	var portal := portal_to_destination("city")
+	if not portal.is_empty():
+		return portal_approach_position(portal)
 	return global_position + Vector2(0, room_size.y * 0.3)
 
 
 func exit_hit_test(world_position: Vector2) -> bool:
-	return exit_marker_position().distance_to(world_position) <= 62.0
+	var portal := portal_to_destination("city")
+	return (
+		not portal.is_empty()
+		and bool(portal.get("visible", true))
+		and portal_marker_position(portal).distance_to(world_position) <= 62.0
+	)
 
 
 func contains_world_point(world_position: Vector2) -> bool:
@@ -154,23 +280,30 @@ func _draw() -> void:
 		32,
 		Color("30241e")
 	)
-	var exit_position := to_local(exit_marker_position())
-	draw_rect(
-		Rect2(exit_position - Vector2(58, 28), Vector2(116, 56)),
-		Color("4f6f72")
-	)
-	draw_rect(
-		Rect2(exit_position - Vector2(48, 20), Vector2(96, 40)),
-		Color("96bdaf"),
-		false,
-		4.0
-	)
-	draw_string(
-		ThemeDB.fallback_font,
-		exit_position + Vector2(-120, 56),
-		return_label,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		240,
-		18,
-		Color("f2f5e9")
-	)
+	for portal_value in portals:
+		var portal := portal_value as Dictionary
+		if not bool(portal.get("visible", true)):
+			continue
+		var portal_position := portal.get(
+			"marker_position",
+			Vector2.ZERO
+		) as Vector2
+		draw_rect(
+			Rect2(portal_position - Vector2(58, 28), Vector2(116, 56)),
+			Color("4f6f72")
+		)
+		draw_rect(
+			Rect2(portal_position - Vector2(48, 20), Vector2(96, 40)),
+			Color("96bdaf"),
+			false,
+			4.0
+		)
+		draw_string(
+			ThemeDB.fallback_font,
+			portal_position + Vector2(-120, 56),
+			str(portal.get("label", "EXIT")),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			240,
+			18,
+			Color("f2f5e9")
+		)

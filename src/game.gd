@@ -123,6 +123,10 @@ const MARKET_ROOFTOP_ID := "moonlight_market_rooftop"
 const MARKET_ROOFTOP_POSITION := INTERIOR_SPACE_ORIGIN + Vector2(0, 2400)
 const ODDITIES_CELLAR_ID := "oddities_shop_cellar"
 const ODDITIES_CELLAR_POSITION := INTERIOR_SPACE_ORIGIN + Vector2(0, 3600)
+const CANAL_FIRE_ESCAPE_ID := "canal_apartments_fire_escape"
+const CANAL_FIRE_ESCAPE_POSITION := (
+	INTERIOR_SPACE_ORIGIN + Vector2(0, 4800)
+)
 const INTERIOR_TRANSITION_DURATION := 0.18
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
@@ -442,12 +446,16 @@ var _net_escape_time_left := 0.0
 var _net_source_position := Vector2.ZERO
 var _active_interior_id := ""
 var _pending_interior_transition := ""
+var _pending_interior_portal_id := ""
 var _interior_transition_destination := ""
+var _interior_transition_entry_id := "default"
+var _interior_transition_source_space := ""
 var _interior_transition_phase := InteriorTransitionPhase.NONE
 var _interior_transition_time := 0.0
 var _city_return_position := Vector2.ZERO
 var _city_camera_zoom := Vector2(0.9, 0.9)
 var _city_camera_rotation := 0.0
+var _city_camera_smoothing_enabled := true
 var _pull_target: EdibleTarget
 var _pull_time_left := 0.0
 var _pull_hit_offset := Vector2.ZERO
@@ -1238,6 +1246,7 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 	if _try_handle_interior_transition_tap(world_position):
 		return
 	_pending_interior_transition = ""
+	_pending_interior_portal_id = ""
 	if _find_target_at(world_position) != null:
 		_show_status("Double-tap that target to shoot your tongue.")
 		return
@@ -1269,28 +1278,38 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 		var active_room := (
 			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
 		)
-		if (
-			not is_instance_valid(active_room)
-			or not active_room.exit_hit_test(world_position)
-		):
+		if not is_instance_valid(active_room):
 			return false
+		var portal := active_room.portal_at(world_position)
+		if portal.is_empty():
+			return false
+		var requirement := _interior_portal_requirement(portal)
+		if not requirement.is_empty():
+			_show_status(requirement)
+			return true
+		var destination := str(portal.get("destination", ""))
+		var portal_id := str(portal.get("id", ""))
+		var approach_position := active_room.portal_approach_position(portal)
 		if _frog.global_position.distance_to(
-			active_room.exit_approach_position()
+			approach_position
 		) <= 130.0:
-			_begin_interior_transition("city")
+			_begin_interior_transition(destination, portal_id)
 		else:
 			var route := _request_frog_navigation(
-				active_room.exit_approach_position(),
+				approach_position,
 				false,
 				false
 			)
 			if bool(route["reachable"]):
-				_pending_interior_transition = "city"
+				_pending_interior_transition = destination
+				_pending_interior_portal_id = portal_id
 				_show_status(
-					"Moving to the %s exit." % active_room.display_name
+					"Moving to the %s passage."
+					% active_room.display_name
 				)
 			else:
 				_pending_interior_transition = ""
+				_pending_interior_portal_id = ""
 				_show_status("No safe route reaches that exit.")
 		return true
 
@@ -1322,9 +1341,11 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 		)
 		if bool(route["reachable"]):
 			_pending_interior_transition = destination
+			_pending_interior_portal_id = ""
 			_show_status("Moving to the %s entrance." % building.display_name)
 		else:
 			_pending_interior_transition = ""
+			_pending_interior_portal_id = ""
 			_show_status("No safe route reaches that entrance.")
 	return true
 
@@ -1372,12 +1393,92 @@ func _interior_transition_requirement(
 	return ""
 
 
-func _begin_interior_transition(destination: String) -> void:
+func _interior_portal_requirement(portal: Dictionary) -> String:
+	var requirement_text := str(portal.get("requirement_text", ""))
+	if _growth_tier < int(portal.get("min_growth_tier", 0)):
+		return (
+			requirement_text
+			if not requirement_text.is_empty()
+			else "Grow before using this passage."
+		)
+	var required_discovery_id := str(
+		portal.get("required_discovery_id", "")
+	)
+	if (
+		not required_discovery_id.is_empty()
+		and not _discoveries.has(required_discovery_id)
+	):
+		return (
+			requirement_text
+			if not requirement_text.is_empty()
+			else "Explore this area further before using that passage."
+		)
+	var required_building_id := str(
+		portal.get("required_building_id", "")
+	)
+	if required_building_id.is_empty():
+		return ""
+	var building := (
+		_building_by_id.get(required_building_id) as PrototypeBuilding
+	)
+	if not is_instance_valid(building):
+		return "That passage is unavailable."
+	var required_removed_part := str(
+		portal.get("required_removed_part", "")
+	)
+	if (
+		not required_removed_part.is_empty()
+		and not building.is_part_removed(required_removed_part)
+	):
+		return (
+			requirement_text
+			if not requirement_text.is_empty()
+			else "Remove the blocking fixture before using that passage."
+		)
+	if building.weakness_count() < int(portal.get("required_weakness", 0)):
+		return (
+			requirement_text
+			if not requirement_text.is_empty()
+			else "Weaken the connected building before using that passage."
+		)
+	return ""
+
+
+func _begin_interior_transition(
+	destination: String,
+	source_portal_id: String = ""
+) -> void:
 	if _interior_transition_phase != InteriorTransitionPhase.NONE:
 		return
-	if destination == "city":
-		if _active_interior_id.is_empty():
+	var source_space := _active_interior_id
+	var destination_entry_id := "default"
+	if not source_space.is_empty():
+		var source_room := (
+			_interior_rooms.get(source_space) as PrototypeInteriorRoom
+		)
+		if not is_instance_valid(source_room):
 			return
+		var portal := (
+			source_room.portal_by_id(source_portal_id)
+			if not source_portal_id.is_empty()
+			else source_room.portal_to_destination(destination)
+		)
+		if (
+			portal.is_empty()
+			or not bool(portal.get("visible", true))
+			or str(portal.get("destination", "")) != destination
+		):
+			_show_status("That passage is not accessible from here.")
+			return
+		var portal_requirement := _interior_portal_requirement(portal)
+		if not portal_requirement.is_empty():
+			_show_status(portal_requirement)
+			return
+		destination_entry_id = str(
+			portal.get("destination_entry_id", "default")
+		)
+	elif destination == "city":
+		return
 	elif _interior_rooms.has(destination):
 		var building := _building_for_interior_room(destination)
 		if is_instance_valid(building):
@@ -1407,7 +1508,10 @@ func _begin_interior_transition(destination: String) -> void:
 		return
 
 	_pending_interior_transition = ""
+	_pending_interior_portal_id = ""
 	_interior_transition_destination = destination
+	_interior_transition_entry_id = destination_entry_id
+	_interior_transition_source_space = source_space
 	_cancel_frog_navigation()
 	_frog.clear_knockback()
 	_frog.movement_enabled = false
@@ -1451,21 +1555,36 @@ func _complete_interior_transfer() -> void:
 			_interior_rooms.get(_interior_transition_destination)
 			as PrototypeInteriorRoom
 		)
-		var building := _building_for_interior_room(
-			_interior_transition_destination
-		)
-		if not is_instance_valid(building) or not is_instance_valid(room):
+		if not is_instance_valid(room):
 			push_error(
-				"Interior transition '%s' is missing its room or building."
+				"Interior transition '%s' is missing its room."
 				% _interior_transition_destination
 			)
 			return
-		_city_return_position = building.transition_door_approach_position()
-		_city_camera_rotation = _camera.rotation
+		if _interior_transition_source_space.is_empty():
+			var building := _building_for_interior_room(
+				_interior_transition_destination
+			)
+			if not is_instance_valid(building):
+				push_error(
+					"Interior transition '%s' is missing its building."
+					% _interior_transition_destination
+				)
+				return
+			_city_return_position = (
+				building.transition_door_approach_position()
+			)
+			_city_camera_rotation = _camera.rotation
+			_city_camera_smoothing_enabled = (
+				_camera.position_smoothing_enabled
+			)
 		_active_interior_id = _interior_transition_destination
-		_frog.global_position = room.entry_position()
-		_camera.zoom = STOCKROOM_CAMERA_ZOOM
+		_frog.global_position = room.entry_position(
+			_interior_transition_entry_id
+		)
+		_camera.zoom = room.camera_zoom
 		_camera.rotation = 0.0
+		_camera.position_smoothing_enabled = false
 		if is_instance_valid(_pursuer):
 			_pursuer._escape()
 		_show_status("Entered the %s." % room.display_name)
@@ -1475,6 +1594,9 @@ func _complete_interior_transfer() -> void:
 		_frog.global_position = _city_return_position
 		_camera.zoom = _city_camera_zoom
 		_camera.rotation = _city_camera_rotation
+		_camera.position_smoothing_enabled = (
+			_city_camera_smoothing_enabled
+		)
 		_show_status(
 			"Returned to %s."
 			% (
@@ -1492,6 +1614,8 @@ func _complete_interior_transfer() -> void:
 func _finish_interior_transition() -> void:
 	_interior_transition_phase = InteriorTransitionPhase.NONE
 	_interior_transition_destination = ""
+	_interior_transition_entry_id = "default"
+	_interior_transition_source_space = ""
 	_interior_transition_time = 0.0
 	_interior_transition_fade.visible = false
 	_set_interior_fade_alpha(0.0)
@@ -2848,7 +2972,14 @@ func _rotate_camera(
 	screen_position: Vector2 = Vector2.INF
 ) -> void:
 	if not _active_interior_id.is_empty():
-		return
+		var active_room := (
+			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
+		)
+		if (
+			not is_instance_valid(active_room)
+			or not active_room.camera_follows_frog()
+		):
+			return
 	if (
 		_tutorial != null
 		and _tutorial.active
@@ -2859,6 +2990,19 @@ func _rotate_camera(
 	if is_zero_approx(radians):
 		return
 	_camera.rotation -= radians
+	if not _active_interior_id.is_empty():
+		var active_room := (
+			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
+		)
+		if (
+			is_instance_valid(active_room)
+			and active_room.camera_rotation_limit > 0.0
+		):
+			_camera.rotation = clampf(
+				_camera.rotation,
+				-active_room.camera_rotation_limit,
+				active_room.camera_rotation_limit
+			)
 	manual_camera_rotated.emit(absf(radians))
 	_touch_feedback.show_camera(
 		get_viewport_rect().size / 2.0
@@ -2872,11 +3016,49 @@ func _update_camera() -> void:
 		var room := (
 			_interior_rooms.get(_active_interior_id) as PrototypeInteriorRoom
 		)
-		_camera.global_position = (
-			room.global_position
-			if is_instance_valid(room)
-			else _frog.global_position
-		)
+		if not is_instance_valid(room):
+			_camera.global_position = _frog.global_position
+			return
+		if room.camera_follows_frog():
+			var room_forward := Vector2.UP.rotated(_camera.rotation)
+			var desired := (
+				_frog.global_position
+				+ room_forward * room.camera_follow_distance
+			)
+			var half_view := (
+				get_viewport_rect().size
+				/ (_camera.zoom * 2.0)
+			)
+			var cosine := absf(cos(_camera.rotation))
+			var sine := absf(sin(_camera.rotation))
+			half_view = Vector2(
+				cosine * half_view.x + sine * half_view.y,
+				sine * half_view.x + cosine * half_view.y
+			)
+			var interior_bounds := room.interior_rect()
+			var minimum := interior_bounds.position + half_view
+			var maximum := interior_bounds.end - half_view
+			if minimum.x > maximum.x:
+				minimum.x = interior_bounds.get_center().x
+				maximum.x = minimum.x
+			if minimum.y > maximum.y:
+				minimum.y = interior_bounds.get_center().y
+				maximum.y = minimum.y
+			_camera.global_position = Vector2(
+				clampf(
+					desired.x,
+					minimum.x,
+					maximum.x
+				),
+				clampf(
+					desired.y,
+					minimum.y,
+					maximum.y
+				)
+			)
+			_camera.reset_smoothing()
+		else:
+			_camera.global_position = room.global_position
 		return
 	var forward := Vector2.UP.rotated(_camera.rotation)
 	_camera.global_position = _frog.global_position + forward * 220.0
@@ -4227,6 +4409,7 @@ func _cancel_frog_navigation() -> void:
 	_frog_route_requested_destination = Vector2.INF
 	_frog_route_fallback = false
 	_pending_interior_transition = ""
+	_pending_interior_portal_id = ""
 	if is_instance_valid(_frog):
 		_frog.stop_moving()
 
@@ -4687,15 +4870,21 @@ func _on_frog_move_reached(world_position: Vector2) -> void:
 	_frog_route_fallback = false
 	if not _pending_interior_transition.is_empty():
 		var destination := _pending_interior_transition
+		var portal_id := _pending_interior_portal_id
 		_pending_interior_transition = ""
+		_pending_interior_portal_id = ""
 		var expected_position := Vector2.INF
-		if destination == "city":
+		if not _active_interior_id.is_empty():
 			var room := (
 				_interior_rooms.get(_active_interior_id)
 				as PrototypeInteriorRoom
 			)
 			if is_instance_valid(room):
-				expected_position = room.exit_approach_position()
+				var portal := room.portal_by_id(portal_id)
+				if not portal.is_empty():
+					expected_position = room.portal_approach_position(
+						portal
+					)
 		else:
 			var building := _building_for_interior_room(destination)
 			if is_instance_valid(building):
@@ -4708,7 +4897,7 @@ func _on_frog_move_reached(world_position: Vector2) -> void:
 		):
 			_show_status("The frog could not reach that entrance.")
 			return
-		_begin_interior_transition(destination)
+		_begin_interior_transition(destination, portal_id)
 		return
 	movement_reached.emit(world_position)
 
@@ -4822,6 +5011,50 @@ func _build_prototype_city() -> void:
 		],
 		apartments.building_id,
 		"RETURN TO LOBBY"
+	)
+	upper_hall.set_entry(
+		"from_fire_escape",
+		Vector2(350, -160)
+	)
+	upper_hall.add_portal(
+		"fire_escape_door",
+		"FIRE ESCAPE",
+		Vector2(475, -160),
+		Vector2(350, -160),
+		CANAL_FIRE_ESCAPE_ID,
+		"from_upper_hall",
+		1,
+		"Grow once before climbing onto the fire escape."
+	)
+	var fire_escape := _spawn_interior_room(
+		CANAL_FIRE_ESCAPE_ID,
+		"Canal Apartments Fire Escape",
+		CANAL_FIRE_ESCAPE_POSITION,
+		Vector2(1700, 1200),
+		Color("6f7f89"),
+		[
+			Rect2(-760, -380, 300, 76),
+			Rect2(460, -380, 300, 76),
+			Rect2(-760, 285, 280, 72),
+			Rect2(500, 275, 250, 82),
+		],
+		apartments.building_id,
+		"RETURN TO UPPER HALL",
+		CANAL_UPPER_HALL_ID,
+		"from_fire_escape"
+	)
+	fire_escape.camera_mode = PrototypeInteriorRoom.CAMERA_FOLLOW
+	fire_escape.camera_zoom = Vector2(1.15, 1.15)
+	fire_escape.camera_follow_distance = 120.0
+	fire_escape.camera_rotation_limit = 0.3
+	fire_escape.set_entry(
+		"from_upper_hall",
+		Vector2(-650, 120)
+	)
+	fire_escape.set_portal_geometry(
+		"return",
+		Vector2(-780, 120),
+		Vector2(-650, 120)
 	)
 	var market_rooftop := _spawn_interior_room(
 		MARKET_ROOFTOP_ID,
@@ -5041,6 +5274,18 @@ func _build_prototype_city() -> void:
 		"building_id": CANAL_UPPER_HALL_ID,
 		"color": Color("d3a96f"),
 	})
+	_spawn_target({
+		"id": "canal_fire_escape_laundry",
+		"name": "Balcony Laundry Basket",
+		"position": fire_escape.global_position + Vector2(420, -180),
+		"value": 58,
+		"tier": 1,
+		"kind": "object",
+		"radius": 34.0,
+		"bounds": fire_escape.interior_rect(),
+		"building_id": CANAL_FIRE_ESCAPE_ID,
+		"color": Color("d9c7a1"),
+	})
 
 
 func _spawn_building(
@@ -5089,7 +5334,9 @@ func _spawn_interior_room(
 	color: Color,
 	props: Array[Rect2],
 	origin_building_id: String,
-	return_label: String
+	return_label: String,
+	return_destination: String = "city",
+	return_destination_entry_id: String = "default"
 ) -> PrototypeInteriorRoom:
 	var room := INTERIOR_ROOM_SCRIPT.new() as PrototypeInteriorRoom
 	room.room_id = room_id
@@ -5099,6 +5346,18 @@ func _spawn_interior_room(
 	room.floor_color = color
 	room.return_label = return_label
 	room.props = props.duplicate()
+	room.set_entry(
+		"default",
+		Vector2(0, room_size.y * 0.31)
+	)
+	room.add_portal(
+		"return",
+		return_label,
+		Vector2(0, room_size.y * 0.4),
+		Vector2(0, room_size.y * 0.3),
+		return_destination,
+		return_destination_entry_id
+	)
 	_world.add_child(room)
 	_interior_rooms[room_id] = room
 	_interior_room_building_ids[room_id] = origin_building_id

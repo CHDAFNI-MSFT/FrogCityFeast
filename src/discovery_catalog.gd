@@ -88,6 +88,11 @@ const ENTRIES := [
 		"hint": "Take the marked stairs inside Canal Apartments.",
 	},
 	{
+		"id": "canal_fire_escape_laundry",
+		"name": "Balcony Laundry Basket",
+		"hint": "Grow once, reach the upper hall, and use the fire door.",
+	},
+	{
 		"id": "canal_apartments_address_plaque",
 		"name": "Address Plaque",
 		"hint": "Start dismantling Canal Apartments from the canal-side street.",
