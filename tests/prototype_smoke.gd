@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 27,
+		game._targets.size() == 28,
 		"Prototype targets, interiors, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -346,6 +346,7 @@ func _run() -> void:
 	await _test_leap_cafe_sequence(game_scene)
 	await _test_canal_apartments_sequence(game_scene)
 	await _test_building_interiors(game_scene)
+	await _test_canal_upper_hall(game_scene)
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
@@ -1132,7 +1133,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, and rain share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 27 and DiscoveryCatalog.count() == 28,
+		game._targets.size() == 28 and DiscoveryCatalog.count() == 29,
 		"Ambient city life does not add gameplay targets or Field Guide entries."
 	)
 	var expected_daylight := (
@@ -1252,10 +1253,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 27
+		int(rainy_snapshot["targets"]) == 28
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 32
-		and int(rainy_snapshot["collision_shapes"]) == 39,
+		and int(rainy_snapshot["collision_objects"]) == 33
+		and int(rainy_snapshot["collision_shapes"]) == 47,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1632,8 +1633,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 251
-		and int(net_snapshot["collision_objects"]) == 33,
+		and int(net_snapshot["game_nodes"]) == 263
+		and int(net_snapshot["collision_objects"]) == 34,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -1971,7 +1972,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		if not catalog_ids.has(target_id):
 			catalog_matches_targets = false
 	_check(
-		catalog_matches_targets and DiscoveryCatalog.count() == 28,
+		catalog_matches_targets and DiscoveryCatalog.count() == 29,
 		"Field Guide catalog exactly matches every swallowable prototype target."
 	)
 	_check(
@@ -3387,7 +3388,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 1
+		and game._interior_rooms.size() == 2
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -3615,6 +3616,167 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		)
 		and game._active_interior_id.is_empty(),
 		"Digesting the Coffee Tin restocks it inside the room after returning to the city."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
+func _test_canal_upper_hall(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("upper_hall_test", "Upper Hall Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var apartments := (
+		game._building_by_id.get("canal_apartments") as PrototypeBuilding
+	)
+	var upper_hall := (
+		game._interior_rooms.get(FrogGame.CANAL_UPPER_HALL_ID)
+		as PrototypeInteriorRoom
+	)
+	var vacuum := _find_target(game, "canal_upper_hall_vacuum")
+	_check(
+		is_instance_valid(apartments)
+		and is_instance_valid(upper_hall)
+		and is_instance_valid(vacuum)
+		and game._interior_rooms.size() == 2
+		and apartments.transition_room_id
+		== FrogGame.CANAL_UPPER_HALL_ID
+		and upper_hall.return_label == "RETURN TO LOBBY"
+		and upper_hall._collision_body.get_child_count() == 8
+		and vacuum.building_id == FrogGame.CANAL_UPPER_HALL_ID
+		and vacuum.move_bounds == upper_hall.interior_rect(),
+		"Canal Apartments creates one solid upper hall and its room-scoped Hallway Vacuum."
+	)
+	_check(
+		apartments.transition_door_hit_test(
+			apartments.transition_door_world_position()
+		)
+		and game._circle_position_clear(
+			apartments.transition_door_approach_position(),
+			44.0,
+			true
+		)
+		and not game._circle_position_clear(
+			upper_hall.global_position
+			+ upper_hall.props[0].get_center(),
+			28.0,
+			true
+		)
+		and game._circle_position_clear(
+			upper_hall.global_position,
+			44.0,
+			true
+		),
+		"The marked lobby stairs and upper-hall aisle remain safe at maximum frog size."
+	)
+
+	game._frog.global_position = apartments.global_position + Vector2(0, 80)
+	var city_camera_rotation := -0.28
+	game._camera.rotation = city_camera_rotation
+	var handled_entry := game._try_handle_interior_transition_tap(
+		apartments.transition_door_world_position()
+	)
+	_check(
+		handled_entry
+		and game._pending_interior_transition
+		== FrogGame.CANAL_UPPER_HALL_ID
+		and game._frog._move_target
+		== apartments.transition_door_approach_position(),
+		"Tapping the lobby stairs walks the frog to the upper-hall entrance."
+	)
+	game._frog.global_position = apartments.transition_door_approach_position()
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._on_frog_move_reached(game._frog.global_position)
+	game._update_interior_transition(
+		FrogGame.INTERIOR_TRANSITION_DURATION
+	)
+	game._update_interior_transition(
+		FrogGame.INTERIOR_TRANSITION_DURATION
+	)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id
+		== FrogGame.CANAL_UPPER_HALL_ID
+		and game._frog.global_position == upper_hall.entry_position()
+		and game._camera.global_position == upper_hall.global_position
+		and game._camera.zoom == FrogGame.STOCKROOM_CAMERA_ZOOM
+		and is_zero_approx(game._camera.rotation)
+		and game._active_navigation_rect()
+		== upper_hall.interior_rect(),
+		"Entering the upper hall uses the fixed room camera and ends active pursuit."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._frog.global_position = vacuum.global_position + Vector2(0, 110)
+	game._swallow_target(vacuum, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id == "canal_upper_hall_vacuum"
+		and game._belly[0].movement_bounds
+		== upper_hall.interior_rect(),
+		"Swallowing the Hallway Vacuum preserves its upper-hall restock bounds."
+	)
+	game._spit_item(0)
+	var spat_vacuum := _find_target(game, "canal_upper_hall_vacuum")
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_vacuum)
+		and upper_hall.interior_rect().has_point(
+			spat_vacuum.global_position
+		),
+		"Spitting the Hallway Vacuum inside returns it within the upper hall."
+	)
+	game._swallow_target(spat_vacuum, 1.0)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = upper_hall.exit_approach_position()
+	var handled_exit := game._try_handle_interior_transition_tap(
+		upper_hall.exit_marker_position()
+	)
+	_check(
+		handled_exit
+		and game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== apartments.transition_door_approach_position()
+		and is_equal_approx(
+			game._camera.rotation,
+			city_camera_rotation
+		),
+		"The upper-hall return marker restores the apartment lobby immediately with Reduce motion."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains("upper hall"),
+		"A Hallway Vacuum carried outside cannot be spat into the city."
+	)
+	game._digest_item(0)
+
+	apartments.consume()
+	_check(
+		not apartments.transition_door_hit_test(
+			apartments.transition_door_world_position()
+		),
+		"Consuming Canal Apartments disables its upper-hall entrance."
+	)
+	apartments.restore()
+	_check(
+		apartments.transition_door_hit_test(
+			apartments.transition_door_world_position()
+		),
+		"Restoring Canal Apartments restores its upper-hall entrance."
 	)
 
 	paused = false

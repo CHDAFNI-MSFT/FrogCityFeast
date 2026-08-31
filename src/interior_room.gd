@@ -7,6 +7,7 @@ const WALL_THICKNESS := 28.0
 @export var display_name := "Interior Room"
 @export var room_size := Vector2(1100, 820)
 @export var floor_color := Color("9b7357")
+@export var return_label := "RETURN TO CITY"
 
 var props: Array[Rect2] = []
 var _collision_body: StaticBody2D
@@ -144,10 +145,10 @@ func _draw() -> void:
 	)
 	draw_string(
 		ThemeDB.fallback_font,
-		exit_position + Vector2(-90, 56),
-		"RETURN TO CAFE",
+		exit_position + Vector2(-120, 56),
+		return_label,
 		HORIZONTAL_ALIGNMENT_CENTER,
-		180,
+		240,
 		18,
 		Color("f2f5e9")
 	)

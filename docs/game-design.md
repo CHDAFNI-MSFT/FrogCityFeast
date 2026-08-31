@@ -77,25 +77,25 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-prototype permits 27 gameplay targets, 4 buildings, 1 separate interior room,
+prototype permits 28 gameplay targets, 4 buildings, 2 separate interior rooms,
 1 pursuer, 1 temporary physical roadblock, 20 draw-only city actors, 84
 draw-only rain streaks, 1 draw-only Animal Control net projectile, 24 capped
 world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
-effect voices. Baseline and stockroom states permit up to 249 game-subtree
-nodes, 32 collision objects, and 39 collision shapes; ordinary pursuit and net
-attack permit 251 nodes, 33 collision objects, and 40 collision shapes; a
-roadblock pursuit and the reachable gameplay peak permit 253 nodes, 34
-collision objects, and 41 collision shapes. The performance Belly scenario
-renders 64 item rows within 505 nodes without changing the belly's unlimited
-gameplay semantics. The populated Field Guide contains exactly 28 rows.
+effect voices. Baseline and separate-room states permit up to 261 game-subtree
+nodes, 33 collision objects, and 47 collision shapes; ordinary pursuit and net
+attack permit 263 nodes, 34 collision objects, and 48 collision shapes; a
+roadblock pursuit and the reachable gameplay peak permit 265 nodes, 35
+collision objects, and 49 collision shapes. The performance Belly scenario
+renders 64 item rows within 517 nodes without changing the belly's unlimited
+gameplay semantics. The populated Field Guide contains exactly 29 rows.
 
-Reproducible stress coverage includes busy daytime city activity, peak rain,
-pursuit, active crowd cover, a roadblock pursuit, a net in flight, maximum
-growth, a finite simultaneous presentation burst, a 64-item Belly, the fully
-populated Field Guide, both accessibility settings, and a reachable gameplay
-peak. Desktop measurements are advisory; the target iPad release build is
-authoritative. The exact commands and current local measurement notes are
-recorded in
+Reproducible stress coverage includes both connected rooms, busy daytime city
+activity, peak rain, pursuit, active crowd cover, a roadblock pursuit, a net in
+flight, maximum growth, a finite simultaneous presentation burst, a 64-item
+Belly, the fully populated Field Guide, both accessibility settings, and a
+reachable gameplay peak. Desktop measurements are advisory; the target iPad
+release build is authoritative. The exact commands and current local
+measurement notes are recorded in
 [`playable-prototype.md`](playable-prototype.md).
 
 ## Player character and touch controls
@@ -250,6 +250,12 @@ things to eat.
   Entering hides the frog from active Animal Control pursuit. Reduce motion
   replaces the fade with an immediate cut, and consuming the café disables the
   stockroom entrance until the building is restored.
+- Canal Apartments has the second connected room: marked lobby stairs lead to
+  a compact upper hall with solid wall-side furnishings, the same centered
+  room camera, a return-to-lobby marker, and a tier-one Hallway Vacuum target.
+  The target remains scoped to the upper hall when spat out or restocked.
+  Entering also ends active pursuit, Reduce motion uses an immediate cut, and
+  consuming the apartments disables the stairs until the building is restored.
 
 ### Dynamic city events
 

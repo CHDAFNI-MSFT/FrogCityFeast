@@ -78,6 +78,11 @@ const ENTRIES := [
 		"hint": "Grow once, then win a struggle in the apartment lobby.",
 	},
 	{
+		"id": "canal_upper_hall_vacuum",
+		"name": "Hallway Vacuum",
+		"hint": "Take the marked stairs inside Canal Apartments.",
+	},
+	{
 		"id": "canal_apartments_address_plaque",
 		"name": "Address Plaque",
 		"hint": "Start dismantling Canal Apartments from the canal-side street.",

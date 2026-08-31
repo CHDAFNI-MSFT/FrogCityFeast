@@ -121,6 +121,13 @@ The prototype includes:
 - stockroom hiding that ends active Animal Control pursuit, blocks remote
   pursuer spawning, switches to an immediate cut with Reduce motion, and
   becomes inaccessible while Leap Café is consumed;
+- marked Canal Apartments lobby stairs leading through the same bounded
+  transition to a solid upper hall, fixed room camera, return-to-lobby marker,
+  and tier-one Hallway Vacuum that remains scoped to the room when spat out or
+  restocked;
+- upper-hall hiding that ends active pursuit, blocks remote pursuer spawning,
+  uses an immediate cut with Reduce motion, and becomes inaccessible while
+  Canal Apartments is consumed;
 - a Loose Phone positioned behind the Leap Café bar so the player must move
   into the café to get a clear tongue shot;
 - a Lobby Lamp and resistant Tenant's Cat that require entering Canal
@@ -288,17 +295,17 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, stockroom, busy daytime, maximum growth, Field Guide, or options | 249 game-subtree nodes, 32 collision objects, 39 collision shapes, 27 targets, 4 buildings, 1 separate room |
-| Ordinary pursuit | 251 nodes, 33 collision objects, 40 collision shapes, 1 pursuer |
-| Pursuit in active crowd cover | Pursuit structure remains at 251 nodes, 33 collision objects, and 40 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 251 nodes, 33 collision objects, and 40 collision shapes |
-| Roadblock pursuit or gameplay peak | 253 nodes, 34 collision objects, 41 collision shapes, 1 pursuer, 1 roadblock |
-| Populated Belly sample | 64 items and rows, 505 nodes; this is a stress sample, not a gameplay capacity limit |
+| Baseline, either separate room, busy daytime, maximum growth, Field Guide, or options | 261 game-subtree nodes, 33 collision objects, 47 collision shapes, 28 targets, 4 buildings, 2 separate rooms |
+| Ordinary pursuit | 263 nodes, 34 collision objects, 48 collision shapes, 1 pursuer |
+| Pursuit in active crowd cover | Pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes |
+| Roadblock pursuit or gameplay peak | 265 nodes, 35 collision objects, 49 collision shapes, 1 pursuer, 1 roadblock |
+| Populated Belly sample | 64 items and rows, 517 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 28 rows, matching the fixed catalog |
+| Populated Field Guide | 29 rows, matching the fixed catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -307,14 +314,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 ```
 
 The harness uses fixed random seeds and covers baseline play, the active Leap
-Café stockroom, busy daytime, ordinary and crowd-cover pursuit, a temporary
-roadblock, an Animal Control net in flight, maximum growth, a finite maximum
-presentation burst, a 64-item Belly, the populated Field Guide, both
-accessibility options, and a reachable gameplay peak combining daytime
-activity, pursuit, growth, the roadblock, and presentation effects. It prints
-median FPS, frame-time percentiles, memory, and a post-sample render snapshot.
-The command-driven Windows run can show isolated scheduling/window stalls, so
-p95 is more useful than its maximum or arithmetic-mean FPS.
+Café stockroom, the active Canal Apartments upper hall, busy daytime, ordinary
+and crowd-cover pursuit, a temporary roadblock, an Animal Control net in
+flight, maximum growth, a finite maximum presentation burst, a 64-item Belly,
+the populated Field Guide, both accessibility options, and a reachable
+gameplay peak combining daytime activity, pursuit, growth, the roadblock, and
+presentation effects. It prints median FPS, frame-time percentiles, memory, and
+a post-sample render snapshot. The command-driven Windows run can show isolated
+scheduling/window stalls, so p95 is more useful than its maximum or
+arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.
@@ -365,7 +373,7 @@ be evaluated before larger production work.
 The following parts of the full design are not implemented yet:
 
 - procedural endless city generation and additional districts;
-- additional authored multi-room interiors and connected exploration spaces;
+- further authored multi-room interiors and connected exploration spaces;
 - pathfinding around complex city geometry;
 - additional pursuer types, trap varieties, and roadblock layouts;
 - storms, festivals, shops with schedules, and random emergencies;

@@ -93,6 +93,8 @@ const TARGET_STRUGGLE_HINT := "Tap rapidly anywhere!"
 const STOCKROOM_ID := "leap_cafe_stockroom"
 const STOCKROOM_POSITION := Vector2(3400, 0)
 const STOCKROOM_CAMERA_ZOOM := Vector2(1.2, 1.2)
+const CANAL_UPPER_HALL_ID := "canal_apartments_upper_hall"
+const CANAL_UPPER_HALL_POSITION := Vector2(3400, 1200)
 const INTERIOR_TRANSITION_DURATION := 0.18
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
@@ -362,6 +364,7 @@ var _targets: Array[EdibleTarget] = []
 var _buildings: Array[PrototypeBuilding] = []
 var _building_by_id: Dictionary = {}
 var _interior_rooms: Dictionary = {}
+var _interior_room_building_ids: Dictionary = {}
 var _pursuer: PrototypePursuer
 var _roadblock: PrototypeRoadblock
 
@@ -752,51 +755,72 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 			_pending_interior_transition = "city"
 			_frog.move_to(active_room.exit_approach_position())
 			_touch_feedback.show_move(active_room.exit_approach_position())
-			_show_status("Moving to the stockroom exit.")
+			_show_status("Moving to the %s exit." % active_room.display_name)
 		return true
 
-	var cafe := (
-		_building_by_id.get("leap_cafe") as PrototypeBuilding
-	)
-	if (
-		not is_instance_valid(cafe)
-		or not cafe.transition_door_hit_test(world_position)
-	):
+	var building := _transition_building_at(world_position)
+	if not is_instance_valid(building):
 		return false
 	if _tutorial != null and _tutorial.active:
-		_show_status("Finish or skip the tutorial before exploring the stockroom.")
+		_show_status("Finish or skip the tutorial before exploring another room.")
 		return true
-	if not cafe.contains_world_point(_frog.global_position):
-		_show_status("Enter Leap Cafe before opening its stockroom.")
+	if not building.contains_world_point(_frog.global_position):
+		_show_status(
+			"Enter %s before using its %s."
+			% [building.display_name, building.transition_door_label.to_lower()]
+		)
 		return true
-	var approach_position := cafe.transition_door_approach_position()
+	var destination := building.transition_room_id
+	var approach_position := building.transition_door_approach_position()
 	if _frog.global_position.distance_to(approach_position) <= 130.0:
-		_begin_interior_transition(STOCKROOM_ID)
+		_begin_interior_transition(destination)
 	else:
-		_pending_interior_transition = STOCKROOM_ID
+		_pending_interior_transition = destination
 		_frog.move_to(approach_position)
 		_touch_feedback.show_move(approach_position)
-		_show_status("Moving to the Leap Cafe stockroom door.")
+		_show_status("Moving to the %s entrance." % building.display_name)
 	return true
+
+
+func _transition_building_at(world_position: Vector2) -> PrototypeBuilding:
+	for building in _buildings:
+		if (
+			not building.transition_room_id.is_empty()
+			and building.transition_door_hit_test(world_position)
+		):
+			return building
+	return null
+
+
+func _building_for_interior_room(room_id: String) -> PrototypeBuilding:
+	var building_id := str(_interior_room_building_ids.get(room_id, ""))
+	return _building_by_id.get(building_id) as PrototypeBuilding
 
 
 func _begin_interior_transition(destination: String) -> void:
 	if _interior_transition_phase != InteriorTransitionPhase.NONE:
 		return
-	if destination == STOCKROOM_ID:
-		var cafe := (
-			_building_by_id.get("leap_cafe") as PrototypeBuilding
-		)
+	if destination == "city":
+		if _active_interior_id.is_empty():
+			return
+	elif _interior_rooms.has(destination):
+		var building := _building_for_interior_room(destination)
 		if (
 			not _active_interior_id.is_empty()
-			or not is_instance_valid(cafe)
-			or cafe.consumed
-			or not cafe.contains_world_point(_frog.global_position)
+			or not is_instance_valid(building)
+			or building.consumed
+			or not building.contains_world_point(_frog.global_position)
+			or building.transition_room_id != destination
 		):
-			_show_status("The Leap Cafe stockroom is not accessible from here.")
-			return
-	elif destination == "city":
-		if _active_interior_id != STOCKROOM_ID:
+			var room := (
+				_interior_rooms.get(destination) as PrototypeInteriorRoom
+			)
+			var room_name := (
+				room.display_name
+				if is_instance_valid(room)
+				else "separate room"
+			)
+			_show_status("The %s is not accessible from here." % room_name)
 			return
 	else:
 		push_error("Unknown interior transition destination: %s." % destination)
@@ -842,31 +866,43 @@ func _update_interior_transition(delta: float) -> void:
 
 
 func _complete_interior_transfer() -> void:
-	if _interior_transition_destination == STOCKROOM_ID:
-		var cafe := (
-			_building_by_id.get("leap_cafe") as PrototypeBuilding
+	if _interior_transition_destination != "city":
+		var room := (
+			_interior_rooms.get(_interior_transition_destination)
+			as PrototypeInteriorRoom
 		)
-		var stockroom := (
-			_interior_rooms.get(STOCKROOM_ID) as PrototypeInteriorRoom
+		var building := _building_for_interior_room(
+			_interior_transition_destination
 		)
-		if not is_instance_valid(cafe) or not is_instance_valid(stockroom):
-			push_error("Leap Cafe stockroom transition is missing its room.")
+		if not is_instance_valid(building) or not is_instance_valid(room):
+			push_error(
+				"Interior transition '%s' is missing its room or building."
+				% _interior_transition_destination
+			)
 			return
-		_city_return_position = cafe.transition_door_approach_position()
+		_city_return_position = building.transition_door_approach_position()
 		_city_camera_rotation = _camera.rotation
-		_active_interior_id = STOCKROOM_ID
-		_frog.global_position = stockroom.entry_position()
+		_active_interior_id = _interior_transition_destination
+		_frog.global_position = room.entry_position()
 		_camera.zoom = STOCKROOM_CAMERA_ZOOM
 		_camera.rotation = 0.0
 		if is_instance_valid(_pursuer):
 			_pursuer._escape()
-		_show_status("Entered the Leap Cafe stockroom.")
+		_show_status("Entered the %s." % room.display_name)
 	else:
+		var building := _building_for_interior_room(_active_interior_id)
 		_active_interior_id = ""
 		_frog.global_position = _city_return_position
 		_camera.zoom = _city_camera_zoom
 		_camera.rotation = _city_camera_rotation
-		_show_status("Returned to Leap Cafe.")
+		_show_status(
+			"Returned to %s."
+			% (
+				building.display_name
+				if is_instance_valid(building)
+				else "the city"
+			)
+		)
 	_last_safe_ground_position = _frog.global_position
 	_update_camera()
 	_camera.reset_smoothing()
@@ -1545,9 +1581,7 @@ func _spit_item(index: int) -> void:
 		_show_status(
 			"Return to %s before spitting out %s."
 			% [
-				"the stockroom"
-				if item.building_id == STOCKROOM_ID
-				else "the city",
+				_belly_item_space_label(item),
 				item.display_name,
 			]
 		)
@@ -1602,6 +1636,17 @@ func _belly_item_matches_active_space(item: BellyItem) -> bool:
 	if _interior_rooms.has(item.building_id):
 		item_room_id = item.building_id
 	return item_room_id == _active_interior_id
+
+
+func _belly_item_space_label(item: BellyItem) -> String:
+	if not _interior_rooms.has(item.building_id):
+		return "the city"
+	var room := _interior_rooms.get(item.building_id) as PrototypeInteriorRoom
+	return (
+		"the %s" % room.display_name.to_lower()
+		if is_instance_valid(room)
+		else "separate room"
+	)
 
 
 func _apply_growth_thresholds() -> void:
@@ -3523,6 +3568,7 @@ func _build_prototype_city() -> void:
 	cafe.transition_door_position = Vector2(145, -145)
 	cafe.transition_door_approach_offset = Vector2(0, 72)
 	cafe.transition_door_label = "STOCKROOM"
+	cafe.transition_room_id = STOCKROOM_ID
 	cafe.queue_redraw()
 	var apartments := _spawn_building(
 		Vector2(-610, 1210),
@@ -3537,6 +3583,11 @@ func _build_prototype_city() -> void:
 		PrototypeBuilding.ENTRANCE_PART_AWNING,
 		Vector2(86, 60)
 	)
+	apartments.transition_door_position = Vector2(188, -105)
+	apartments.transition_door_approach_offset = Vector2(-90, 55)
+	apartments.transition_door_label = "STAIRS UP"
+	apartments.transition_room_id = CANAL_UPPER_HALL_ID
+	apartments.queue_redraw()
 	var cafe_bounds := cafe.interior_rect()
 	var apartment_bounds := apartments.interior_rect()
 	var stockroom := _spawn_interior_room(
@@ -3550,7 +3601,24 @@ func _build_prototype_city() -> void:
 			Rect2(170, -320, 260, 80),
 			Rect2(-470, 20, 105, 180),
 			Rect2(365, -40, 105, 180),
-		]
+		],
+		cafe.building_id,
+		"RETURN TO CAFE"
+	)
+	var upper_hall := _spawn_interior_room(
+		CANAL_UPPER_HALL_ID,
+		"Canal Apartments Upper Hall",
+		CANAL_UPPER_HALL_POSITION,
+		Vector2(1100, 820),
+		Color("7f91ae"),
+		[
+			Rect2(-430, -320, 250, 82),
+			Rect2(180, -320, 250, 82),
+			Rect2(-470, 15, 110, 185),
+			Rect2(360, -20, 110, 185),
+		],
+		apartments.building_id,
+		"RETURN TO LOBBY"
 	)
 	var oddities_shop := _spawn_building(
 		Vector2(610, 1210),
@@ -3689,6 +3757,18 @@ func _build_prototype_city() -> void:
 		"building_id": apartments.building_id,
 		"color": Color("8c8f9c"),
 	})
+	_spawn_target({
+		"id": "canal_upper_hall_vacuum",
+		"name": "Hallway Vacuum",
+		"position": upper_hall.global_position + Vector2(-250, -180),
+		"value": 54,
+		"tier": 1,
+		"kind": "object",
+		"radius": 34.0,
+		"bounds": upper_hall.interior_rect(),
+		"building_id": CANAL_UPPER_HALL_ID,
+		"color": Color("d3a96f"),
+	})
 
 
 func _spawn_building(
@@ -3728,7 +3808,9 @@ func _spawn_interior_room(
 	room_position: Vector2,
 	room_size: Vector2,
 	color: Color,
-	props: Array[Rect2]
+	props: Array[Rect2],
+	origin_building_id: String,
+	return_label: String
 ) -> PrototypeInteriorRoom:
 	var room := INTERIOR_ROOM_SCRIPT.new() as PrototypeInteriorRoom
 	room.room_id = room_id
@@ -3736,9 +3818,11 @@ func _spawn_interior_room(
 	room.position = room_position
 	room.room_size = room_size
 	room.floor_color = color
+	room.return_label = return_label
 	room.props = props.duplicate()
 	_world.add_child(room)
 	_interior_rooms[room_id] = room
+	_interior_room_building_ids[room_id] = origin_building_id
 	return room
 
 

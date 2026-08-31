@@ -13,9 +13,9 @@ const DRAW_CALL_BUDGET := 450
 const RENDER_OBJECT_BUDGET := 1800
 const RENDER_PRIMITIVE_BUDGET := 50000
 
-const MAX_TARGETS := 27
+const MAX_TARGETS := 28
 const MAX_BUILDINGS := 4
-const MAX_INTERIOR_ROOMS := 1
+const MAX_INTERIOR_ROOMS := 2
 const MAX_PURSUERS := 1
 const MAX_VISUAL_EFFECTS := 24
 const MAX_TOUCH_FEEDBACK := 3
@@ -27,7 +27,7 @@ const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
 const MAX_AUDIO_PLAYERS := 6
 const MAX_AUDIO_EFFECT_VOICES := 4
-const FIELD_GUIDE_ROWS := 28
+const FIELD_GUIDE_ROWS := 29
 const BELLY_STRESS_ITEMS := 64
 const STRESS_RANDOM_SEED := 0xF06C2026
 const LOCAL_WARMUP_SECONDS := 1.25
@@ -43,109 +43,117 @@ const GLOBAL_STRUCTURAL_LIMITS := {
 }
 const STRUCTURAL_LIMITS := {
 	"baseline": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"buildings": MAX_BUILDINGS,
 		"pursuers": 0,
 		"active_effects": 0,
 	},
 	"stockroom": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
+		"targets": MAX_TARGETS,
+		"buildings": MAX_BUILDINGS,
+		"pursuers": 0,
+	},
+	"upper_hall": {
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"buildings": MAX_BUILDINGS,
 		"pursuers": 0,
 	},
 	"busy_daytime": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"active_city_actors": MAX_CITY_ACTORS,
 	},
 	"rainy_day": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"rain_streaks": MAX_RAIN_STREAKS,
 	},
 	"pursuit": {
-		"game_nodes": 251,
-		"collision_objects": 33,
-		"collision_shapes": 40,
+		"game_nodes": 263,
+		"collision_objects": 34,
+		"collision_shapes": 48,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 	},
 	"crowd_pursuit": {
-		"game_nodes": 251,
-		"collision_objects": 33,
-		"collision_shapes": 40,
+		"game_nodes": 263,
+		"collision_objects": 34,
+		"collision_shapes": 48,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 		"active_city_actors": MAX_CITY_ACTORS,
 		"active_crowd_members": MAX_CROWD_MEMBERS,
 	},
 	"roadblock": {
-		"game_nodes": 253,
-		"collision_objects": 34,
-		"collision_shapes": 41,
+		"game_nodes": 265,
+		"collision_objects": 35,
+		"collision_shapes": 49,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 		"roadblocks": MAX_ROADBLOCKS,
 	},
 	"net_attack": {
-		"game_nodes": 251,
-		"collision_objects": 33,
-		"collision_shapes": 40,
+		"game_nodes": 263,
+		"collision_objects": 34,
+		"collision_shapes": 48,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 		"net_projectiles": MAX_NET_PROJECTILES,
 	},
 	"maximum_growth": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"active_effects": MAX_VISUAL_EFFECTS,
 	},
 	"presentation_peak": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"active_effects": MAX_VISUAL_EFFECTS,
 		"touch_feedback": MAX_TOUCH_FEEDBACK,
 	},
 	"belly_overlay": {
-		"game_nodes": 505,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 517,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"belly_items": BELLY_STRESS_ITEMS,
 		"belly_rows": BELLY_STRESS_ITEMS,
 	},
 	"field_guide_overlay": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"accessibility_options": {
-		"game_nodes": 249,
-		"collision_objects": 32,
-		"collision_shapes": 39,
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
 		"targets": MAX_TARGETS,
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"gameplay_peak": {
-		"game_nodes": 253,
-		"collision_objects": 34,
-		"collision_shapes": 41,
+		"game_nodes": 265,
+		"collision_objects": 35,
+		"collision_shapes": 49,
 		"targets": MAX_TARGETS,
 		"buildings": MAX_BUILDINGS,
 		"pursuers": MAX_PURSUERS,

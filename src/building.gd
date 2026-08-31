@@ -25,6 +25,7 @@ var interior_props: Array[Rect2] = []
 var transition_door_position := Vector2.INF
 var transition_door_approach_offset := Vector2.INF
 var transition_door_label := ""
+var transition_room_id := ""
 var _removed_parts := {
 	PART_SIGN: false,
 	PART_DOOR: false,

@@ -54,8 +54,8 @@ func _run() -> void:
 		"The Animal Control roadblock budget remains capped at one."
 	)
 	_check(
-		BUDGETS.MAX_INTERIOR_ROOMS == 1,
-		"The authored separate-room budget remains capped at one."
+		BUDGETS.MAX_INTERIOR_ROOMS == 2,
+		"The authored separate-room budget matches both connected rooms."
 	)
 	_check(
 		BUDGETS.FIELD_GUIDE_ROWS == DiscoveryCatalog.count(),
@@ -81,6 +81,15 @@ func _run() -> void:
 		{
 			"name": "stockroom",
 			"setup": _setup_stockroom,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "upper_hall",
+			"setup": _setup_upper_hall,
 			"preferences": {
 				"reduce_motion": true,
 				"larger_text_controls": false,
@@ -247,6 +256,15 @@ func _setup_stockroom(game: FrogGame) -> void:
 	game._begin_interior_transition(FrogGame.STOCKROOM_ID)
 
 
+func _setup_upper_hall(game: FrogGame) -> void:
+	var apartments := (
+		game._building_by_id.get("canal_apartments")
+		as PrototypeBuilding
+	)
+	game._frog.global_position = apartments.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.CANAL_UPPER_HALL_ID)
+
+
 func _setup_busy_daytime(game: FrogGame) -> void:
 	game._day_clock = 0.5
 	game._update_day_night(0.0)
@@ -367,7 +385,16 @@ func _check_scenario_expectations(
 					and int(snapshot["interior_rooms"])
 					== BUDGETS.MAX_INTERIOR_ROOMS
 					and int(snapshot["pursuers"]) == 0,
-				"Stockroom stress activates one separate room without adding pursuit."
+				"Stockroom stress activates one of two separate rooms without adding pursuit."
+			)
+		"upper_hall":
+			_check(
+				str(snapshot["active_interior"])
+				== FrogGame.CANAL_UPPER_HALL_ID
+				and int(snapshot["interior_rooms"])
+				== BUDGETS.MAX_INTERIOR_ROOMS
+				and int(snapshot["pursuers"]) == 0,
+				"Upper-hall stress activates the second separate room without adding pursuit."
 			)
 		"busy_daytime":
 			_check(
