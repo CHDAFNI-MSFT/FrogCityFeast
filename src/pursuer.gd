@@ -20,8 +20,15 @@ const NET_MIN_DISTANCE := 170.0
 const NET_MAX_DISTANCE := 520.0
 const NET_RADIUS := 26.0
 const DEFLECT_FEEDBACK_DURATION := 0.28
+const NAVIGATION_RADIUS := 28.0
+const NAVIGATION_REPATH_INTERVAL := 0.35
+const NAVIGATION_TARGET_MOVEMENT := 72.0
+const NAVIGATION_WAYPOINT_TOLERANCE := 1.0
+const NAVIGATION_STUCK_REPATH_TIME := 0.75
+const NAVIGATION_STUCK_ESCAPE_TIME := 6.0
 
 var frog: PlayerFrog
+var navigation: DeterministicNavigation2D
 var active := true
 var speed := 250.0
 var _catch_cooldown := 0.0
@@ -41,6 +48,14 @@ var _net_tap_flash := 0.0
 var _deflect_feedback_left := 0.0
 var _presentation_motion_scale := 1.0
 var _net_collision_shape := CircleShape2D.new()
+var _navigation_path := PackedVector2Array()
+var _navigation_path_index := 0
+var _navigation_revision := -1
+var _navigation_repath_left := 0.0
+var _navigation_target_position := Vector2.INF
+var _navigation_repath_count := 0
+var _navigation_failure_count := 0
+var _navigation_reaches_frog := false
 
 
 func _ready() -> void:
@@ -96,17 +111,52 @@ func _physics_process(delta: float) -> void:
 		queue_redraw()
 		return
 
-	if offset.length() > 4.0:
-		velocity = offset.normalized() * speed
+	_navigation_repath_left = maxf(
+		0.0,
+		_navigation_repath_left - delta
+	)
+	if _navigation_needs_refresh():
+		_refresh_navigation_path()
+	var waypoint := _current_navigation_waypoint()
+	while (
+		waypoint != Vector2.INF
+		and global_position.distance_to(waypoint)
+		<= NAVIGATION_WAYPOINT_TOLERANCE
+	):
+		if _navigation_path_index < _navigation_path.size() - 1:
+			_navigation_path_index += 1
+			waypoint = _current_navigation_waypoint()
+		else:
+			_navigation_path = PackedVector2Array()
+			_navigation_path_index = 0
+			waypoint = Vector2.INF
+	if waypoint != Vector2.INF:
+		var waypoint_offset := waypoint - global_position
+		velocity = waypoint_offset.normalized() * minf(
+			speed,
+			waypoint_offset.length() / maxf(delta, 0.0001)
+		)
 		rotation = velocity.angle() + PI / 2.0
 		move_and_slide()
+	else:
+		velocity = Vector2.ZERO
 
+	var was_stuck := (
+		_no_progress_time >= NAVIGATION_STUCK_REPATH_TIME
+	)
 	if global_position.distance_to(_last_position) < 2.0:
 		_no_progress_time += delta
 	else:
 		_no_progress_time = 0.0
 	_last_position = global_position
-	if _no_progress_time >= 2.5:
+	if (
+		not was_stuck
+		and _no_progress_time >= NAVIGATION_STUCK_REPATH_TIME
+	):
+		_navigation_path = PackedVector2Array()
+		_navigation_path_index = 0
+		_navigation_repath_left = 0.0
+	if _no_progress_time >= NAVIGATION_STUCK_ESCAPE_TIME:
 		_escape()
 		return
 
@@ -130,6 +180,32 @@ func _physics_process(delta: float) -> void:
 func set_presentation_motion_scale(value: float) -> void:
 	_presentation_motion_scale = clampf(value, 0.0, 1.0)
 	queue_redraw()
+
+
+func invalidate_navigation() -> void:
+	_navigation_path = PackedVector2Array()
+	_navigation_path_index = 0
+	_navigation_revision = -1
+	_navigation_repath_left = 0.0
+	_navigation_target_position = Vector2.INF
+	_navigation_reaches_frog = false
+	velocity = Vector2.ZERO
+
+
+func active_navigation_point_count() -> int:
+	return _navigation_path.size()
+
+
+func navigation_repath_count() -> int:
+	return _navigation_repath_count
+
+
+func navigation_failure_count() -> int:
+	return _navigation_failure_count
+
+
+func navigation_reaches_frog() -> bool:
+	return _navigation_reaches_frog
 
 
 func active_net_projectile_count() -> int:
@@ -172,6 +248,50 @@ func cancel_net_attack() -> void:
 	_net_velocity = Vector2.ZERO
 	_net_travel = 0.0
 	queue_redraw()
+
+
+func _navigation_needs_refresh() -> bool:
+	if navigation == null or not is_instance_valid(frog):
+		return false
+	if _navigation_revision != navigation.revision():
+		return true
+	if _navigation_repath_left > 0.0:
+		return false
+	return (
+		_navigation_path.is_empty()
+		or _navigation_target_position.distance_to(frog.global_position)
+			>= NAVIGATION_TARGET_MOVEMENT
+	)
+
+
+func _refresh_navigation_path() -> void:
+	_navigation_repath_left = NAVIGATION_REPATH_INTERVAL
+	_navigation_target_position = frog.global_position
+	_navigation_repath_count += 1
+	var route := navigation.find_path(
+		global_position,
+		_navigation_target_position,
+		NAVIGATION_RADIUS
+	)
+	var points := route["points"] as PackedVector2Array
+	_navigation_revision = int(route["revision"])
+	_navigation_reaches_frog = bool(route["reachable"])
+	if points.size() < 2:
+		_navigation_path = PackedVector2Array()
+		_navigation_path_index = 0
+		_navigation_failure_count += 1
+		return
+	_navigation_path = points
+	_navigation_path_index = 1
+
+
+func _current_navigation_waypoint() -> Vector2:
+	if (
+		_navigation_path_index >= 0
+		and _navigation_path_index < _navigation_path.size()
+	):
+		return _navigation_path[_navigation_path_index]
+	return Vector2.INF
 
 
 func _can_start_net_attack(distance_to_frog: float) -> bool:

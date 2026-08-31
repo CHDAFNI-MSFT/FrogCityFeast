@@ -2483,6 +2483,26 @@ func performance_structure_snapshot() -> Dictionary:
 			if is_instance_valid(_frog)
 			else 0
 		),
+		"navigation_active_pursuer_points": (
+			_pursuer.active_navigation_point_count()
+			if is_instance_valid(_pursuer)
+			else 0
+		),
+		"navigation_pursuer_repaths": (
+			_pursuer.navigation_repath_count()
+			if is_instance_valid(_pursuer)
+			else 0
+		),
+		"navigation_pursuer_failures": (
+			_pursuer.navigation_failure_count()
+			if is_instance_valid(_pursuer)
+			else 0
+		),
+		"navigation_pursuer_reaches_frog": (
+			_pursuer.navigation_reaches_frog()
+			if is_instance_valid(_pursuer)
+			else false
+		),
 		"audio_nodes": audio_structure["audio_nodes"],
 		"audio_players": audio_structure["audio_players"],
 		"audio_effect_voices": audio_structure["audio_effect_voices"],
@@ -2943,8 +2963,10 @@ func _spawn_pursuer() -> void:
 	if spawn_position == Vector2.INF:
 		_show_status("Animal Control was called, but could not reach this area.")
 		return
+	_refresh_navigation_geometry()
 	_pursuer = PURSUER_SCRIPT.new() as PrototypePursuer
 	_pursuer.frog = _frog
+	_pursuer.navigation = _navigation
 	_pursuer.position = spawn_position
 	_pursuer.set_presentation_motion_scale(_motion_scale)
 	_pursuer.caught.connect(_on_pursuer_caught)

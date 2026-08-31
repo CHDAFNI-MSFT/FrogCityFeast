@@ -18,6 +18,7 @@ func _run() -> void:
 	_test_loaded_bounds()
 	_test_dynamic_geometry_revision()
 	await _test_game_navigation_invalidation()
+	await _test_generated_pursuer_navigation()
 	await _finish()
 
 
@@ -337,6 +338,237 @@ func _test_game_navigation_invalidation() -> void:
 
 	game.queue_free()
 	await process_frame
+
+
+func _test_generated_pursuer_navigation() -> void:
+	var game := GAME_SCENE.instantiate() as FrogGame
+	game.configure(
+		"generated_pursuer_navigation",
+		"Generated Pursuer Navigation",
+		false,
+		PackedStringArray(),
+		{"reduce_motion": true, "larger_text_controls": false},
+		{},
+		0x50555253
+	)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	var coordinate := Vector2i(1, 0)
+	game._cancel_frog_navigation()
+	game._frog.global_position = DistrictGenerator.bounds_for_coordinate(
+		coordinate
+	).get_center()
+	game._frog.set_growth_tier(2)
+	game._growth_tier = 2
+	game._update_district_streaming()
+	await process_frame
+	await physics_frame
+	var building: PrototypeBuilding
+	for candidate in game._buildings:
+		if (
+			is_instance_valid(candidate)
+			and candidate.has_meta("district_coordinate")
+			and candidate.get_meta("district_coordinate") == coordinate
+		):
+			building = candidate
+			break
+	_check(
+		is_instance_valid(building),
+		"The generated pursuer test finds streamed building geometry."
+	)
+	if not is_instance_valid(building):
+		game.queue_free()
+		await process_frame
+		return
+
+	var horizontal_offset := building.building_size.x * 0.5 + 150.0
+	game._frog.global_position = (
+		building.global_position + Vector2(horizontal_offset, 0)
+	)
+	game._invalidate_navigation()
+	game._refresh_navigation_geometry()
+	game._spawn_pursuer()
+	var pursuer := game._pursuer
+	pursuer.global_position = (
+		building.global_position - Vector2(horizontal_offset, 0)
+	)
+	pursuer._net_cooldown = 999.0
+	pursuer.invalidate_navigation()
+	await physics_frame
+	var route_points_before_roadblock := (
+		pursuer.active_navigation_point_count()
+	)
+	game._roadblock_deployed = true
+	game._pursuit_trap_deployed = true
+	var building_distance := pursuer.global_position.distance_to(
+		game._frog.global_position
+	)
+	var remained_clear := true
+	for _frame in 240:
+		await physics_frame
+		if not is_instance_valid(pursuer):
+			break
+		if not game._navigation.position_is_clear(
+			pursuer.global_position,
+			PrototypePursuer.NAVIGATION_RADIUS
+		):
+			remained_clear = false
+			break
+	_check(
+		is_instance_valid(pursuer)
+			and remained_clear
+			and pursuer.global_position.distance_to(
+				game._frog.global_position
+			) < building_distance - 300.0
+			and pursuer.global_position.x
+			> building.footprint_rect().position.x + 40.0
+			and pursuer.navigation_repath_count() > 0,
+		"Animal Control routes through generated geometry without crossing collision or sticking."
+	)
+
+	pursuer.global_position = (
+		building.global_position - Vector2(horizontal_offset, 0)
+	)
+	pursuer.invalidate_navigation()
+	await physics_frame
+	route_points_before_roadblock = pursuer.active_navigation_point_count()
+	game._roadblock_deployed = false
+	var revision_before_roadblock := game._navigation.revision()
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	_check(
+		route_points_before_roadblock > 2
+			and is_instance_valid(game._roadblock)
+			and game._navigation_dirty
+			and pursuer.active_navigation_point_count() == 0,
+		"A generated-district roadblock clears an established pursuer route."
+	)
+	game._update_navigation_paths()
+	var roadblock_rect := game._roadblock.navigation_obstacle_rect()
+	var crossing_offset := Vector2.ZERO
+	if roadblock_rect.size.x >= roadblock_rect.size.y:
+		crossing_offset.y = (
+			roadblock_rect.size.y * 0.5
+			+ PrototypePursuer.NAVIGATION_RADIUS
+			+ 48.0
+		)
+	else:
+		crossing_offset.x = (
+			roadblock_rect.size.x * 0.5
+			+ PrototypePursuer.NAVIGATION_RADIUS
+			+ 48.0
+		)
+	var roadblock_start := roadblock_rect.get_center() - crossing_offset
+	var roadblock_destination := roadblock_rect.get_center() + crossing_offset
+	pursuer.global_position = roadblock_start
+	game._frog.global_position = roadblock_destination
+	pursuer.invalidate_navigation()
+	await physics_frame
+	_check(
+		game._navigation.revision() == revision_before_roadblock + 1
+			and pursuer.active_navigation_point_count() > 2
+			and game._navigation.path_is_clear(
+				pursuer._navigation_path,
+				PrototypePursuer.NAVIGATION_RADIUS
+			)
+			and _path_avoids_rect(
+				pursuer._navigation_path,
+				roadblock_rect.grow(
+					PrototypePursuer.NAVIGATION_RADIUS
+				)
+			),
+		"Roadblock deployment rebuilds a detour around its collision."
+	)
+
+	var roadblock_distance := pursuer.global_position.distance_to(
+		game._frog.global_position
+	)
+	remained_clear = true
+	for _frame in 180:
+		await physics_frame
+		if not is_instance_valid(pursuer):
+			break
+		if not game._navigation.position_is_clear(
+			pursuer.global_position,
+			PrototypePursuer.NAVIGATION_RADIUS
+		):
+			remained_clear = false
+			break
+	_check(
+		is_instance_valid(pursuer)
+			and remained_clear
+			and pursuer.global_position.distance_to(
+				game._frog.global_position
+			) < roadblock_distance - 100.0
+			and (
+				(crossing_offset.x == 0.0
+					and pursuer.global_position.y
+					> roadblock_rect.end.y)
+				or (crossing_offset.y == 0.0
+					and pursuer.global_position.x
+					> roadblock_rect.end.x)
+			),
+		"Animal Control routes past a deployed roadblock."
+	)
+
+	var revision_before_removal := game._navigation.revision()
+	if is_instance_valid(game._roadblock):
+		game._roadblock.dismiss(false)
+		game._update_navigation_paths()
+	_check(
+		game._navigation.revision() == revision_before_removal + 1,
+		"Roadblock removal rebuilds navigation topology."
+	)
+
+	var repaths_before_throttle_check := pursuer.navigation_repath_count()
+	pursuer.invalidate_navigation()
+	pursuer._physics_process(0.01)
+	var repaths_after_initial_request := pursuer.navigation_repath_count()
+	pursuer._navigation_path = PackedVector2Array()
+	for _frame in 10:
+		pursuer._physics_process(0.01)
+	_check(
+		repaths_after_initial_request == repaths_before_throttle_check + 1
+			and pursuer.navigation_repath_count()
+			== repaths_after_initial_request,
+		"Empty pursuer routes respect the bounded repath interval."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
+func _path_avoids_rect(
+	points: PackedVector2Array,
+	rect: Rect2
+) -> bool:
+	if points.size() < 2:
+		return false
+	var top_left := rect.position
+	var top_right := Vector2(rect.end.x, rect.position.y)
+	var bottom_right := rect.end
+	var bottom_left := Vector2(rect.position.x, rect.end.y)
+	for index in range(points.size() - 1):
+		var from := points[index]
+		var to := points[index + 1]
+		if rect.has_point(from) or rect.has_point(to):
+			return false
+		for edge in [
+			[top_left, top_right],
+			[top_right, bottom_right],
+			[bottom_right, bottom_left],
+			[bottom_left, top_left],
+		]:
+			if Geometry2D.segment_intersects_segment(
+				from,
+				to,
+				edge[0] as Vector2,
+				edge[1] as Vector2
+			) != null:
+				return false
+	return true
 
 
 func _check(condition: bool, description: String) -> void:

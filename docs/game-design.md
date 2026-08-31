@@ -397,6 +397,12 @@ Pursuers may:
 - protect valuable targets; and
 - set traps.
 
+Ground pursuers use the same deterministic collision topology as player
+movement, with their own radius, bounded repath cadence, and stuck recovery.
+They cannot route through active building or room collision, roadblocks, or
+district space that is not loaded. Their net sweeps and tongue-deflection
+checks remain direct physics queries rather than navigation decisions.
+
 The prototype's Animal Control pursuer now implements the first bounded net
 attack. A small or medium ground frog within the authored range receives a
 clear 0.8-second aim warning before one draw-only net travels along the locked

@@ -41,6 +41,9 @@ The prototype includes:
 - traffic that is dangerous while the frog is small and edible at maximum
   growth;
 - Animal Control pursuit after an escaped target calls for help;
+- deterministic Animal Control routes around authored and generated buildings,
+  active roadblocks, and loaded-district boundaries, with bounded repathing and
+  stuck recovery for later ground-pursuer compatibility;
 - Animal Control tongue deflection that stops direct shots and shots crossing
   the officer before another target, uses draw-only shield feedback and normal
   recovery, and stops protecting targets once the frog reaches maximum growth;
@@ -300,7 +303,9 @@ transitions, deterministic session challenges,
 original audio resources and provenance, audio buses and semantic event wiring,
 bounded player/cooldown behavior, per-profile audio persistence and legacy
 defaults, loop lifecycle, gameplay RNG isolation, performance structure and
-stress budgets, deterministic district generation, live-physics clearance,
+stress budgets, deterministic multi-corner navigation, exact and nearest-safe
+destinations, dynamic route invalidation, pursuer routing, deterministic
+district generation, live-physics clearance,
 boundary loading, distant unloading, revisit restoration, compact delta state,
 cross-district restocking, pursuit cleanup, and the credential-free iOS pipeline
 configuration, tutorial sequence, action restrictions, guided struggle

@@ -216,9 +216,10 @@ func _update_overlay() -> void:
 			structure.get("generated_targets", 0),
 			structure.get("generated_buildings", 0),
 		],
-		"navigation: %d obstacles  %d active points  rev %d" % [
+		"navigation: %d obstacles  %d frog / %d pursuer points  rev %d" % [
 			structure.get("navigation_obstacles", 0),
 			structure.get("navigation_active_frog_points", 0),
+			structure.get("navigation_active_pursuer_points", 0),
 			structure.get("navigation_revision", 0),
 		],
 		"nav requests: %d  fallback/fail: %d / %d  max: %d cells  %d us" % [
