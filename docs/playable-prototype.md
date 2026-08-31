@@ -63,6 +63,10 @@ The prototype includes:
 - a rare golden cake that grants one minute of flight;
 - a lightweight day and night cycle that changes the world tint, pedestrian
   crowd, secondary traffic, and streetlight glow;
+- deterministic Oddities Shop hours that raise its intact removable shutter
+  from late evening through early morning, defer daytime closure while the shop
+  or doorway is occupied, and preserve permanent access after the shutter is
+  eaten;
 - one deterministic 36-second daytime rain shower per 180-second cycle, with
   smooth fades, wet-road sheen, puddle highlights, and 84 capped draw-only rain
   streaks;
@@ -235,17 +239,18 @@ bash scripts/check-project.sh
 ```
 
 The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
-traffic, deterministic city-activity levels and routes, the bounded rain
-schedule and density change, frame-step-independent rain, static reduced-motion
-weather, pursuit, net windup and wall clearance, dodging, tongue interruption,
-rapid-tap escape and timeout damage, flight and growth immunity, profile
-persistence, Field Guide catalog and overlay behavior, legacy discovery saves,
-per-profile accessibility persistence and legacy defaults, touch-target sizing,
-safe-area layout, touch feedback, reduced-motion transitions, deterministic
-session challenges, original audio resources and provenance, audio buses and
-semantic event wiring, bounded player/cooldown behavior, per-profile audio
-persistence and legacy defaults, loop lifecycle, gameplay RNG isolation,
-performance structure and stress budgets, the credential-free iOS pipeline
+traffic, deterministic city-activity levels and routes, Oddities Shop hours and
+safe deferred closure, the bounded rain schedule and density change,
+frame-step-independent rain, static reduced-motion weather, pursuit, net windup
+and wall clearance, dodging, tongue interruption, rapid-tap escape and timeout
+damage, flight and growth immunity, profile persistence, Field Guide catalog
+and overlay behavior, legacy discovery saves, per-profile accessibility
+persistence and legacy defaults, touch-target sizing, safe-area layout, touch
+feedback, reduced-motion transitions, deterministic session challenges,
+original audio resources and provenance, audio buses and semantic event wiring,
+bounded player/cooldown behavior, per-profile audio persistence and legacy
+defaults, loop lifecycle, gameplay RNG isolation, performance structure and
+stress budgets, the credential-free iOS pipeline
 configuration, tutorial sequence, action restrictions, guided struggle
 recovery, Skip behavior, and tutorial completion persistence.
 
@@ -295,7 +300,7 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, either separate room, busy daytime, maximum growth, Field Guide, or options | 261 game-subtree nodes, 33 collision objects, 47 collision shapes, 28 targets, 4 buildings, 2 separate rooms |
+| Baseline, night shop, either separate room, busy daytime, maximum growth, Field Guide, or options | 261 game-subtree nodes, 33 collision objects, 47 collision shapes, 28 targets, 4 buildings, 2 separate rooms |
 | Ordinary pursuit | 263 nodes, 34 collision objects, 48 collision shapes, 1 pursuer |
 | Pursuit in active crowd cover | Pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
 | Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes |
@@ -313,16 +318,16 @@ Run the rendered Windows measurements without writing a benchmark report:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performance-windows.ps1
 ```
 
-The harness uses fixed random seeds and covers baseline play, the active Leap
-Café stockroom, the active Canal Apartments upper hall, busy daytime, ordinary
-and crowd-cover pursuit, a temporary roadblock, an Animal Control net in
-flight, maximum growth, a finite maximum presentation burst, a 64-item Belly,
-the populated Field Guide, both accessibility options, and a reachable
-gameplay peak combining daytime activity, pursuit, growth, the roadblock, and
-presentation effects. It prints median FPS, frame-time percentiles, memory, and
-a post-sample render snapshot. The command-driven Windows run can show isolated
-scheduling/window stalls, so p95 is more useful than its maximum or
-arithmetic-mean FPS.
+The harness uses fixed random seeds and covers baseline play, the night-open
+Oddities Shop, the active Leap Café stockroom, the active Canal Apartments
+upper hall, busy daytime, ordinary and crowd-cover pursuit, a temporary
+roadblock, an Animal Control net in flight, maximum growth, a finite maximum
+presentation burst, a 64-item Belly, the populated Field Guide, both
+accessibility options, and a reachable gameplay peak combining daytime
+activity, pursuit, growth, the roadblock, and presentation effects. It prints
+median FPS, frame-time percentiles, memory, and a post-sample render snapshot.
+The command-driven Windows run can show isolated scheduling/window stalls, so
+p95 is more useful than its maximum or arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.
@@ -376,7 +381,7 @@ The following parts of the full design are not implemented yet:
 - further authored multi-room interiors and connected exploration spaces;
 - pathfinding around complex city geometry;
 - additional pursuer types, trap varieties, and roadblock layouts;
-- storms, festivals, shops with schedules, and random emergencies;
+- storms, festivals, additional shop schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
 - final art, authored animation, expanded audio content and target-device mix

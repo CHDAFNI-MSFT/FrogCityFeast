@@ -97,6 +97,12 @@ func _run() -> void:
 			"discoveries": PackedStringArray(),
 		},
 		{
+			"name": "night_shop",
+			"setup": _setup_night_shop,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
 			"name": "busy_daytime",
 			"setup": _setup_busy_daytime,
 			"preferences": _default_preferences(),
@@ -265,6 +271,11 @@ func _setup_upper_hall(game: FrogGame) -> void:
 	game._begin_interior_transition(FrogGame.CANAL_UPPER_HALL_ID)
 
 
+func _setup_night_shop(game: FrogGame) -> void:
+	game._day_clock = 0.0
+	game._update_day_night(0.0)
+
+
 func _setup_busy_daytime(game: FrogGame) -> void:
 	game._day_clock = 0.5
 	game._update_day_night(0.0)
@@ -395,6 +406,11 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_INTERIOR_ROOMS
 				and int(snapshot["pursuers"]) == 0,
 				"Upper-hall stress activates the second separate room without adding pursuit."
+			)
+		"night_shop":
+			_check(
+				bool(snapshot["oddities_shop_scheduled_open"]),
+				"Night-shop stress opens the intact Oddities Shop without adding structure."
 			)
 		"busy_daytime":
 			_check(

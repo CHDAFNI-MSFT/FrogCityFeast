@@ -26,6 +26,9 @@ var transition_door_position := Vector2.INF
 var transition_door_approach_offset := Vector2.INF
 var transition_door_label := ""
 var transition_room_id := ""
+var entrance_schedule_open_label := ""
+var entrance_schedule_closed_label := ""
+var entrance_part_temporarily_open := false
 var _removed_parts := {
 	PART_SIGN: false,
 	PART_DOOR: false,
@@ -131,8 +134,13 @@ func _draw() -> void:
 			),
 			floor_color.darkened(0.12)
 		)
-	if destructible_parts and not is_part_removed(PART_DOOR):
+	if (
+		destructible_parts
+		and not is_part_removed(PART_DOOR)
+		and not entrance_part_temporarily_open
+	):
 		_draw_entrance_part()
+	_draw_entrance_schedule_status()
 	_draw_transition_door()
 
 
@@ -173,6 +181,26 @@ func transition_door_hit_test(world_position: Vector2) -> bool:
 		and transition_door_position != Vector2.INF
 		and transition_door_world_position().distance_to(world_position) <= 56.0
 	)
+
+
+func entrance_part_world_rect() -> Rect2:
+	var size := _door_collision_size()
+	return Rect2(
+		global_position + _door_local_position() - size / 2.0,
+		size
+	)
+
+
+func set_entrance_part_temporarily_open(value: bool) -> void:
+	if entrance_part_temporarily_open == value:
+		return
+	entrance_part_temporarily_open = value
+	if destructible_parts and entrance_part_style == ENTRANCE_PART_DOOR:
+		_set_body_enabled(
+			_door_body,
+			not value and not is_part_removed(PART_DOOR)
+		)
+	queue_redraw()
 
 
 func part_world_position(part_id: String) -> Vector2:
@@ -259,9 +287,44 @@ func restore() -> void:
 	for body in _structural_bodies:
 		_set_body_enabled(body, true)
 	if destructible_parts:
-		_set_body_enabled(_door_body, not is_part_removed(PART_DOOR))
+		_set_body_enabled(
+			_door_body,
+			not is_part_removed(PART_DOOR)
+			and not entrance_part_temporarily_open
+		)
 		_set_body_enabled(_counter_body, not is_part_removed(PART_COUNTER))
 	queue_redraw()
+
+
+func _draw_entrance_schedule_status() -> void:
+	if (
+		not destructible_parts
+		or is_part_removed(PART_DOOR)
+		or (
+			entrance_schedule_open_label.is_empty()
+			and entrance_schedule_closed_label.is_empty()
+		)
+	):
+		return
+	var label := (
+		entrance_schedule_open_label
+		if entrance_part_temporarily_open
+		else entrance_schedule_closed_label
+	)
+	if label.is_empty():
+		return
+	var label_position := (
+		_door_local_position() - _door_outward_direction() * 58.0
+	)
+	draw_string(
+		ThemeDB.fallback_font,
+		label_position + Vector2(-100, 6),
+		label,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		200,
+		16,
+		Color("f5e8bd") if entrance_part_temporarily_open else Color("4b334f")
+	)
 
 
 func _draw_transition_door() -> void:

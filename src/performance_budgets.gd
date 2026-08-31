@@ -67,6 +67,14 @@ const STRUCTURAL_LIMITS := {
 		"buildings": MAX_BUILDINGS,
 		"pursuers": 0,
 	},
+	"night_shop": {
+		"game_nodes": 261,
+		"collision_objects": 33,
+		"collision_shapes": 47,
+		"targets": MAX_TARGETS,
+		"buildings": MAX_BUILDINGS,
+		"pursuers": 0,
+	},
 	"busy_daytime": {
 		"game_nodes": 261,
 		"collision_objects": 33,

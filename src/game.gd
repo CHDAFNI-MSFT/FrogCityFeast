@@ -57,6 +57,9 @@ const CROWD_FULL_START := 0.22
 const CROWD_FULL_END := 0.50
 const CROWD_END := 0.56
 const CROWD_HIDE_DURATION := 1.75
+const ODDITIES_SHOP_OPEN_START := 0.78
+const ODDITIES_SHOP_OPEN_END := 0.18
+const SHOP_DOORWAY_CLEARANCE := 8.0
 const ROADBLOCK_DEPLOY_DELAY := 3.0
 const ROADBLOCK_MIN_DISTANCE := 260.0
 const ROADBLOCK_MAX_DISTANCE := 850.0
@@ -382,6 +385,7 @@ var _day_clock := 0.23
 var _current_daylight := 0.0
 var _current_rain_intensity := 0.0
 var _current_crowd_intensity := 0.0
+var _oddities_shop_scheduled_open := false
 var _crowd_hide_time := 0.0
 var _roadblock_deploy_time := 0.0
 var _roadblock_deployed := false
@@ -1740,6 +1744,7 @@ func performance_structure_snapshot() -> Dictionary:
 		"buildings": _buildings.size(),
 		"interior_rooms": _interior_rooms.size(),
 		"active_interior": _active_interior_id,
+		"oddities_shop_scheduled_open": _oddities_shop_scheduled_open,
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
 		"roadblocks": 1 if is_instance_valid(_roadblock) else 0,
 		"net_projectiles": (
@@ -2828,6 +2833,7 @@ func _update_day_night(delta: float) -> void:
 		_city_activity.set_daylight(daylight)
 		_city_activity.set_rain_intensity(rain_intensity)
 		_city_activity.set_crowd_intensity(crowd_intensity)
+	_update_oddities_shop_schedule()
 	AudioDirector.set_game_ambience(
 		self,
 		daylight < NIGHT_AUDIO_THRESHOLD
@@ -2854,6 +2860,79 @@ static func crowd_intensity_for_clock(value: float) -> float:
 	if clock > CROWD_FULL_END:
 		return 1.0 - smoothstep(CROWD_FULL_END, CROWD_END, clock)
 	return 1.0
+
+
+static func oddities_shop_open_for_clock(value: float) -> bool:
+	var clock := fposmod(value, 1.0)
+	return (
+		clock >= ODDITIES_SHOP_OPEN_START
+		or clock <= ODDITIES_SHOP_OPEN_END
+	)
+
+
+func _update_oddities_shop_schedule() -> void:
+	var shop := (
+		_building_by_id.get("oddities_shop") as PrototypeBuilding
+	)
+	if not is_instance_valid(shop):
+		return
+	if shop.is_part_removed(PrototypeBuilding.PART_DOOR):
+		shop.set_entrance_part_temporarily_open(false)
+		_oddities_shop_scheduled_open = false
+		return
+	var should_open := oddities_shop_open_for_clock(_day_clock)
+	if not should_open and _oddities_shop_doorway_occupied(shop):
+		should_open = true
+	_set_oddities_shop_scheduled_open(shop, should_open)
+
+
+func _oddities_shop_doorway_occupied(
+	shop: PrototypeBuilding
+) -> bool:
+	var doorway := shop.entrance_part_world_rect().grow(
+		SHOP_DOORWAY_CLEARANCE
+	)
+	if (
+		shop.contains_world_point(_frog.global_position)
+		or _circle_overlaps_rect(
+			_frog.global_position,
+			_frog.collision_radius(),
+			doorway
+		)
+	):
+		return true
+	if not is_instance_valid(_pursuer):
+		return false
+	return (
+		shop.contains_world_point(_pursuer.global_position)
+		or _circle_overlaps_rect(
+			_pursuer.global_position,
+			28.0,
+			doorway
+		)
+	)
+
+
+func _set_oddities_shop_scheduled_open(
+	shop: PrototypeBuilding,
+	value: bool
+) -> void:
+	if (
+		_oddities_shop_scheduled_open == value
+		and shop.entrance_part_temporarily_open == value
+	):
+		return
+	_oddities_shop_scheduled_open = value
+	shop.set_entrance_part_temporarily_open(value)
+	var shutter := _find_target_by_id("oddities_shop_door")
+	if is_instance_valid(shutter):
+		shutter.visible = not value
+		shutter.selectable = not value
+	_show_status(
+		"Oddities Shop opened for the night."
+		if value
+		else "Oddities Shop closed for the day."
+	)
 
 
 func _update_crowd_hiding(delta: float) -> void:
@@ -3630,6 +3709,9 @@ func _build_prototype_city() -> void:
 		true,
 		Vector2(150, 64)
 	)
+	oddities_shop.entrance_schedule_open_label = "NIGHT OPEN"
+	oddities_shop.entrance_schedule_closed_label = "OPENS AT NIGHT"
+	oddities_shop.queue_redraw()
 	_spawn_destruction_targets(market)
 	_spawn_destruction_targets(cafe)
 	_spawn_destruction_targets(apartments)

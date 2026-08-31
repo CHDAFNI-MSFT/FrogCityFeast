@@ -270,7 +270,7 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements three small deterministic dynamic-city
+The fixed-city prototype now implements four small deterministic dynamic-city
 slices. The day and night cycle changes the visible pedestrian crowd, secondary
 traffic level, streetlight glow, and restrained synthesized ambience. Once per
 180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
@@ -289,6 +289,16 @@ Animal Control. Leaving the area resets progress; flight, maximum growth,
 knockback, netting, tongue pulls, and target struggles cannot build cover.
 Reduce motion freezes the visitors while preserving event and hiding timing.
 The meetup adds no collision, target, save, audio, or gameplay-random behavior.
+
+Oddities Shop implements the first scheduled business. Its intact removable
+shutter raises from the late-evening boundary through early morning, revealing
+the existing entrance without weakening the building. During the day it lowers
+and becomes the same edible shutter used by the destruction sequence. Closure
+waits while the frog or Animal Control occupies the shop or doorway, preventing
+a character from being trapped or overlapped. Eating the shutter permanently
+opens the entrance for the rest of that city session. The schedule is
+deterministic, adds no nodes, targets, saves, audio, animation, or random-number
+use, and has identical timing with Reduce motion.
 
 Ambient pedestrians and vehicles use authored routes and are decorative rather
 than targets, hazards, or persistent world state. The labeled Delivery Van

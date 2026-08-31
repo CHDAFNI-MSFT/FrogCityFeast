@@ -343,6 +343,7 @@ func _run() -> void:
 	await process_frame
 
 	await _test_oddities_shop_sequence(game_scene)
+	await _test_oddities_shop_hours(game_scene)
 	await _test_leap_cafe_sequence(game_scene)
 	await _test_canal_apartments_sequence(game_scene)
 	await _test_building_interiors(game_scene)
@@ -2512,6 +2513,135 @@ func _test_oddities_shop_sequence(game_scene: PackedScene) -> void:
 	_check(
 		game._score > score_before and shop.consumed,
 		"Digesting the Oddities Shop awards score once and leaves it removed."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
+func _test_oddities_shop_hours(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.configure("shop_hours_test", "Shop Hours Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var shop := (
+		game._building_by_id.get("oddities_shop") as PrototypeBuilding
+	)
+	var shutter := _find_target(game, "oddities_shop_door")
+	_check(
+		FrogGame.oddities_shop_open_for_clock(0.0)
+		and FrogGame.oddities_shop_open_for_clock(0.18)
+		and not FrogGame.oddities_shop_open_for_clock(0.1801)
+		and not FrogGame.oddities_shop_open_for_clock(0.5)
+		and not FrogGame.oddities_shop_open_for_clock(0.7799)
+		and FrogGame.oddities_shop_open_for_clock(0.78)
+		and FrogGame.oddities_shop_open_for_clock(1.0),
+		"Oddities Shop hours use one deterministic night window with explicit boundaries."
+	)
+	_check(
+		is_instance_valid(shop)
+		and is_instance_valid(shutter)
+		and not game._oddities_shop_scheduled_open
+		and not shop.entrance_part_temporarily_open
+		and shop._door_body.collision_layer == 1
+		and shutter.visible
+		and shutter.selectable,
+		"Oddities Shop starts closed during its authored daytime phase."
+	)
+
+	var daytime_snapshot := game.performance_structure_snapshot()
+	var score_before := game._score
+	var growth_before := game._growth_points
+	var target_count_before := game._targets.size()
+	var discovery_count_before := game._known_discovery_count()
+	seed(20260830)
+	var expected_random := randf()
+	seed(20260830)
+	game._day_clock = 0.0
+	game._update_day_night(0.0)
+	var actual_random := randf()
+	await physics_frame
+	var night_snapshot := game.performance_structure_snapshot()
+	_check(
+		game._oddities_shop_scheduled_open
+		and shop.entrance_part_temporarily_open
+		and shop._door_body.collision_layer == 0
+		and not shutter.visible
+		and not shutter.selectable
+		and shop.weakness_count() == 0
+		and is_equal_approx(actual_random, expected_random),
+		"The intact shutter raises at night without weakening the shop or using gameplay RNG."
+	)
+	_check(
+		int(night_snapshot["game_nodes"])
+		== int(daytime_snapshot["game_nodes"])
+		and int(night_snapshot["collision_objects"])
+		== int(daytime_snapshot["collision_objects"])
+		and int(night_snapshot["collision_shapes"])
+		== int(daytime_snapshot["collision_shapes"])
+		and game._score == score_before
+		and game._growth_points == growth_before
+		and game._targets.size() == target_count_before
+		and game._known_discovery_count() == discovery_count_before,
+		"Scheduled opening changes no structure, rewards, targets, or progression."
+	)
+
+	game._frog.global_position = shop.global_position
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	_check(
+		game._oddities_shop_scheduled_open
+		and shop._door_body.collision_layer == 0
+		and not shutter.visible,
+		"Daytime closure waits while the frog remains inside Oddities Shop."
+	)
+	game._frog.global_position = shop.global_position + Vector2(0, -260)
+	game._spawn_pursuer()
+	var pursuer := game._pursuer
+	if is_instance_valid(pursuer):
+		pursuer.set_physics_process(false)
+		pursuer.global_position = shop.global_position
+	game._update_day_night(0.0)
+	_check(
+		is_instance_valid(pursuer)
+		and game._oddities_shop_scheduled_open
+		and shop._door_body.collision_layer == 0,
+		"Daytime closure also waits while Animal Control occupies the shop."
+	)
+	if is_instance_valid(pursuer):
+		pursuer.global_position = shop.global_position + Vector2(0, -360)
+	game._update_day_night(0.0)
+	await physics_frame
+	_check(
+		not game._oddities_shop_scheduled_open
+		and not shop.entrance_part_temporarily_open
+		and shop._door_body.collision_layer == 1
+		and shutter.visible
+		and shutter.selectable,
+		"The shutter lowers once the shop and doorway are clear."
+	)
+	if is_instance_valid(pursuer):
+		pursuer._escape()
+		await process_frame
+
+	game._frog.global_position = shop.global_position + Vector2(0, -310)
+	game._swallow_target(shutter, 1.0)
+	game._day_clock = 0.0
+	game._update_day_night(0.0)
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	_check(
+		shop.weakness_count() == 1
+		and shop.is_part_removed(PrototypeBuilding.PART_DOOR)
+		and shop._door_body.collision_layer == 0
+		and not is_instance_valid(
+			game._find_target_by_id("oddities_shop_door")
+		),
+		"Eating the shutter permanently overrides later opening and closing times."
 	)
 
 	game.queue_free()
