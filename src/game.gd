@@ -135,7 +135,19 @@ const RIVER_SUBWAY_TUNNEL_ID := "river_subway_service_tunnel"
 const RIVER_SUBWAY_TUNNEL_POSITION := (
 	INTERIOR_SPACE_ORIGIN + Vector2(0, 7800)
 )
+const RIVER_POND_BOARDWALK_ID := "river_park_pond_boardwalk"
+const RIVER_POND_BOARDWALK_POSITION := (
+	INTERIOR_SPACE_ORIGIN + Vector2(0, 9200)
+)
 const CITY_EXPLORATION_PORTALS := [
+	{
+		"id": "river_pond_boardwalk",
+		"label": "River Park pond boardwalk",
+		"marker_position": Vector2(520, 560),
+		"approach_position": Vector2(520, 650),
+		"destination": RIVER_POND_BOARDWALK_ID,
+		"destination_entry_id": "from_park",
+	},
 	{
 		"id": "river_sewer_hatch",
 		"label": "River Park sewer hatch",
@@ -5236,6 +5248,26 @@ func _build_prototype_city() -> void:
 		Vector2(-820, 100),
 		Vector2(-700, 100)
 	)
+	var pond_boardwalk := _spawn_interior_room(
+		RIVER_POND_BOARDWALK_ID,
+		"River Park Lily Pond Boardwalk",
+		RIVER_POND_BOARDWALK_POSITION,
+		Vector2(1900, 1200),
+		Color("668d72"),
+		[
+			Rect2(-840, -500, 290, 110),
+			Rect2(550, -500, 290, 110),
+			Rect2(-850, 360, 250, 100),
+			Rect2(600, 350, 230, 110),
+		],
+		"",
+		"RETURN TO RIVER PARK"
+	)
+	pond_boardwalk.camera_mode = PrototypeInteriorRoom.CAMERA_FOLLOW
+	pond_boardwalk.camera_zoom = Vector2(1.15, 1.15)
+	pond_boardwalk.camera_follow_distance = 120.0
+	pond_boardwalk.camera_rotation_limit = 0.25
+	pond_boardwalk.set_entry("from_park", Vector2(0, 430))
 	var market_rooftop := _spawn_interior_room(
 		MARKET_ROOFTOP_ID,
 		"Moonlight Market Rooftop Garden",
@@ -5490,6 +5522,18 @@ func _build_prototype_city() -> void:
 		"bounds": subway_tunnel.interior_rect(),
 		"building_id": RIVER_SUBWAY_TUNNEL_ID,
 		"color": Color("d8a84d"),
+	})
+	_spawn_target({
+		"id": "river_pond_lily_planter",
+		"name": "Lily Pad Planter",
+		"position": pond_boardwalk.global_position + Vector2(420, -180),
+		"value": 64,
+		"tier": 1,
+		"kind": "object",
+		"radius": 36.0,
+		"bounds": pond_boardwalk.interior_rect(),
+		"building_id": RIVER_POND_BOARDWALK_ID,
+		"color": Color("79b962"),
 	})
 
 

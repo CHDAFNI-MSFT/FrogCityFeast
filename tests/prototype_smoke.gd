@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 33,
+		game._targets.size() == 34,
 		"Prototype targets, connected spaces, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -352,6 +352,7 @@ func _run() -> void:
 	await _test_canal_upper_hall(game_scene)
 	await _test_canal_fire_escape(game_scene)
 	await _test_river_sewer_chain(game_scene)
+	await _test_river_pond_boardwalk(game_scene)
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
@@ -1140,9 +1141,9 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, rain, and the night bazaar share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 33
+		game._targets.size() == 34
 			and DiscoveryCatalog.count()
-			== 34 + DistrictGenerator.discovery_ids().size(),
+			== 35 + DistrictGenerator.discovery_ids().size(),
 		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
@@ -1309,10 +1310,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 33
+		int(rainy_snapshot["targets"]) == 34
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 38
-		and int(rainy_snapshot["collision_shapes"]) == 87,
+		and int(rainy_snapshot["collision_objects"]) == 39
+		and int(rainy_snapshot["collision_shapes"]) == 95,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1709,8 +1710,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 333
-		and int(net_snapshot["collision_objects"]) == 39,
+		and int(net_snapshot["game_nodes"]) == 345
+		and int(net_snapshot["collision_objects"]) == 40,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -3914,7 +3915,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 7
+		and game._interior_rooms.size() == 8
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -4174,7 +4175,7 @@ func _test_oddities_cellar(game_scene: PackedScene) -> void:
 		and is_instance_valid(cellar)
 		and is_instance_valid(shelf)
 		and is_instance_valid(music_box)
-		and game._interior_rooms.size() == 7
+		and game._interior_rooms.size() == 8
 		and shop.transition_room_id == FrogGame.ODDITIES_CELLAR_ID
 		and shop.transition_required_removed_part
 		== PrototypeBuilding.PART_COUNTER
@@ -4382,7 +4383,7 @@ func _test_market_rooftop(game_scene: PackedScene) -> void:
 		is_instance_valid(market)
 		and is_instance_valid(rooftop)
 		and is_instance_valid(beehive)
-		and game._interior_rooms.size() == 7
+		and game._interior_rooms.size() == 8
 		and market.transition_room_id == FrogGame.MARKET_ROOFTOP_ID
 		and market.transition_min_growth_tier == 1
 		and rooftop.return_label == "RETURN TO MARKET"
@@ -4562,7 +4563,7 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 		is_instance_valid(apartments)
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(vacuum)
-		and game._interior_rooms.size() == 7
+		and game._interior_rooms.size() == 8
 		and apartments.transition_room_id
 		== FrogGame.CANAL_UPPER_HALL_ID
 		and upper_hall.return_label == "RETURN TO LOBBY"
@@ -4730,7 +4731,7 @@ func _test_canal_fire_escape(game_scene: PackedScene) -> void:
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(fire_escape)
 		and is_instance_valid(laundry)
-		and game._interior_rooms.size() == 7
+		and game._interior_rooms.size() == 8
 		and str(outward_portal["destination"])
 		== FrogGame.CANAL_FIRE_ESCAPE_ID
 		and str(return_portal["destination"])
@@ -4981,7 +4982,7 @@ func _test_river_sewer_chain(game_scene: PackedScene) -> void:
 		and is_instance_valid(tunnel)
 		and is_instance_valid(valve)
 		and is_instance_valid(signal_lamp)
-		and game._interior_rooms.size() == 7
+		and game._interior_rooms.size() == 8
 		and str(tunnel_portal["destination"])
 		== FrogGame.RIVER_SUBWAY_TUNNEL_ID
 		and str(tunnel_return["destination"])
@@ -5191,6 +5192,144 @@ func _test_river_sewer_chain(game_scene: PackedScene) -> void:
 			restocked_signal.global_position
 		),
 		"Digesting the Signal Lamp restocks it in the subway tunnel."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
+func _test_river_pond_boardwalk(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("pond_test", "Pond Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var city_portal := game._city_portal_by_id("river_pond_boardwalk")
+	var boardwalk := (
+		game._interior_rooms.get(FrogGame.RIVER_POND_BOARDWALK_ID)
+		as PrototypeInteriorRoom
+	)
+	var planter := _find_target(game, "river_pond_lily_planter")
+	_check(
+		not city_portal.is_empty()
+		and is_instance_valid(boardwalk)
+		and is_instance_valid(planter)
+		and game._interior_rooms.size() == 8
+		and boardwalk.camera_follows_frog()
+		and boardwalk.room_size == Vector2(1900, 1200)
+		and planter.building_id == FrogGame.RIVER_POND_BOARDWALK_ID
+		and planter.move_bounds == boardwalk.interior_rect(),
+		"River Park exposes a navigable pond boardwalk with its own target."
+	)
+	_check(
+		game._circle_position_clear(
+			city_portal["approach_position"] as Vector2,
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			boardwalk.entry_position("from_park"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			boardwalk.global_position,
+			44.0,
+			true
+		),
+		"The park entrance, boardwalk landing, and center are maximum-size safe."
+	)
+
+	var city_camera_rotation := 0.17
+	game._camera.rotation = city_camera_rotation
+	game._frog.global_position = city_portal["approach_position"] as Vector2
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._begin_interior_transition(
+		FrogGame.RIVER_POND_BOARDWALK_ID,
+		"river_pond_boardwalk"
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id
+		== FrogGame.RIVER_POND_BOARDWALK_ID
+		and game._frog.global_position
+		== boardwalk.entry_position("from_park")
+		and game._active_navigation_rect() == boardwalk.interior_rect(),
+		"Entering the pond boardwalk uses the authored landing and ends pursuit."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._pending_growth_tier = 2
+	game._frog.global_position = boardwalk.global_position
+	game._last_safe_ground_position = boardwalk.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1,
+		"The pond boardwalk supports maximum-size growth and navigation."
+	)
+
+	game._frog.global_position = planter.global_position + Vector2(0, 120)
+	game._swallow_target(planter, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].movement_bounds == boardwalk.interior_rect(),
+		"Swallowing the Lily Pad Planter preserves pond restock bounds."
+	)
+	game._spit_item(0)
+	var spat_planter := _find_target(game, "river_pond_lily_planter")
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_planter)
+		and boardwalk.interior_rect().has_point(
+			spat_planter.global_position
+		),
+		"Spitting the Lily Pad Planter returns it to the pond boardwalk."
+	)
+	game._swallow_target(spat_planter, 1.0)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = boardwalk.exit_approach_position()
+	game._begin_interior_transition("city", "return")
+	_check(
+		game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== (city_portal["approach_position"] as Vector2)
+		and is_equal_approx(game._camera.rotation, city_camera_rotation)
+		and game._camera.position_smoothing_enabled,
+		"Reduce motion returns immediately to River Park and restores its camera."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains("lily pond boardwalk"),
+		"A pond target cannot be spat into River Park."
+	)
+	game._digest_item(0)
+
+	await create_timer(9.2, false).timeout
+	var restocked_planter := _find_target(
+		game,
+		"river_pond_lily_planter"
+	)
+	_check(
+		is_instance_valid(restocked_planter)
+		and boardwalk.interior_rect().has_point(
+			restocked_planter.global_position
+		),
+		"Digesting the Lily Pad Planter restocks it on the boardwalk."
 	)
 
 	paused = false

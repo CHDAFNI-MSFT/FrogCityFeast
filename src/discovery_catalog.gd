@@ -63,6 +63,11 @@ const ENTRIES := [
 		"hint": "Follow the sewer junction into the old service tunnel.",
 	},
 	{
+		"id": "river_pond_lily_planter",
+		"name": "Lily Pad Planter",
+		"hint": "Follow the marked boardwalk beside the River Park pond.",
+	},
+	{
 		"id": "golden_cake",
 		"name": "Flying Golden Cake",
 		"hint": "Search the northern city for a rare moving treat.",

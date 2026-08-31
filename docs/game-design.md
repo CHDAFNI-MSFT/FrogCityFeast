@@ -77,24 +77,24 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-authored core permits 33 gameplay targets, 4 buildings, 7 separate exploration
+authored core permits 34 gameplay targets, 4 buildings, 8 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 10 draw-only festival
 lanterns, 1 draw-only Animal Control net projectile, 24 capped world effects,
 3 touch cues, and 6 fixed audio players including 4 reusable effect voices.
-Baseline and separate-room states permit up to 331 game-subtree nodes, 38
-collision objects, and 87 collision shapes; ordinary pursuit and net attack
-permit 333 nodes, 39 collision objects, and 88 collision shapes; a snare
-pursuit permits 334 nodes with the same physics structure; a roadblock pursuit
-permits 335 nodes, 40 collision objects, and 89 collision shapes; the reachable
-roadblock-and-snare gameplay peak permits 336 nodes with the same 40 collision
-objects and 89 shapes. The performance Belly scenario renders 64 item rows
-within 587 nodes without changing the belly's unlimited gameplay semantics.
-The populated Field Guide contains exactly 44 rows.
+Baseline and separate-room states permit up to 343 game-subtree nodes, 39
+collision objects, and 95 collision shapes; ordinary pursuit and net attack
+permit 345 nodes, 40 collision objects, and 96 collision shapes; a snare
+pursuit permits 346 nodes with the same physics structure; a roadblock pursuit
+permits 347 nodes, 41 collision objects, and 97 collision shapes; the reachable
+roadblock-and-snare gameplay peak permits 348 nodes with the same 41 collision
+objects and 97 shapes. The performance Belly scenario renders 64 item rows
+within 599 nodes without changing the belly's unlimited gameplay semantics.
+The populated Field Guide contains exactly 45 rows.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 541 game-subtree nodes, 97 collision objects, and 148
+structural ceiling is 553 game-subtree nodes, 98 collision objects, and 156
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
@@ -321,6 +321,11 @@ things to eat.
   the chain ends pursuit, blocks remote pursuit spawning, pauses generated
   district streaming, and restores the River Park position and city camera on
   exit. Reduce motion converts every leg to an immediate cut.
+- The River Park pond now has a marked boardwalk entrance leading to a larger
+  Lily Pond Boardwalk with a bounded follow camera, authored safe arrival and
+  return positions, open maximum-growth navigation space, and a room-scoped
+  Lily Pad Planter. Entering ends pursuit and blocks remote pursuit spawning;
+  leaving restores the River Park camera and exact safe return position.
 - Moonlight Market has the first progression-gated rooftop: after growing once,
   the frog can use the marked interior ladder to reach a compact rooftop garden
   with solid wall-side planters, a centered room camera, a return-to-market
