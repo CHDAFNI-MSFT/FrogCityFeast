@@ -1028,7 +1028,10 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 			_frog.global_position
 			+ shot_offset.normalized() * _frog.tongue_range()
 		)
-		var range_obstruction := _first_tongue_obstruction(limited_end)
+		var range_obstruction := _first_tongue_obstruction(
+			limited_end,
+			_growth_tier >= 2
+		)
 		if not range_obstruction.is_empty():
 			_handle_tongue_obstruction(
 				range_obstruction,
@@ -1043,7 +1046,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 
 	var obstruction := _first_tongue_obstruction(
 		world_position,
-		pursuer_hit != null,
+		pursuer_hit != null or _growth_tier >= 2,
 		target
 	)
 	if not obstruction.is_empty():
@@ -1056,9 +1059,10 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 	if pursuer_hit != null:
 		AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
 		if _growth_tier < 2:
+			pursuer_hit.pulse_deflect()
 			_show_tongue(world_position)
 			_tongue_recovery = TONGUE_RECOVERY
-			_show_status("Animal Control is too big to eat yet!")
+			_show_status("Animal Control deflected the tongue!")
 		else:
 			_show_tongue(world_position)
 			_swallow_pursuer(pursuer_hit, pursuer_hit.hit_accuracy(world_position))
@@ -1814,6 +1818,11 @@ func performance_structure_snapshot() -> Dictionary:
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
 		"roadblocks": 1 if is_instance_valid(_roadblock) else 0,
 		"pursuit_traps": 1 if is_instance_valid(_pursuit_trap) else 0,
+		"pursuer_deflecting": (
+			_pursuer.deflect_feedback_active()
+			if is_instance_valid(_pursuer)
+			else false
+		),
 		"net_projectiles": (
 			_pursuer.active_net_projectile_count()
 			if is_instance_valid(_pursuer)
@@ -2441,6 +2450,11 @@ func _handle_tongue_obstruction(
 	_show_tongue(obstruction["position"] as Vector2)
 	_tongue_recovery = TONGUE_RECOVERY
 	var collider := obstruction.get("collider") as Object
+	if is_instance_valid(_pursuer) and collider == _pursuer:
+		_pursuer.pulse_deflect()
+		AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
+		_show_status("Animal Control deflected the tongue!")
+		return
 	if is_instance_valid(_roadblock) and collider == _roadblock:
 		var roadblock := _roadblock
 		var broken := roadblock.register_tongue_hit()

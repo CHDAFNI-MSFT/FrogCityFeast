@@ -38,6 +38,9 @@ The prototype includes:
 - traffic that is dangerous while the frog is small and edible at maximum
   growth;
 - Animal Control pursuit after an escaped target calls for help;
+- Animal Control tongue deflection that stops direct shots and shots crossing
+  the officer before another target, uses draw-only shield feedback and normal
+  recovery, and stops protecting targets once the frog reaches maximum growth;
 - a deterministic Animal Control net attack with a 0.8-second warning, one
   wall-aware draw-only projectile, a dodge window, and a three-second six-tap
   escape;
@@ -269,11 +272,12 @@ destruction-gated room transitions, the bounded night-bazaar schedule,
 frame-step-independent lantern motion, the bounded rain schedule and density
 change,
 frame-step-independent rain, static reduced-motion weather, pursuit, net windup
-and wall clearance, dodging, tongue interruption, rapid-tap escape and timeout
-damage, flight and growth immunity, profile persistence, Field Guide catalog
-and overlay behavior, legacy discovery saves, per-profile accessibility
-persistence and legacy defaults, touch-target sizing, safe-area layout, touch
-feedback, reduced-motion transitions, deterministic session challenges,
+and wall clearance, dodging, tongue interruption and deflection, maximum-size
+deflection immunity, rapid-tap escape and timeout damage, flight and growth
+immunity, profile persistence, Field Guide catalog and overlay behavior,
+legacy discovery saves, per-profile accessibility persistence and legacy
+defaults, touch-target sizing, safe-area layout, touch feedback, reduced-motion
+transitions, deterministic session challenges,
 original audio resources and provenance, audio buses and semantic event wiring,
 bounded player/cooldown behavior, per-profile audio persistence and legacy
 defaults, loop lifecycle, gameplay RNG isolation, performance structure and
@@ -329,6 +333,7 @@ The deterministic structural budgets are enforced in CI:
 |---|---|
 | Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 285 game-subtree nodes, 35 collision objects, 63 collision shapes, 30 targets, 4 buildings, 4 separate rooms |
 | Ordinary pursuit | 287 nodes, 36 collision objects, 64 collision shapes, 1 pursuer |
+| Animal Control tongue deflection | Pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes; feedback is draw-only |
 | Pursuit in active crowd cover | Pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
 | Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes |
 | Animal Control snare | 288 nodes, 36 collision objects, 64 collision shapes, 1 pursuer, 1 draw-only snare |
@@ -352,14 +357,15 @@ The harness uses fixed random seeds and covers baseline play, the night-open
 Oddities Shop and Moonlight Market bazaar, the active Leap Café stockroom, the
 active Canal Apartments upper hall, the progression-gated Moonlight Market
 rooftop garden, the fixture-gated Oddities Shop cellar, busy daytime, ordinary
-and crowd-cover pursuit, a temporary roadblock, a draw-only pursuit snare, an
-Animal Control net in flight, maximum growth, a finite maximum presentation
-burst, a 64-item Belly, the populated Field Guide, both accessibility options,
-and a reachable gameplay peak combining daytime activity, pursuit, growth, the
-roadblock, the snare, and presentation effects. It prints median FPS,
-frame-time percentiles, memory, and a post-sample render snapshot. The
-command-driven Windows run can show isolated scheduling/window stalls, so p95
-is more useful than its maximum or arithmetic-mean FPS.
+and crowd-cover pursuit, active tongue-deflection feedback, a temporary
+roadblock, a draw-only pursuit snare, an Animal Control net in flight, maximum
+growth, a finite maximum presentation burst, a 64-item Belly, the populated
+Field Guide, both accessibility options, and a reachable gameplay peak
+combining daytime activity, pursuit, growth, the roadblock, the snare, and
+presentation effects. It prints median FPS, frame-time percentiles, memory, and
+a post-sample render snapshot. The command-driven Windows run can show isolated
+scheduling/window stalls, so p95 is more useful than its maximum or
+arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.

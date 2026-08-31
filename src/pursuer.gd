@@ -19,6 +19,7 @@ const NET_MAX_TRAVEL := 700.0
 const NET_MIN_DISTANCE := 170.0
 const NET_MAX_DISTANCE := 520.0
 const NET_RADIUS := 26.0
+const DEFLECT_FEEDBACK_DURATION := 0.28
 
 var frog: PlayerFrog
 var active := true
@@ -37,6 +38,7 @@ var _net_velocity := Vector2.ZERO
 var _net_travel := 0.0
 var _frog_netted := false
 var _net_tap_flash := 0.0
+var _deflect_feedback_left := 0.0
 var _presentation_motion_scale := 1.0
 var _net_collision_shape := CircleShape2D.new()
 
@@ -63,6 +65,12 @@ func _physics_process(delta: float) -> void:
 	_catch_cooldown = maxf(0.0, _catch_cooldown - delta)
 	_net_cooldown = maxf(0.0, _net_cooldown - delta)
 	_net_tap_flash = maxf(0.0, _net_tap_flash - delta * 4.0)
+	if _deflect_feedback_left > 0.0:
+		_deflect_feedback_left = maxf(
+			0.0,
+			_deflect_feedback_left - delta
+		)
+		queue_redraw()
 	if _frog_netted:
 		velocity = Vector2.ZERO
 		queue_redraw()
@@ -146,6 +154,15 @@ func set_frog_netted(value: bool) -> void:
 func pulse_net() -> void:
 	_net_tap_flash = 1.0
 	queue_redraw()
+
+
+func pulse_deflect() -> void:
+	_deflect_feedback_left = DEFLECT_FEEDBACK_DURATION
+	queue_redraw()
+
+
+func deflect_feedback_active() -> bool:
+	return _deflect_feedback_left > 0.0
 
 
 func cancel_net_attack() -> void:
@@ -307,6 +324,29 @@ func _draw() -> void:
 		Color.WHITE
 	)
 	_draw_net_attack()
+	_draw_deflect_feedback()
+
+
+func _draw_deflect_feedback() -> void:
+	if _deflect_feedback_left <= 0.0:
+		return
+	var strength := clampf(
+		_deflect_feedback_left / DEFLECT_FEEDBACK_DURATION,
+		0.0,
+		1.0
+	)
+	var expansion := (
+		(1.0 - strength) * 8.0 * _presentation_motion_scale
+	)
+	draw_arc(
+		Vector2.ZERO,
+		38.0 + expansion,
+		-PI * 0.82,
+		PI * 0.18,
+		18,
+		Color(0.96, 0.88, 0.48, 0.9 * strength),
+		5.0
+	)
 
 
 func _draw_net_attack() -> void:

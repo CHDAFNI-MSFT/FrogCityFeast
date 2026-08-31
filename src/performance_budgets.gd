@@ -115,6 +115,13 @@ const STRUCTURAL_LIMITS := {
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 	},
+	"tongue_deflect": {
+		"game_nodes": 287,
+		"collision_objects": 36,
+		"collision_shapes": 64,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+	},
 	"crowd_pursuit": {
 		"game_nodes": 287,
 		"collision_objects": 36,

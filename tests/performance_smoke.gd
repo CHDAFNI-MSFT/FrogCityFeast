@@ -148,6 +148,12 @@ func _run() -> void:
 			"discoveries": PackedStringArray(),
 		},
 		{
+			"name": "tongue_deflect",
+			"setup": _setup_tongue_deflect,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
 			"name": "crowd_pursuit",
 			"setup": _setup_crowd_pursuit,
 			"preferences": _default_preferences(),
@@ -346,6 +352,11 @@ func _setup_pursuit(game: FrogGame) -> void:
 	game._spawn_pursuer()
 
 
+func _setup_tongue_deflect(game: FrogGame) -> void:
+	game._spawn_pursuer()
+	game._pursuer.pulse_deflect()
+
+
 func _setup_crowd_pursuit(game: FrogGame) -> void:
 	game._day_clock = 0.5
 	game._update_day_night(0.0)
@@ -524,6 +535,12 @@ func _check_scenario_expectations(
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS,
 				"Pursuit stress contains one Animal Control pursuer."
+			)
+		"tongue_deflect":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and bool(snapshot["pursuer_deflecting"]),
+				"Tongue-deflection stress uses draw-only pursuer feedback."
 			)
 		"crowd_pursuit":
 			_check(

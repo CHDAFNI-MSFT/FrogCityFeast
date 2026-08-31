@@ -372,6 +372,17 @@ the telegraph and escape scale pulses while preserving the gameplay timing and
 static net information. The attack is deterministic, uses no gameplay random
 numbers, adds no collision or scene nodes, and reuses existing audio.
 
+Animal Control also explicitly deflects tongue shots from a small or medium
+frog. A direct shot at the officer, or a shot whose path crosses the officer
+before reaching another target, stops at the officer with a short draw-only
+shield flash and the normal tongue recovery. The intended target, score,
+growth, challenges, and Field Guide remain unchanged. At maximum growth the
+officer can no longer protect targets: shots pass through the block, while a
+direct hit can swallow Animal Control through the existing discovery path.
+Reduce motion keeps the static flash while suppressing its expansion. The
+deflection adds no scene nodes, collision, saves, or gameplay random-number
+use.
+
 The River Park meetup implements the first crowd-based pursuit escape. While
 the daytime meetup is active, pursuit changes its marked area to `HIDE HERE`
 and a static progress ring fills as an eligible frog stays within the crowd.

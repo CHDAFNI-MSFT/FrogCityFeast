@@ -353,6 +353,7 @@ func _run() -> void:
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
+	await _test_pursuer_tongue_deflection(game_scene)
 	await _test_pursuer_roadblock(game_scene)
 	await _test_pursuer_snare(game_scene)
 	await _test_pursuer_net_escape(game_scene)
@@ -1828,6 +1829,119 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 	_check(
 		is_equal_approx(actual_random, expected_random),
 		"Animal Control net attacks do not consume the gameplay random-number stream."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
+func _test_pursuer_tongue_deflection(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("deflect_test", "Deflect Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	game._frog.global_position = Vector2(0, 320)
+	game._spawn_pursuer()
+	var pursuer := game._pursuer
+	var donut := _find_target(game, "street_donut")
+	_check(
+		is_instance_valid(pursuer) and is_instance_valid(donut),
+		"Animal Control and a protected target are available for deflection."
+	)
+	if not is_instance_valid(pursuer) or not is_instance_valid(donut):
+		game.queue_free()
+		await process_frame
+		return
+	pursuer.set_physics_process(false)
+	pursuer.global_position = Vector2(90, 320)
+	await physics_frame
+
+	var score_before := game._score
+	var target_count_before := game._targets.size()
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* donut.global_position
+	)
+	_check(
+		is_instance_valid(_find_target(game, "street_donut"))
+		and game._belly.is_empty()
+		and game._score == score_before
+		and game._targets.size() == target_count_before
+		and game._tongue_recovery > 0.0
+		and game._tongue_end.distance_to(pursuer.global_position) < 32.0
+		and pursuer.deflect_feedback_active()
+		and game._status_label.text.contains("deflected"),
+		"Animal Control intercepts a small frog's tongue before it reaches a protected target."
+	)
+
+	game._tongue_recovery = 0.0
+	pursuer._deflect_feedback_left = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* pursuer.global_position
+	)
+	_check(
+		pursuer.deflect_feedback_active()
+		and game._belly.is_empty()
+		and game._status_label.text.contains("deflected"),
+		"A direct tongue shot at Animal Control receives the same clear deflection."
+	)
+
+	game.set_motion_scale(0.0)
+	game._tongue_recovery = 0.0
+	pursuer._deflect_feedback_left = 0.0
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* pursuer.global_position
+	)
+	_check(
+		pursuer.deflect_feedback_active()
+		and is_zero_approx(pursuer._presentation_motion_scale),
+		"Reduce motion keeps static deflection feedback without its expansion."
+	)
+
+	game._growth_tier = 2
+	game._frog.set_growth_tier(2)
+	game._tongue_recovery = 0.0
+	pursuer._deflect_feedback_left = 0.0
+	game._frog.global_position = Vector2(0, 0)
+	pursuer.global_position = Vector2(90, 0)
+	await physics_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* Vector2(1000, 0)
+	)
+	_check(
+		not pursuer.deflect_feedback_active()
+		and game._status_label.text.contains("out of tongue range")
+		and is_equal_approx(
+			game._tongue_end.distance_to(game._frog.global_position),
+			game._frog.tongue_range()
+		),
+		"Maximum growth ignores an officer inside an out-of-range shot while retaining the range limit."
+	)
+
+	game._tongue_recovery = 0.0
+	game._frog.global_position = Vector2(0, 320)
+	pursuer.global_position = Vector2(90, 320)
+	await physics_frame
+	donut = _find_target(game, "street_donut")
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* donut.global_position
+	)
+	_check(
+		not is_instance_valid(_find_target(game, "street_donut"))
+		and game._belly.size() == 1
+		and game._belly[0].target_id == "street_donut"
+		and is_instance_valid(game._pursuer)
+		and not pursuer.deflect_feedback_active(),
+		"Maximum growth shoots through Animal Control's block to swallow the intended target."
 	)
 
 	game.queue_free()
