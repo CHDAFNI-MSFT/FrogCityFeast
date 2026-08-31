@@ -25,6 +25,7 @@ var highlighted := false
 var world_instance_id := ""
 var district_coordinate := Vector2i.ZERO
 var motion_seed := 0
+var world_state_dirty := false
 
 var _turn_timer := 0.0
 var _motion_rng: RandomNumberGenerator
@@ -65,6 +66,8 @@ func _process(delta: float) -> void:
 			_turn_timer = _motion_randf_range(0.55, 1.5)
 
 	position += velocity * delta
+	if not world_instance_id.is_empty():
+		world_state_dirty = true
 	if move_bounds.size != Vector2.ZERO:
 		if position.x < move_bounds.position.x:
 			position.x = move_bounds.position.x
@@ -125,6 +128,7 @@ func flee_from(source_position: Vector2) -> void:
 		direction = Vector2.RIGHT
 	velocity = direction * 310.0
 	unpredictable = true
+	world_state_dirty = true
 
 
 func set_presentation_scale(value: float) -> void:

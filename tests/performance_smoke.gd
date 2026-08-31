@@ -67,6 +67,24 @@ func _run() -> void:
 		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
+		BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
+			== DistrictGenerator.MAX_LOADED_GENERATED_DISTRICTS
+			and BUDGETS.MAX_GENERATED_BUILDINGS
+			== (
+				BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
+				* DistrictGenerator.BUILDINGS_PER_DISTRICT
+			)
+			and BUDGETS.MAX_GENERATED_TARGETS
+			== (
+				BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
+				* (
+					DistrictGenerator.LOOSE_TARGETS_PER_DISTRICT
+					+ DistrictGenerator.BUILDINGS_PER_DISTRICT * 4
+				)
+			),
+		"The generated district budgets match the streaming content caps."
+	)
+	_check(
 		BUDGETS.FIELD_GUIDE_ROWS == DiscoveryCatalog.count(),
 		"The Field Guide budget matches the catalog."
 	)
@@ -213,6 +231,12 @@ func _run() -> void:
 		{
 			"name": "gameplay_peak",
 			"setup": _setup_gameplay_peak,
+			"preferences": _default_preferences(),
+			"discoveries": DiscoveryCatalog.ids(),
+		},
+		{
+			"name": "generated_streaming",
+			"setup": _setup_generated_streaming,
 			"preferences": _default_preferences(),
 			"discoveries": DiscoveryCatalog.ids(),
 		},
@@ -446,6 +470,13 @@ func _setup_gameplay_peak(game: FrogGame) -> void:
 	_setup_presentation_peak(game)
 
 
+func _setup_generated_streaming(game: FrogGame) -> void:
+	game._frog.global_position = DistrictGenerator.bounds_for_coordinate(
+		Vector2i(2, 2)
+	).get_center()
+	game._update_district_streaming()
+
+
 func _check_scenario_expectations(
 	scenario_name: String,
 	snapshot: Dictionary
@@ -614,6 +645,19 @@ func _check_scenario_expectations(
 				"Gameplay peak combines reachable pursuit and daytime activity."
 			)
 			_check_presentation_peak(snapshot)
+		"generated_streaming":
+			_check(
+				int(snapshot["loaded_generated_districts"])
+				== BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
+				and int(snapshot["generated_district_records"])
+				== BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
+				and int(snapshot["district_state_records"]) == 0
+				and int(snapshot["generated_buildings"])
+				== BUDGETS.MAX_GENERATED_BUILDINGS
+				and int(snapshot["generated_targets"])
+				== BUDGETS.MAX_GENERATED_TARGETS,
+				"Generated streaming reaches its bounded untouched 3x3 district ring."
+			)
 
 
 func _check_presentation_peak(snapshot: Dictionary) -> void:

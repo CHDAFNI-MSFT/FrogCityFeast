@@ -66,6 +66,22 @@ The prototype includes:
   with indoor residents returning inside their building;
 - target restocking so a score session can continue;
 - collision-aware target restocking that separates simultaneous replacements;
+- an authored central district retained as the starting district, surrounded
+  by deterministic generated districts as the frog approaches city edges;
+- six generated archetypes: downtown, apartment neighborhoods, industrial,
+  waterfront, shopping, and parks-and-gardens;
+- seamless matching through streets, collision-safe open areas, environmental
+  obstacles, enterable street-level building shells, four loose targets, and
+  staged building destruction in every generated district;
+- a dedicated per-district random-number generator derived from a session seed,
+  without consuming the existing gameplay random-number stream;
+- bounded streaming with at most nine generated districts, nine generated
+  buildings, and 72 generated targets loaded around the active district;
+- deterministic regeneration of untouched districts plus compact session-only
+  deltas for removed or moved targets, relocated spat-out items, removed
+  building parts, and consumed or restored buildings;
+- cross-district Belly restocking, Field Guide discovery categories, camera
+  follow, pursuit handoff, and unchanged authored connected-room scoping;
 - rare-target replenishment on a randomized 90–180 second schedule;
 - a rare golden cake that grants one minute of flight;
 - a lightweight day and night cycle that changes the world tint, pedestrian
@@ -281,7 +297,9 @@ transitions, deterministic session challenges,
 original audio resources and provenance, audio buses and semantic event wiring,
 bounded player/cooldown behavior, per-profile audio persistence and legacy
 defaults, loop lifecycle, gameplay RNG isolation, performance structure and
-stress budgets, the credential-free iOS pipeline
+stress budgets, deterministic district generation, live-physics clearance,
+boundary loading, distant unloading, revisit restoration, compact delta state,
+cross-district restocking, pursuit cleanup, and the credential-free iOS pipeline
 configuration, tutorial sequence, action restrictions, guided struggle
 recovery, Skip behavior, and tutorial completion persistence.
 
@@ -303,7 +321,9 @@ The overlay is input-transparent and continues updating while the Belly, Field
 Guide, or Options overlay pauses gameplay. It reports rolling frame time and
 FPS, coarse Godot process and physics time, static memory, global node/resource
 counts, 2D physics activity, and game-specific nodes, canvas items, collision
-objects, targets, buildings, pursuit, city actors, effects, and overlay data.
+objects, targets, buildings, loaded/generated/changed district counts,
+generated target and building counts, pursuit, city actors, effects, and
+overlay data.
 Live render-server counters are deliberately omitted because polling them can
 disturb the frame being observed.
 
@@ -331,21 +351,22 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 285 game-subtree nodes, 35 collision objects, 63 collision shapes, 30 targets, 4 buildings, 4 separate rooms |
-| Ordinary pursuit | 287 nodes, 36 collision objects, 64 collision shapes, 1 pursuer |
-| Animal Control tongue deflection | Pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes; feedback is draw-only |
-| Pursuit in active crowd cover | Pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 287 nodes, 36 collision objects, and 64 collision shapes |
-| Animal Control snare | 288 nodes, 36 collision objects, 64 collision shapes, 1 pursuer, 1 draw-only snare |
-| Roadblock pursuit | 289 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock |
-| Reachable gameplay peak | 290 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
-| Populated Belly sample | 64 items and rows, 541 nodes; this is a stress sample, not a gameplay capacity limit |
+| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 295 game-subtree nodes, 35 collision objects, 63 collision shapes, 30 targets, 4 buildings, 4 separate rooms |
+| Ordinary pursuit | 297 nodes, 36 collision objects, 64 collision shapes, 1 pursuer |
+| Animal Control tongue deflection | Pursuit structure remains at 297 nodes, 36 collision objects, and 64 collision shapes; feedback is draw-only |
+| Pursuit in active crowd cover | Pursuit structure remains at 297 nodes, 36 collision objects, and 64 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 297 nodes, 36 collision objects, and 64 collision shapes |
+| Animal Control snare | 298 nodes, 36 collision objects, 64 collision shapes, 1 pursuer, 1 draw-only snare |
+| Roadblock pursuit | 299 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock |
+| Reachable gameplay peak | 300 nodes, 37 collision objects, 65 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
+| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 505 nodes, 94 collision objects, and 124 collision shapes including the authored core |
+| Populated Belly sample | 64 items and rows, 551 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 31 rows, matching the fixed catalog |
+| Populated Field Guide | 41 rows, matching the fixed authored and generated-type catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -360,25 +381,26 @@ rooftop garden, the fixture-gated Oddities Shop cellar, busy daytime, ordinary
 and crowd-cover pursuit, active tongue-deflection feedback, a temporary
 roadblock, a draw-only pursuit snare, an Animal Control net in flight, maximum
 growth, a finite maximum presentation burst, a 64-item Belly, the populated
-Field Guide, both accessibility options, and a reachable gameplay peak
+Field Guide, both accessibility options, a maximum 3x3 generated-district ring,
+and a reachable gameplay peak
 combining daytime activity, pursuit, growth, the roadblock, the snare, and
 presentation effects. It prints median FPS, frame-time percentiles, memory, and
 a post-sample render snapshot. The command-driven Windows run can show isolated
 scheduling/window stalls, so p95 is more useful than its maximum or
 arithmetic-mean FPS.
 
-An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
-4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.
-Ordinary and populated-overlay scenarios were comfortably below the structural
-and render-count ceilings. One representative run measured 15.09 ms frame-time
-p95 for the finite presentation burst and 20.13 ms for the combined gameplay
-peak; the latter is marked for review against the 18 ms target. The same
-command-driven run produced isolated roughly half-second maximum-frame outliers
-and delayed process-time snapshots, so those values are not treated as
-acceptance evidence. Both peaks require explicit profiling on the A16 iPad. The
-unsigned Godot-to-Xcode pipeline is now verified, but installing and profiling
-on the target device still requires a separately authorized, developer-signed
-device build.
+An August 31, 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA
+RTX 4050 laptop measured the maximum nine-district ring at 8.62 ms frame-time
+p95, 47.3 MiB static memory, 21.3 MiB video memory, 47 draw calls, 438 rendered
+objects, and 3,648 primitives. Its structural snapshot was 505 game-subtree
+nodes, 94 collision objects, 124 collision shapes, 102 total targets, and 13
+total buildings. The same run measured the combined authored gameplay peak at
+8.63 ms frame-time p95, 45.9 MiB static memory, 21.5 MiB video memory, 426 draw
+calls, 1,035 rendered objects, and 25,320 primitives. Command-driven desktop
+measurements remain advisory and can contain scheduling outliers; both peaks
+still require explicit profiling on the A16 iPad. The unsigned Godot-to-Xcode
+pipeline is verified, but installing and profiling on the target device still
+requires a separately authorized, developer-signed device build.
 
 ## Unsigned iOS export verification
 
@@ -410,12 +432,19 @@ are recorded in [`ios-release.md`](ios-release.md).
 ## Prototype boundaries
 
 This is a mechanics prototype, not a finished game. It deliberately uses
-simple vector graphics and a fixed city area so the eating and growth loop can
-be evaluated before larger production work.
+simple vector graphics and a bounded streaming window so the eating, growth,
+destruction, and endless traversal loops can be evaluated before larger
+production work.
 
 The following parts of the full design are not implemented yet:
 
-- procedural endless city generation and additional districts;
+- generated multi-room interiors, upper levels, rooftops, and authored events;
+- restaurant, outdoor-market, suburban, construction, entertainment, and
+  secret-fantasy generator archetypes;
+- generated pedestrian and traffic routes beyond the authored central
+  district;
+- persistence of generated district state across application launches, which
+  remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
 - pathfinding around complex city geometry;
 - additional pursuer types, trap varieties, and roadblock layouts;
@@ -456,8 +485,8 @@ Continue the prototype one reviewed priority at a time:
    A16 iPad validation as separately approved release tasks; no gameplay change
    implicitly authorizes them.
 2. Select one next bounded gameplay slice from the remaining prototype backlog,
-   such as another connected interior, another pursuer behavior, or another
-   dynamic city event.
+   such as a generated connected interior, another district archetype, another
+   pursuer behavior, or another dynamic city event.
 3. Review, test, document, and commit that slice before beginning another
    system.
 

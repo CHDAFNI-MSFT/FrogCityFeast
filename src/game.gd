@@ -682,7 +682,10 @@ func _load_generated_district(coordinate: Vector2i) -> void:
 	_world.add_child(root)
 	_loaded_districts[coordinate] = root
 
-	var state := _district_state(coordinate)
+	var state := _district_states.get(
+		_district_key(coordinate),
+		_new_district_state()
+	) as Dictionary
 	var spawned_instances := {}
 	for index in definition.buildings.size():
 		var building_data := definition.buildings[index] as Dictionary
@@ -745,7 +748,12 @@ func _unload_generated_district(coordinate: Vector2i) -> void:
 	if not is_instance_valid(root):
 		_loaded_districts.erase(coordinate)
 		return
-	var state := _district_state(coordinate)
+	var key := _district_key(coordinate)
+	var state := _district_states.get(
+		key,
+		_new_district_state()
+	) as Dictionary
+	_district_states[key] = state
 	var target_states := {}
 	for target in _targets.duplicate():
 		if (
@@ -753,7 +761,10 @@ func _unload_generated_district(coordinate: Vector2i) -> void:
 			and target.district_coordinate == coordinate
 			and not target.world_instance_id.is_empty()
 		):
-			target_states[target.world_instance_id] = _serialize_target(target)
+			if target.world_state_dirty:
+				target_states[target.world_instance_id] = _serialize_target(
+					target
+				)
 			_targets.erase(target)
 	state["target_states"] = target_states
 	for building in _buildings.duplicate():
@@ -765,8 +776,11 @@ func _unload_generated_district(coordinate: Vector2i) -> void:
 			_capture_generated_building_state(building)
 			_buildings.erase(building)
 			_building_by_id.erase(building.building_id)
-	_district_states[_district_key(coordinate)] = state
-	_district_definitions.erase(_district_key(coordinate))
+	if _district_state_is_empty(state):
+		_district_states.erase(key)
+	else:
+		_district_states[key] = state
+	_district_definitions.erase(key)
 	_loaded_districts.erase(coordinate)
 	root.queue_free()
 
@@ -784,12 +798,24 @@ func _district_definition(coordinate: Vector2i) -> DistrictDefinition:
 func _district_state(coordinate: Vector2i) -> Dictionary:
 	var key := _district_key(coordinate)
 	if not _district_states.has(key):
-		_district_states[key] = {
-			"removed_targets": {},
-			"target_states": {},
-			"building_states": {},
-		}
+		_district_states[key] = _new_district_state()
 	return _district_states[key] as Dictionary
+
+
+func _new_district_state() -> Dictionary:
+	return {
+		"removed_targets": {},
+		"target_states": {},
+		"building_states": {},
+	}
+
+
+func _district_state_is_empty(state: Dictionary) -> bool:
+	return (
+		(state["removed_targets"] as Dictionary).is_empty()
+		and (state["target_states"] as Dictionary).is_empty()
+		and (state["building_states"] as Dictionary).is_empty()
+	)
 
 
 func _district_key(coordinate: Vector2i) -> String:
@@ -952,22 +978,34 @@ func _capture_generated_building_state(
 	):
 		return
 	var coordinate := building.get_meta("district_coordinate") as Vector2i
-	var state := _district_state(coordinate)
-	var building_states := state["building_states"] as Dictionary
-	building_states[building.building_id] = {
-		"consumed": building.consumed,
-		"removed_parts": {
-			PrototypeBuilding.PART_SIGN: building.is_part_removed(
-				PrototypeBuilding.PART_SIGN
-			),
-			PrototypeBuilding.PART_DOOR: building.is_part_removed(
-				PrototypeBuilding.PART_DOOR
-			),
-			PrototypeBuilding.PART_COUNTER: building.is_part_removed(
-				PrototypeBuilding.PART_COUNTER
-			),
-		},
+	var removed_parts := {
+		PrototypeBuilding.PART_SIGN: building.is_part_removed(
+			PrototypeBuilding.PART_SIGN
+		),
+		PrototypeBuilding.PART_DOOR: building.is_part_removed(
+			PrototypeBuilding.PART_DOOR
+		),
+		PrototypeBuilding.PART_COUNTER: building.is_part_removed(
+			PrototypeBuilding.PART_COUNTER
+		),
 	}
+	var changed := building.consumed
+	for removed in removed_parts.values():
+		if bool(removed):
+			changed = true
+	if changed:
+		var state := _district_state(coordinate)
+		var building_states := state["building_states"] as Dictionary
+		building_states[building.building_id] = {
+			"consumed": building.consumed,
+			"removed_parts": removed_parts,
+		}
+		return
+	var key := _district_key(coordinate)
+	if _district_states.has(key):
+		var state := _district_states[key] as Dictionary
+		var building_states := state["building_states"] as Dictionary
+		building_states.erase(building.building_id)
 
 
 func _mark_generated_target_removed(target: EdibleTarget) -> void:
@@ -987,6 +1025,7 @@ func _mark_generated_target_present(target: EdibleTarget) -> void:
 	var removed_targets := state["removed_targets"] as Dictionary
 	var target_states := state["target_states"] as Dictionary
 	removed_targets.erase(target.world_instance_id)
+	target.world_state_dirty = true
 	target_states[target.world_instance_id] = _serialize_target(target)
 
 
@@ -1016,6 +1055,7 @@ func _serialize_target(target: EdibleTarget) -> Dictionary:
 		"world_instance_id": target.world_instance_id,
 		"district_coordinate": target.district_coordinate,
 		"motion_seed": target.motion_seed,
+		"world_state_dirty": target.world_state_dirty,
 	}
 
 
@@ -4869,6 +4909,7 @@ func _spawn_target(
 	target.selectable = bool(data.get("selectable", true))
 	target.world_instance_id = str(data.get("world_instance_id", ""))
 	target.motion_seed = int(data.get("motion_seed", 0))
+	target.world_state_dirty = bool(data.get("world_state_dirty", false))
 	target.visible = not bool(data.get("hidden", false))
 	target.set_presentation_motion_scale(_motion_scale)
 	target.z_as_relative = false

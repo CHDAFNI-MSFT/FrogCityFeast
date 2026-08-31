@@ -117,7 +117,7 @@ func _process(delta: float) -> void:
 func _build_overlay() -> void:
 	var panel := PanelContainer.new()
 	panel.position = Vector2(842, 92)
-	panel.custom_minimum_size = Vector2(426, 344)
+	panel.custom_minimum_size = Vector2(426, 372)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var panel_style := StyleBoxFlat.new()
@@ -206,6 +206,15 @@ func _update_overlay() -> void:
 			structure.get("targets", 0),
 			structure.get("buildings", 0),
 			structure.get("pursuers", 0),
+		],
+		"districts: %d loaded  %d definitions  %d changed" % [
+			structure.get("loaded_generated_districts", 0),
+			structure.get("generated_district_records", 0),
+			structure.get("district_state_records", 0),
+		],
+		"generated: %d targets  %d buildings" % [
+			structure.get("generated_targets", 0),
+			structure.get("generated_buildings", 0),
 		],
 		"activity: %d actors  %d effects  %d touch cues" % [
 			structure.get("active_city_actors", 0),

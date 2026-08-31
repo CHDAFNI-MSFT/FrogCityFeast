@@ -1,6 +1,8 @@
 class_name PerformanceBudgets
 extends RefCounted
 
+const DISTRICT_GENERATOR := preload("res://src/district_generator.gd")
+
 const TARGET_FPS := 60.0
 const FRAME_TIME_BUDGET_MS := 1000.0 / TARGET_FPS
 const FRAME_TIME_P95_BUDGET_MS := 18.0
@@ -30,6 +32,20 @@ const MAX_AUDIO_NODES := 7
 const MAX_AUDIO_PLAYERS := 6
 const MAX_AUDIO_EFFECT_VOICES := 4
 const FIELD_GUIDE_ROWS := 41
+const MAX_LOADED_GENERATED_DISTRICTS := (
+	DISTRICT_GENERATOR.MAX_LOADED_GENERATED_DISTRICTS
+)
+const MAX_GENERATED_BUILDINGS := (
+	MAX_LOADED_GENERATED_DISTRICTS
+	* DISTRICT_GENERATOR.BUILDINGS_PER_DISTRICT
+)
+const MAX_GENERATED_TARGETS := (
+	MAX_LOADED_GENERATED_DISTRICTS
+	* (
+		DISTRICT_GENERATOR.LOOSE_TARGETS_PER_DISTRICT
+		+ DISTRICT_GENERATOR.BUILDINGS_PER_DISTRICT * 4
+	)
+)
 const BELLY_STRESS_ITEMS := 64
 const STRESS_RANDOM_SEED := 0xF06C2026
 const LOCAL_WARMUP_SECONDS := 1.25
@@ -204,6 +220,18 @@ const STRUCTURAL_LIMITS := {
 		"active_city_actors": MAX_CITY_ACTORS,
 		"active_effects": MAX_VISUAL_EFFECTS,
 		"touch_feedback": MAX_TOUCH_FEEDBACK,
+	},
+	"generated_streaming": {
+		"game_nodes": 505,
+		"collision_objects": 94,
+		"collision_shapes": 124,
+		"targets": MAX_TARGETS + MAX_GENERATED_TARGETS,
+		"buildings": MAX_BUILDINGS + MAX_GENERATED_BUILDINGS,
+		"loaded_generated_districts": MAX_LOADED_GENERATED_DISTRICTS,
+		"generated_district_records": MAX_LOADED_GENERATED_DISTRICTS,
+		"district_state_records": 0,
+		"generated_targets": MAX_GENERATED_TARGETS,
+		"generated_buildings": MAX_GENERATED_BUILDINGS,
 	},
 }
 

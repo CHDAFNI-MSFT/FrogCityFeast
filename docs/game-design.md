@@ -77,23 +77,30 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-prototype permits 30 gameplay targets, 4 buildings, 4 separate exploration
+authored core permits 30 gameplay targets, 4 buildings, 4 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 10 draw-only festival
 lanterns, 1 draw-only Animal Control net projectile, 24 capped world effects,
 3 touch cues, and 6 fixed audio players including 4 reusable effect voices.
-Baseline and separate-room states
-permit up to 285 game-subtree nodes, 35 collision objects, and 63 collision
-shapes; ordinary pursuit and net attack permit 287 nodes, 36 collision objects,
-and 64 collision shapes; a snare pursuit permits 288 nodes with the same
-physics structure; a roadblock pursuit permits 289 nodes, 37 collision objects,
-and 65 collision shapes; the reachable roadblock-and-snare gameplay peak
-permits 290 nodes with the same 37 collision objects and 65 shapes. The
-performance Belly scenario renders 64 item rows within 541 nodes without
-changing the belly's unlimited gameplay semantics. The populated Field Guide
-contains exactly 31 rows.
+Baseline and separate-room states permit up to 295 game-subtree nodes, 35
+collision objects, and 63 collision shapes; ordinary pursuit and net attack
+permit 297 nodes, 36 collision objects, and 64 collision shapes; a snare
+pursuit permits 298 nodes with the same physics structure; a roadblock pursuit
+permits 299 nodes, 37 collision objects, and 65 collision shapes; the reachable
+roadblock-and-snare gameplay peak permits 300 nodes with the same 37 collision
+objects and 65 shapes. The performance Belly scenario renders 64 item rows
+within 551 nodes without changing the belly's unlimited gameplay semantics.
+The populated Field Guide contains exactly 41 rows.
 
-Reproducible stress coverage includes all four connected rooms, the night
+The generated-city stress state holds a maximum 3x3 ring of 9 generated
+districts, with 9 generated buildings and 72 generated targets. Its measured
+structural ceiling is 505 game-subtree nodes, 94 collision objects, and 124
+collision shapes, including the always-resident authored core. Untouched
+district definitions are regenerated instead of retained after unloading;
+only compact state for changed districts remains in session memory.
+
+Reproducible stress coverage includes the maximum generated-district ring, all
+four connected rooms, the night
 bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
 roadblock and snare pursuit, a net in flight, maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
@@ -204,21 +211,37 @@ The game takes place in an endless city. New districts continue to generate as
 the frog explores. Damage and destruction remain in previously visited places
 during the current game rather than being automatically repaired.
 
+The implemented foundation keeps the authored city as district `(0,0)` and
+places generated districts on a deterministic 3520×2720 world grid. Each game
+creates a session seed without using the existing gameplay random-number
+stream. A district's coordinate and that session seed reproduce its archetype,
+streets, building, entrances, obstacles, open restock points, targets, and
+pursuit anchors.
+
+Generated neighbors stream in before the frog reaches a district edge. Outside
+the core, the active district and its surrounding 3x3 ring are loaded, capped
+at nine generated districts. Distant generated nodes are removed from the
+scene tree. Untouched districts are regenerated on demand, while compact
+session-local deltas retain removed targets, moved or spat-out targets, removed
+building parts, and consumed or restored buildings. This generated world state
+is deliberately not written to profile saves while the new-game/resume
+decision remains unresolved.
+
 The city contains a large variety of shops, apartments, restaurants, and other
 enterable locations. A rare discovery is a large open plot containing many
 things to eat.
 
 ### District types
 
-- Downtown skyscrapers
-- Apartment neighborhoods
+- Downtown skyscrapers (implemented foundation archetype)
+- Apartment neighborhoods (implemented foundation archetype)
 - Restaurant district
-- Shopping district
+- Shopping district (implemented foundation archetype)
 - Outdoor market
 - Suburbs and backyards
-- Industrial area
-- Parks and gardens
-- Waterfront and canals
+- Industrial area (implemented foundation archetype)
+- Parks and gardens (implemented foundation archetype)
+- Waterfront and canals (implemented foundation archetype)
 - Construction sites
 - Entertainment district
 - Secret fantasy district
@@ -233,6 +256,10 @@ things to eat.
   escapes, balconies, sewers, subway tunnels, parks, ponds, construction
   cranes, and secret underground areas.
 - The navigation system marks buildings the player has discovered.
+- Generated districts currently contain one enterable street-level building
+  shell with a collision-safe doorway, three removable parts, and a
+  maximum-growth whole-building capture. Generated separate rooms and upper
+  levels remain future work.
 - The current prototype has staged destruction for all four authored
   buildings. Each requires three removable parts and maximum growth before the
   whole weakened building can be swallowed.

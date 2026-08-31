@@ -85,6 +85,7 @@ func _run() -> void:
 	district.queue_free()
 	await process_frame
 	await _test_game_streaming(seed_value)
+	await _test_transition_regressions(seed_value)
 	await _finish()
 
 
@@ -167,6 +168,28 @@ func _test_game_streaming(seed_value: int) -> void:
 			),
 		"Generated buildings expose physical enterable shells."
 	)
+	var generated_definition := game._district_definition(
+		district_coordinate
+	)
+	var generated_clearances_safe := true
+	for restock_position in generated_definition.restock_positions:
+		if not game._circle_position_clear(
+			restock_position,
+			game._frog.collision_radius(),
+			true
+		):
+			generated_clearances_safe = false
+	var entrance_position := _building_entrance_position(building)
+	if not game._circle_position_clear(
+		entrance_position,
+		game._frog.collision_radius(),
+		true
+	):
+		generated_clearances_safe = false
+	_check(
+		generated_clearances_safe,
+		"Generated open areas and building entrances are clear in live physics."
+	)
 	var sign := _building_part_target(
 		game,
 		building.building_id,
@@ -185,6 +208,8 @@ func _test_game_streaming(seed_value: int) -> void:
 		district_coordinate
 	)
 	var loose_instance_id := loose_target.world_instance_id
+	loose_target.flee_from(game._frog.global_position)
+	loose_target.velocity = Vector2.ZERO
 	loose_target.global_position += Vector2(18, 12)
 	var moved_position := loose_target.global_position
 
@@ -300,6 +325,8 @@ func _test_game_streaming(seed_value: int) -> void:
 	var max_loaded := 0
 	var max_generated_buildings := 0
 	var max_generated_targets := 0
+	var max_definition_records := 0
+	var max_state_records := 0
 	for x in range(2, 18):
 		game._frog.global_position = GENERATOR.bounds_for_coordinate(
 			Vector2i(x, 2)
@@ -319,6 +346,14 @@ func _test_game_streaming(seed_value: int) -> void:
 			max_generated_targets,
 			int(snapshot["generated_targets"])
 		)
+		max_definition_records = maxi(
+			max_definition_records,
+			int(snapshot["generated_district_records"])
+		)
+		max_state_records = maxi(
+			max_state_records,
+			int(snapshot["district_state_records"])
+		)
 	_check(
 		max_loaded <= GENERATOR.MAX_LOADED_GENERATED_DISTRICTS
 			and max_generated_buildings
@@ -329,12 +364,171 @@ func _test_game_streaming(seed_value: int) -> void:
 			* (
 				GENERATOR.LOOSE_TARGETS_PER_DISTRICT
 				+ GENERATOR.BUILDINGS_PER_DISTRICT * 4
+			)
+			and max_definition_records
+			<= GENERATOR.MAX_LOADED_GENERATED_DISTRICTS
+			and max_state_records == 1,
+		"Long-distance travel caps loaded content and retains only changed district state."
+	)
+
+	var future_coordinate := Vector2i(40, 40)
+	var future_key := game._district_key(future_coordinate)
+	var unload_state := game._district_state(future_coordinate)
+	var unchanged_building := PrototypeBuilding.new()
+	unchanged_building.building_id = "future_unchanged"
+	unchanged_building.set_meta(
+		"district_coordinate",
+		future_coordinate
+	)
+	var changed_building := PrototypeBuilding.new()
+	changed_building.building_id = "future_changed"
+	changed_building.set_meta(
+		"district_coordinate",
+		future_coordinate
+	)
+	changed_building.remove_part(PrototypeBuilding.PART_SIGN)
+	game._capture_generated_building_state(unchanged_building)
+	game._capture_generated_building_state(changed_building)
+	if game._district_state_is_empty(unload_state):
+		game._district_states.erase(future_key)
+	var captured_state := game._district_states.get(
+		future_key,
+		{}
+	) as Dictionary
+	var captured_buildings := captured_state.get(
+		"building_states",
+		{}
+	) as Dictionary
+	_check(
+		captured_buildings.has(changed_building.building_id),
+		"Capturing an unchanged building cannot discard a later changed building."
+	)
+	unchanged_building.free()
+	changed_building.free()
+	game._district_states.erase(future_key)
+
+	game.queue_free()
+	await process_frame
+
+
+func _test_transition_regressions(seed_value: int) -> void:
+	var game := GAME_SCENE.instantiate() as FrogGame
+	game.configure(
+		"district_regressions",
+		"District Regressions",
+		false,
+		PackedStringArray(),
+		{},
+		{},
+		seed_value
+	)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	var living_target := game._find_target_by_id("market_vendor")
+	game._swallow_target(living_target, 1.0)
+	game._digest_item(0)
+	game._frog.global_position = GENERATOR.bounds_for_coordinate(
+		Vector2i(1, 0)
+	).get_center()
+	game._update_district_streaming()
+	await create_timer(4.2).timeout
+	_check(
+		is_instance_valid(game._find_target_by_id("market_vendor")),
+		"Authored Belly restocking completes while the frog explores another district."
+	)
+
+	game._spawn_pursuer()
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+	var prior_roadblock := game._roadblock
+	var prior_trap := game._pursuit_trap
+	game._frog.global_position = GENERATOR.bounds_for_coordinate(
+		Vector2i(2, 0)
+	).get_center()
+	game._update_district_streaming()
+	_check(
+		is_instance_valid(game._pursuer)
+			and (
+				not is_instance_valid(prior_roadblock)
+				or prior_roadblock.is_queued_for_deletion()
+			)
+			and (
+				not is_instance_valid(prior_trap)
+				or prior_trap.is_queued_for_deletion()
 			),
-		"Long-distance travel keeps loaded districts, buildings, and targets capped."
+		"Crossing a district boundary preserves pursuit while clearing location-bound traps."
+	)
+
+	game._camera.rotation = 0.42
+	game._update_camera()
+	var expected_camera_position := (
+		game._frog.global_position
+		+ Vector2.UP.rotated(game._camera.rotation) * 220.0
+	)
+	_check(
+		game._camera.global_position.is_equal_approx(
+			expected_camera_position
+		),
+		"Camera follow behavior remains continuous in generated districts."
+	)
+	if is_instance_valid(game._pursuer):
+		game._pursuer._escape()
+	await process_frame
+
+	game._frog.global_position = Vector2.ZERO
+	game._update_district_streaming()
+	await process_frame
+	var cafe := (
+		game._building_by_id.get("leap_cafe") as PrototypeBuilding
+	)
+	game.set_motion_scale(0.0)
+	game._frog.global_position = cafe.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.STOCKROOM_ID)
+	var loaded_before_room := game._loaded_districts.size()
+	game._update_district_streaming()
+	var stockroom := (
+		game._interior_rooms.get(FrogGame.STOCKROOM_ID)
+		as PrototypeInteriorRoom
+	)
+	_check(
+		game._active_interior_id == FrogGame.STOCKROOM_ID
+			and game._current_district_coordinate == Vector2i.ZERO
+			and game._loaded_districts.size() == loaded_before_room
+			and game._camera.global_position.is_equal_approx(
+				stockroom.global_position
+			),
+		"Separate-room scoping and centered camera ignore procedural coordinates."
+	)
+	game._begin_interior_transition("city")
+	_check(
+		game._active_interior_id.is_empty()
+			and game._frog.global_position.is_equal_approx(
+				cafe.transition_door_approach_position()
+			),
+		"Returning from an authored room restores the city position after streaming."
 	)
 
 	game.queue_free()
 	await process_frame
+
+
+func _building_entrance_position(
+	building: PrototypeBuilding
+) -> Vector2:
+	var half := building.building_size / 2.0
+	match building.door_side:
+		"north":
+			return building.global_position + Vector2(0, -half.y + 44.0)
+		"south":
+			return building.global_position + Vector2(0, half.y - 44.0)
+		"east":
+			return building.global_position + Vector2(half.x - 44.0, 0)
+		_:
+			return building.global_position + Vector2(-half.x + 44.0, 0)
 
 
 func _generated_building(

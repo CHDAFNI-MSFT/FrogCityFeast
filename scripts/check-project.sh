@@ -34,6 +34,8 @@ run_checked ios-pipeline-smoke --headless --path "$repo_root" \
 run_checked ios-release-pipeline-smoke --headless --path "$repo_root" \
   --script res://tests/ios_release_pipeline_smoke.gd
 run_checked startup --headless --path "$repo_root" --quit-after 2
+run_checked district-smoke --headless --path "$repo_root" \
+  --script res://tests/district_smoke.gd
 run_checked audio-smoke --headless --path "$repo_root" \
   --script res://tests/audio_smoke.gd
 run_checked prototype-smoke --headless --path "$repo_root" \
