@@ -68,6 +68,11 @@ const ENTRIES := [
 		"hint": "Moonlight Market has someone difficult to catch.",
 	},
 	{
+		"id": "market_rooftop_beehive",
+		"name": "Rooftop Beehive",
+		"hint": "Grow once and climb the ladder inside Moonlight Market.",
+	},
+	{
 		"id": "canal_lobby_lamp",
 		"name": "Lobby Lamp",
 		"hint": "Step inside Canal Apartments and search the back wall.",

@@ -111,6 +111,8 @@ const STOCKROOM_POSITION := Vector2(3400, 0)
 const STOCKROOM_CAMERA_ZOOM := Vector2(1.2, 1.2)
 const CANAL_UPPER_HALL_ID := "canal_apartments_upper_hall"
 const CANAL_UPPER_HALL_POSITION := Vector2(3400, 1200)
+const MARKET_ROOFTOP_ID := "moonlight_market_rooftop"
+const MARKET_ROOFTOP_POSITION := Vector2(3400, 2400)
 const INTERIOR_TRANSITION_DURATION := 0.18
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
@@ -791,6 +793,12 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 			% [building.display_name, building.transition_door_label.to_lower()]
 		)
 		return true
+	if _growth_tier < building.transition_min_growth_tier:
+		_show_status(
+			"Grow once before using %s's %s."
+			% [building.display_name, building.transition_door_label.to_lower()]
+		)
+		return true
 	var destination := building.transition_room_id
 	var approach_position := building.transition_door_approach_position()
 	if _frog.global_position.distance_to(approach_position) <= 130.0:
@@ -826,6 +834,18 @@ func _begin_interior_transition(destination: String) -> void:
 			return
 	elif _interior_rooms.has(destination):
 		var building := _building_for_interior_room(destination)
+		if (
+			is_instance_valid(building)
+			and _growth_tier < building.transition_min_growth_tier
+		):
+			_show_status(
+				"Grow once before using %s's %s."
+				% [
+					building.display_name,
+					building.transition_door_label.to_lower(),
+				]
+			)
+			return
 		if (
 			not _active_interior_id.is_empty()
 			or not is_instance_valid(building)
@@ -3769,6 +3789,12 @@ func _build_prototype_city() -> void:
 		"moonlight_market",
 		true
 	)
+	market.transition_door_position = Vector2(-160, -125)
+	market.transition_door_approach_offset = Vector2(90, 65)
+	market.transition_door_label = "ROOFTOP LADDER"
+	market.transition_room_id = MARKET_ROOFTOP_ID
+	market.transition_min_growth_tier = 1
+	market.queue_redraw()
 	var cafe := _spawn_building(
 		Vector2(610, -570),
 		Vector2(440, 360),
@@ -3835,6 +3861,21 @@ func _build_prototype_city() -> void:
 		],
 		apartments.building_id,
 		"RETURN TO LOBBY"
+	)
+	var market_rooftop := _spawn_interior_room(
+		MARKET_ROOFTOP_ID,
+		"Moonlight Market Rooftop Garden",
+		MARKET_ROOFTOP_POSITION,
+		Vector2(1100, 820),
+		Color("718d68"),
+		[
+			Rect2(-430, -320, 260, 86),
+			Rect2(170, -320, 260, 86),
+			Rect2(-470, 20, 110, 190),
+			Rect2(360, -30, 110, 190),
+		],
+		market.building_id,
+		"RETURN TO MARKET"
 	)
 	var oddities_shop := _spawn_building(
 		Vector2(610, 1210),
@@ -3949,6 +3990,20 @@ func _build_prototype_city() -> void:
 		"taps": 9,
 		"kind": "living",
 		"color": Color("7867b8"),
+	})
+	_spawn_target({
+		"id": "market_rooftop_beehive",
+		"name": "Rooftop Beehive",
+		"position": market_rooftop.global_position + Vector2(-250, -180),
+		"value": 72,
+		"tier": 1,
+		"kind": "object",
+		"radius": 34.0,
+		"resistant": true,
+		"taps": 7,
+		"bounds": market_rooftop.interior_rect(),
+		"building_id": MARKET_ROOFTOP_ID,
+		"color": Color("e0b64f"),
 	})
 	_spawn_destruction_targets(oddities_shop)
 	_spawn_target({

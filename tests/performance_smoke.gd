@@ -58,8 +58,8 @@ func _run() -> void:
 		"The Animal Control snare budget remains capped at one."
 	)
 	_check(
-		BUDGETS.MAX_INTERIOR_ROOMS == 2,
-		"The authored separate-room budget matches both connected rooms."
+		BUDGETS.MAX_INTERIOR_ROOMS == 3,
+		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
 		BUDGETS.FIELD_GUIDE_ROWS == DiscoveryCatalog.count(),
@@ -94,6 +94,15 @@ func _run() -> void:
 		{
 			"name": "upper_hall",
 			"setup": _setup_upper_hall,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "market_rooftop",
+			"setup": _setup_market_rooftop,
 			"preferences": {
 				"reduce_motion": true,
 				"larger_text_controls": false,
@@ -281,6 +290,17 @@ func _setup_upper_hall(game: FrogGame) -> void:
 	game._begin_interior_transition(FrogGame.CANAL_UPPER_HALL_ID)
 
 
+func _setup_market_rooftop(game: FrogGame) -> void:
+	var market := (
+		game._building_by_id.get("moonlight_market")
+		as PrototypeBuilding
+	)
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._frog.global_position = market.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.MARKET_ROOFTOP_ID)
+
+
 func _setup_night_shop(game: FrogGame) -> void:
 	game._day_clock = 0.0
 	game._update_day_night(0.0)
@@ -415,7 +435,7 @@ func _check_scenario_expectations(
 					and int(snapshot["interior_rooms"])
 					== BUDGETS.MAX_INTERIOR_ROOMS
 					and int(snapshot["pursuers"]) == 0,
-				"Stockroom stress activates one of two separate rooms without adding pursuit."
+				"Stockroom stress activates one of three separate rooms without adding pursuit."
 			)
 		"upper_hall":
 			_check(
@@ -424,7 +444,17 @@ func _check_scenario_expectations(
 				and int(snapshot["interior_rooms"])
 				== BUDGETS.MAX_INTERIOR_ROOMS
 				and int(snapshot["pursuers"]) == 0,
-				"Upper-hall stress activates the second separate room without adding pursuit."
+				"Upper-hall stress activates the second of three separate rooms without adding pursuit."
+			)
+		"market_rooftop":
+			_check(
+				str(snapshot["active_interior"])
+				== FrogGame.MARKET_ROOFTOP_ID
+				and int(snapshot["interior_rooms"])
+				== BUDGETS.MAX_INTERIOR_ROOMS
+				and int(snapshot["pursuers"]) == 0
+				and int(snapshot["growth_tier"]) == 1,
+				"Rooftop stress activates the progression-gated third separate room."
 			)
 		"night_shop":
 			_check(

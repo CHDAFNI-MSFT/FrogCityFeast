@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 28,
+		game._targets.size() == 29,
 		"Prototype targets, interiors, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -347,6 +347,7 @@ func _run() -> void:
 	await _test_leap_cafe_sequence(game_scene)
 	await _test_canal_apartments_sequence(game_scene)
 	await _test_building_interiors(game_scene)
+	await _test_market_rooftop(game_scene)
 	await _test_canal_upper_hall(game_scene)
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
@@ -1135,7 +1136,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, and rain share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 28 and DiscoveryCatalog.count() == 29,
+		game._targets.size() == 29 and DiscoveryCatalog.count() == 30,
 		"Ambient city life does not add gameplay targets or Field Guide entries."
 	)
 	var expected_daylight := (
@@ -1255,10 +1256,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 28
+		int(rainy_snapshot["targets"]) == 29
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 33
-		and int(rainy_snapshot["collision_shapes"]) == 47,
+		and int(rainy_snapshot["collision_objects"]) == 34
+		and int(rainy_snapshot["collision_shapes"]) == 55,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1635,8 +1636,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 263
-		and int(net_snapshot["collision_objects"]) == 34,
+		and int(net_snapshot["game_nodes"]) == 275
+		and int(net_snapshot["collision_objects"]) == 35,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -2180,7 +2181,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		if not catalog_ids.has(target_id):
 			catalog_matches_targets = false
 	_check(
-		catalog_matches_targets and DiscoveryCatalog.count() == 29,
+		catalog_matches_targets and DiscoveryCatalog.count() == 30,
 		"Field Guide catalog exactly matches every swallowable prototype target."
 	)
 	_check(
@@ -3725,7 +3726,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 2
+		and game._interior_rooms.size() == 3
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -3960,6 +3961,186 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	await process_frame
 
 
+func _test_market_rooftop(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("rooftop_test", "Rooftop Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var market := (
+		game._building_by_id.get("moonlight_market") as PrototypeBuilding
+	)
+	var rooftop := (
+		game._interior_rooms.get(FrogGame.MARKET_ROOFTOP_ID)
+		as PrototypeInteriorRoom
+	)
+	var beehive := _find_target(game, "market_rooftop_beehive")
+	_check(
+		is_instance_valid(market)
+		and is_instance_valid(rooftop)
+		and is_instance_valid(beehive)
+		and game._interior_rooms.size() == 3
+		and market.transition_room_id == FrogGame.MARKET_ROOFTOP_ID
+		and market.transition_min_growth_tier == 1
+		and rooftop.return_label == "RETURN TO MARKET"
+		and rooftop._collision_body.get_child_count() == 8
+		and beehive.size_tier == 1
+		and beehive.resistant
+		and beehive.building_id == FrogGame.MARKET_ROOFTOP_ID
+		and beehive.move_bounds == rooftop.interior_rect(),
+		"Moonlight Market creates one progression-gated rooftop and its room-scoped Beehive."
+	)
+	_check(
+		market.transition_door_hit_test(
+			market.transition_door_world_position()
+		)
+		and game._circle_position_clear(
+			market.transition_door_approach_position(),
+			44.0,
+			true
+		)
+		and not game._circle_position_clear(
+			rooftop.global_position + rooftop.props[0].get_center(),
+			28.0,
+			true
+		)
+		and game._circle_position_clear(
+			rooftop.global_position,
+			44.0,
+			true
+		),
+		"The market ladder and rooftop garden retain maximum-size-safe clear space."
+	)
+
+	game._frog.global_position = market.global_position + Vector2(180, 120)
+	var handled_locked := game._try_handle_interior_transition_tap(
+		market.transition_door_world_position()
+	)
+	_check(
+		handled_locked
+		and game._pending_interior_transition.is_empty()
+		and not game._frog._has_move_target
+		and game._status_label.text.contains("Grow once"),
+		"The rooftop ladder refuses a starting-size frog without moving it."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	var city_camera_rotation := 0.31
+	game._camera.rotation = city_camera_rotation
+	var handled_entry := game._try_handle_interior_transition_tap(
+		market.transition_door_world_position()
+	)
+	_check(
+		handled_entry
+		and game._pending_interior_transition
+		== FrogGame.MARKET_ROOFTOP_ID
+		and game._frog._move_target
+		== market.transition_door_approach_position(),
+		"A grown frog walks to the market's rooftop ladder."
+	)
+	game._frog.global_position = market.transition_door_approach_position()
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._on_frog_move_reached(game._frog.global_position)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id == FrogGame.MARKET_ROOFTOP_ID
+		and game._frog.global_position == rooftop.entry_position()
+		and game._camera.global_position == rooftop.global_position
+		and game._camera.zoom == FrogGame.STOCKROOM_CAMERA_ZOOM
+		and is_zero_approx(game._camera.rotation)
+		and game._active_navigation_rect() == rooftop.interior_rect(),
+		"Entering the rooftop uses the fixed room camera and ends active pursuit."
+	)
+	game._spawn_pursuer()
+	_check(
+		not is_instance_valid(game._pursuer)
+		and game._status_label.text.contains("cannot find"),
+		"Animal Control cannot spawn remotely on the rooftop."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._pending_growth_tier = 2
+	game._frog.global_position = rooftop.global_position
+	game._last_safe_ground_position = rooftop.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1
+		and rooftop.interior_rect().has_point(game._frog.global_position),
+		"The rooftop garden aisle supports maximum-size growth."
+	)
+
+	game._frog.global_position = beehive.global_position + Vector2(0, 110)
+	game._swallow_target(beehive, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id == "market_rooftop_beehive"
+		and game._belly[0].movement_bounds == rooftop.interior_rect(),
+		"Swallowing the Beehive preserves its rooftop restock bounds."
+	)
+	game._spit_item(0)
+	var spat_beehive := _find_target(game, "market_rooftop_beehive")
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_beehive)
+		and rooftop.interior_rect().has_point(spat_beehive.global_position),
+		"Spitting the Beehive on the rooftop returns it within the garden."
+	)
+	game._swallow_target(spat_beehive, 1.0)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = rooftop.exit_approach_position()
+	var handled_exit := game._try_handle_interior_transition_tap(
+		rooftop.exit_marker_position()
+	)
+	_check(
+		handled_exit
+		and game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== market.transition_door_approach_position()
+		and is_equal_approx(game._camera.rotation, city_camera_rotation),
+		"The rooftop ladder returns to the market immediately with Reduce motion."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains("rooftop garden"),
+		"A Beehive carried downstairs cannot be spat into the market."
+	)
+	game._digest_item(0)
+
+	market.consume()
+	_check(
+		not market.transition_door_hit_test(
+			market.transition_door_world_position()
+		),
+		"Consuming Moonlight Market disables rooftop access."
+	)
+	market.restore()
+	_check(
+		market.transition_door_hit_test(
+			market.transition_door_world_position()
+		),
+		"Restoring Moonlight Market restores its rooftop ladder."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
 func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 	var game := game_scene.instantiate() as FrogGame
 	game.set_motion_scale(1.0)
@@ -3982,7 +4163,7 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 		is_instance_valid(apartments)
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(vacuum)
-		and game._interior_rooms.size() == 2
+		and game._interior_rooms.size() == 3
 		and apartments.transition_room_id
 		== FrogGame.CANAL_UPPER_HALL_ID
 		and upper_hall.return_label == "RETURN TO LOBBY"

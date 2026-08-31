@@ -77,22 +77,22 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-prototype permits 28 gameplay targets, 4 buildings, 2 separate interior rooms,
-1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
+prototype permits 29 gameplay targets, 4 buildings, 3 separate exploration
+rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 1 draw-only Animal Control
 net projectile, 24 capped world effects, 3 touch cues, and 6 fixed audio
 players including 4 reusable effect voices. Baseline and separate-room states
-permit up to 261 game-subtree nodes, 33 collision objects, and 47 collision
-shapes; ordinary pursuit and net attack permit 263 nodes, 34 collision objects,
-and 48 collision shapes; a snare pursuit permits 264 nodes with the same
-physics structure; a roadblock pursuit permits 265 nodes, 35 collision objects,
-and 49 collision shapes; the reachable roadblock-and-snare gameplay peak
-permits 266 nodes with the same 35 collision objects and 49 shapes. The
-performance Belly scenario renders 64 item rows within 517 nodes without
+permit up to 273 game-subtree nodes, 34 collision objects, and 55 collision
+shapes; ordinary pursuit and net attack permit 275 nodes, 35 collision objects,
+and 56 collision shapes; a snare pursuit permits 276 nodes with the same
+physics structure; a roadblock pursuit permits 277 nodes, 36 collision objects,
+and 57 collision shapes; the reachable roadblock-and-snare gameplay peak
+permits 278 nodes with the same 36 collision objects and 57 shapes. The
+performance Belly scenario renders 64 item rows within 529 nodes without
 changing the belly's unlimited gameplay semantics. The populated Field Guide
-contains exactly 29 rows.
+contains exactly 30 rows.
 
-Reproducible stress coverage includes both connected rooms, busy daytime city
+Reproducible stress coverage includes all three connected rooms, busy daytime city
 activity, peak rain, pursuit, active crowd cover, roadblock and snare pursuit,
 a net in flight, maximum growth, a finite simultaneous presentation burst, a
 64-item Belly, the fully populated Field Guide, both accessibility settings,
@@ -228,9 +228,9 @@ things to eat.
 - Entering an interior uses a short transition or fade.
 - Ordinary interiors are compact, with a few important rooms rather than a
   complete simulation of every room and floor.
-- Potential exploration spaces include upper floors, rooftops, fire escapes,
-  balconies, sewers, subway tunnels, parks, ponds, construction cranes, and
-  secret underground areas.
+- Additional potential exploration spaces include upper floors, rooftops, fire
+  escapes, balconies, sewers, subway tunnels, parks, ponds, construction
+  cranes, and secret underground areas.
 - The navigation system marks buildings the player has discovered.
 - The current prototype has staged destruction for all four authored
   buildings. Each requires three removable parts and maximum growth before the
@@ -259,6 +259,13 @@ things to eat.
   The target remains scoped to the upper hall when spat out or restocked.
   Entering also ends active pursuit, Reduce motion uses an immediate cut, and
   consuming the apartments disables the stairs until the building is restored.
+- Moonlight Market has the first progression-gated rooftop: after growing once,
+  the frog can use the marked interior ladder to reach a compact rooftop garden
+  with solid wall-side planters, a centered room camera, a return-to-market
+  marker, and a resistant tier-one Rooftop Beehive. The target remains scoped
+  to the garden when spat out or restocked. Entering ends active pursuit,
+  remote pursuit spawning remains blocked, Reduce motion uses an immediate
+  cut, and consuming the market disables the ladder until restoration.
 
 ### Dynamic city events
 

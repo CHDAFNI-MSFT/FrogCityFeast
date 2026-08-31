@@ -26,6 +26,7 @@ var transition_door_position := Vector2.INF
 var transition_door_approach_offset := Vector2.INF
 var transition_door_label := ""
 var transition_room_id := ""
+var transition_min_growth_tier := 0
 var entrance_schedule_open_label := ""
 var entrance_schedule_closed_label := ""
 var entrance_part_temporarily_open := false

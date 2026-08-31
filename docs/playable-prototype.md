@@ -103,7 +103,7 @@ The prototype includes:
   actions, safely resets failed guided struggles, and returns to the city after
   required belly actions;
 - a Skip action that marks the tutorial complete and restores normal play;
-- a persistent, per-profile Frog Field Guide covering all 28 target IDs in the
+- a persistent, per-profile Frog Field Guide covering all 29 target IDs in the
   prototype, including Golden Cake, all four destructible-building sequences,
   and Animal Control;
 - first-swallow discovery credit that never adds score or growth, cannot be
@@ -136,6 +136,14 @@ The prototype includes:
 - upper-hall hiding that ends active pursuit, blocks remote pursuer spawning,
   uses an immediate cut with Reduce motion, and becomes inaccessible while
   Canal Apartments is consumed;
+- a marked Moonlight Market rooftop ladder that requires one growth tier,
+  leads through the same bounded transition to a solid rooftop garden, uses a
+  fixed room camera, and provides a return-to-market marker;
+- rooftop hiding that ends active pursuit, blocks remote pursuer spawning,
+  uses an immediate cut with Reduce motion, and becomes inaccessible while
+  Moonlight Market is consumed;
+- a resistant tier-one Rooftop Beehive that remains scoped to the garden when
+  spat out or restocked;
 - a Loose Phone positioned behind the Leap Café bar so the player must move
   into the café to get a clear tongue shot;
 - a Lobby Lamp and resistant Tenant's Cat that require entering Canal
@@ -304,19 +312,19 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, either separate room, busy daytime, maximum growth, Field Guide, or options | 261 game-subtree nodes, 33 collision objects, 47 collision shapes, 28 targets, 4 buildings, 2 separate rooms |
-| Ordinary pursuit | 263 nodes, 34 collision objects, 48 collision shapes, 1 pursuer |
-| Pursuit in active crowd cover | Pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes |
-| Animal Control snare | 264 nodes, 34 collision objects, 48 collision shapes, 1 pursuer, 1 draw-only snare |
-| Roadblock pursuit | 265 nodes, 35 collision objects, 49 collision shapes, 1 pursuer, 1 roadblock |
-| Reachable gameplay peak | 266 nodes, 35 collision objects, 49 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
-| Populated Belly sample | 64 items and rows, 517 nodes; this is a stress sample, not a gameplay capacity limit |
+| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 273 game-subtree nodes, 34 collision objects, 55 collision shapes, 29 targets, 4 buildings, 3 separate rooms |
+| Ordinary pursuit | 275 nodes, 35 collision objects, 56 collision shapes, 1 pursuer |
+| Pursuit in active crowd cover | Pursuit structure remains at 275 nodes, 35 collision objects, and 56 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 275 nodes, 35 collision objects, and 56 collision shapes |
+| Animal Control snare | 276 nodes, 35 collision objects, 56 collision shapes, 1 pursuer, 1 draw-only snare |
+| Roadblock pursuit | 277 nodes, 36 collision objects, 57 collision shapes, 1 pursuer, 1 roadblock |
+| Reachable gameplay peak | 278 nodes, 36 collision objects, 57 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
+| Populated Belly sample | 64 items and rows, 529 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 29 rows, matching the fixed catalog |
+| Populated Field Guide | 30 rows, matching the fixed catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -326,15 +334,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 
 The harness uses fixed random seeds and covers baseline play, the night-open
 Oddities Shop, the active Leap Café stockroom, the active Canal Apartments
-upper hall, busy daytime, ordinary and crowd-cover pursuit, a temporary
-roadblock, a draw-only pursuit snare, an Animal Control net in flight, maximum
-growth, a finite maximum presentation burst, a 64-item Belly, the populated
-Field Guide, both accessibility options, and a reachable gameplay peak
-combining daytime activity, pursuit, growth, the roadblock, the snare, and
-presentation effects. It prints median FPS, frame-time percentiles, memory, and
-a post-sample render snapshot. The command-driven Windows run can show isolated
-scheduling/window stalls, so p95 is more useful than its maximum or
-arithmetic-mean FPS.
+upper hall, the progression-gated Moonlight Market rooftop garden, busy
+daytime, ordinary and crowd-cover pursuit, a temporary roadblock, a draw-only
+pursuit snare, an Animal Control net in flight, maximum growth, a finite
+maximum presentation burst, a 64-item Belly, the populated Field Guide, both
+accessibility options, and a reachable gameplay peak combining daytime
+activity, pursuit, growth, the roadblock, the snare, and presentation effects.
+It prints median FPS, frame-time percentiles, memory, and a post-sample render
+snapshot. The command-driven Windows run can show isolated scheduling/window
+stalls, so p95 is more useful than its maximum or arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.
