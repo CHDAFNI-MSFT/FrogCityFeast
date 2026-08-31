@@ -22,6 +22,7 @@ const MAX_TOUCH_FEEDBACK := 3
 const MAX_CROWD_MEMBERS := 5
 const MAX_CITY_ACTORS := 20
 const MAX_ROADBLOCKS := 1
+const MAX_PURSUIT_TRAPS := 1
 const MAX_RAIN_STREAKS := 84
 const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
@@ -113,6 +114,14 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": MAX_PURSUERS,
 		"roadblocks": MAX_ROADBLOCKS,
 	},
+	"pursuit_trap": {
+		"game_nodes": 264,
+		"collision_objects": 34,
+		"collision_shapes": 48,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+	},
 	"net_attack": {
 		"game_nodes": 263,
 		"collision_objects": 34,
@@ -159,13 +168,14 @@ const STRUCTURAL_LIMITS := {
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"gameplay_peak": {
-		"game_nodes": 265,
+		"game_nodes": 266,
 		"collision_objects": 35,
 		"collision_shapes": 49,
 		"targets": MAX_TARGETS,
 		"buildings": MAX_BUILDINGS,
 		"pursuers": MAX_PURSUERS,
 		"roadblocks": MAX_ROADBLOCKS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
 		"active_city_actors": MAX_CITY_ACTORS,
 		"active_effects": MAX_VISUAL_EFFECTS,
 		"touch_feedback": MAX_TOUCH_FEEDBACK,

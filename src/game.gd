@@ -21,6 +21,7 @@ const BUILDING_SCRIPT := preload("res://src/building.gd")
 const INTERIOR_ROOM_SCRIPT := preload("res://src/interior_room.gd")
 const PURSUER_SCRIPT := preload("res://src/pursuer.gd")
 const ROADBLOCK_SCRIPT := preload("res://src/roadblock.gd")
+const PURSUIT_TRAP_SCRIPT := preload("res://src/pursuit_trap.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
 )
@@ -88,6 +89,18 @@ const ROADBLOCK_ANCHORS := [
 		"position": Vector2(-1080, 1100),
 		"size": Vector2(280, 52),
 	},
+]
+const PURSUIT_TRAP_DEPLOY_DELAY := 6.0
+const PURSUIT_TRAP_MIN_DISTANCE := 180.0
+const PURSUIT_TRAP_MAX_DISTANCE := 700.0
+const PURSUIT_TRAP_ANCHORS := [
+	Vector2(-900, -285),
+	Vector2(350, -285),
+	Vector2(850, 260),
+	Vector2(-820, 650),
+	Vector2(360, 650),
+	Vector2(-900, 1020),
+	Vector2(330, 1020),
 ]
 const NET_ESCAPE_DURATION := 3.0
 const NET_ESCAPE_TAPS := 6
@@ -370,6 +383,7 @@ var _interior_rooms: Dictionary = {}
 var _interior_room_building_ids: Dictionary = {}
 var _pursuer: PrototypePursuer
 var _roadblock: PrototypeRoadblock
+var _pursuit_trap: PrototypePursuitTrap
 
 var _tongue_recovery := 0.0
 var _tongue_phase := TonguePhase.HIDDEN
@@ -389,6 +403,8 @@ var _oddities_shop_scheduled_open := false
 var _crowd_hide_time := 0.0
 var _roadblock_deploy_time := 0.0
 var _roadblock_deployed := false
+var _pursuit_trap_deploy_time := 0.0
+var _pursuit_trap_deployed := false
 var _last_safe_ground_position := Vector2.ZERO
 var _rare_respawn_pending: Dictionary = {}
 var _pending_growth_tier := -1
@@ -584,6 +600,7 @@ func _process(delta: float) -> void:
 		_update_net_escape(delta)
 	_update_crowd_hiding(delta)
 	_update_pursuit_roadblock(delta)
+	_update_pursuit_trap(delta)
 
 	if is_instance_valid(_pull_target):
 		_pull_time_left -= delta
@@ -1747,6 +1764,7 @@ func performance_structure_snapshot() -> Dictionary:
 		"oddities_shop_scheduled_open": _oddities_shop_scheduled_open,
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
 		"roadblocks": 1 if is_instance_valid(_roadblock) else 0,
+		"pursuit_traps": 1 if is_instance_valid(_pursuit_trap) else 0,
 		"net_projectiles": (
 			_pursuer.active_net_projectile_count()
 			if is_instance_valid(_pursuer)
@@ -1812,6 +1830,8 @@ func _apply_motion_scale(value: float) -> void:
 		_city_activity.set_motion_scale(_motion_scale)
 	if is_instance_valid(_pursuer):
 		_pursuer.set_presentation_motion_scale(_motion_scale)
+	if is_instance_valid(_pursuit_trap):
+		_pursuit_trap.set_presentation_motion_scale(_motion_scale)
 	if is_instance_valid(_frog):
 		_frog.set_presentation_motion_scale(_motion_scale)
 	for target in _targets:
@@ -2263,6 +2283,9 @@ func _spawn_pursuer() -> void:
 	_clear_roadblock()
 	_roadblock_deploy_time = ROADBLOCK_DEPLOY_DELAY
 	_roadblock_deployed = false
+	_clear_pursuit_trap()
+	_pursuit_trap_deploy_time = PURSUIT_TRAP_DEPLOY_DELAY
+	_pursuit_trap_deployed = false
 
 
 func _update_pursuit_roadblock(delta: float) -> void:
@@ -2392,6 +2415,117 @@ func _on_roadblock_removed(
 ) -> void:
 	if _roadblock == roadblock:
 		_roadblock = null
+
+
+func _update_pursuit_trap(delta: float) -> void:
+	if not is_instance_valid(_pursuer):
+		_clear_pursuit_trap()
+		return
+	if is_instance_valid(_pursuit_trap):
+		_pursuit_trap.advance(maxf(0.0, delta))
+		if _pursuit_trap.expired():
+			_pursuit_trap.dismiss(false)
+			return
+		if _pursuit_trap_can_trigger() and (
+			_pursuit_trap.global_position.distance_to(_frog.global_position)
+			<= PrototypePursuitTrap.RADIUS + _frog.collision_radius()
+		):
+			var source_position := _pursuit_trap.global_position
+			_pursuit_trap.dismiss(true)
+			_apply_damage(
+				source_position,
+				15,
+				"An Animal Control snare knocked the frog back!"
+			)
+		return
+	if (
+		_pursuit_trap_deployed
+		or not _active_interior_id.is_empty()
+		or not _frog.movement_enabled
+	):
+		return
+	_pursuit_trap_deploy_time = maxf(
+		0.0,
+		_pursuit_trap_deploy_time - maxf(0.0, delta)
+	)
+	if _pursuit_trap_deploy_time > 0.0:
+		return
+	_pursuit_trap_deployed = _spawn_pursuit_trap()
+
+
+func _pursuit_trap_can_trigger() -> bool:
+	return (
+		is_instance_valid(_pursuit_trap)
+		and _pursuit_trap.is_armed()
+		and _damage_cooldown <= 0.0
+		and _growth_tier < 2
+		and not _frog.is_flying
+		and not _frog.knockback_active()
+		and _frog.movement_enabled
+		and not _net_escape_active
+		and not is_instance_valid(_struggle_target)
+		and not is_instance_valid(_pull_target)
+	)
+
+
+func _spawn_pursuit_trap() -> bool:
+	if is_instance_valid(_pursuit_trap):
+		return true
+	var position := _select_pursuit_trap_anchor()
+	if position == Vector2.INF:
+		return false
+	var pursuit_trap := PURSUIT_TRAP_SCRIPT.new() as PrototypePursuitTrap
+	pursuit_trap.position = position
+	pursuit_trap.set_presentation_motion_scale(_motion_scale)
+	pursuit_trap.removed.connect(_on_pursuit_trap_removed)
+	_world.add_child(pursuit_trap)
+	_pursuit_trap = pursuit_trap
+	_show_status("Animal Control placed an arming snare nearby!")
+	return true
+
+
+func _select_pursuit_trap_anchor() -> Vector2:
+	var selected := Vector2.INF
+	var selected_distance := INF
+	for position_value in PURSUIT_TRAP_ANCHORS:
+		var position := position_value as Vector2
+		var distance := position.distance_to(_frog.global_position)
+		if (
+			distance < PURSUIT_TRAP_MIN_DISTANCE
+			or distance > PURSUIT_TRAP_MAX_DISTANCE
+			or not _pursuit_trap_anchor_clear(position)
+		):
+			continue
+		if distance < selected_distance:
+			selected = position
+			selected_distance = distance
+	return selected
+
+
+func _pursuit_trap_anchor_clear(position: Vector2) -> bool:
+	var radius := PrototypePursuitTrap.RADIUS + 18.0
+	if not WORLD_RECT.grow(-radius).has_point(position):
+		return false
+	if not _circle_position_clear(position, radius, false):
+		return false
+	if _position_overlaps_target(position, radius, 12.0):
+		return false
+	return not _position_inside_building(position)
+
+
+func _clear_pursuit_trap() -> void:
+	_pursuit_trap_deploy_time = 0.0
+	if is_instance_valid(_pursuit_trap):
+		_pursuit_trap.dismiss(false)
+	_pursuit_trap = null
+
+
+func _on_pursuit_trap_removed(
+	pursuit_trap: PrototypePursuitTrap,
+	_triggered: bool
+) -> void:
+	if _pursuit_trap == pursuit_trap:
+		_pursuit_trap = null
 
 
 func _find_pursuer_spawn_position() -> Vector2:
@@ -2568,6 +2702,7 @@ func _on_pursuer_escaped() -> void:
 		_clear_net_escape()
 	_pursuer = null
 	_clear_roadblock()
+	_clear_pursuit_trap()
 	_reset_crowd_hiding()
 	_show_status("You escaped Animal Control!")
 
@@ -2607,6 +2742,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	pursuer.queue_free()
 	_pursuer = null
 	_clear_roadblock()
+	_clear_pursuit_trap()
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
 	_effects.emit_swallow(effect_position, item.target_color)
 	_tongue_recovery = TONGUE_RECOVERY
@@ -3609,6 +3745,7 @@ func _end_game() -> void:
 	if _net_escape_active:
 		_clear_net_escape()
 	_clear_roadblock()
+	_clear_pursuit_trap()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 	get_tree().paused = false
 	end_requested.emit(_score)

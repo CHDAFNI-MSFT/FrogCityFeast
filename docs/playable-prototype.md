@@ -47,6 +47,10 @@ The prototype includes:
   after three eligible seconds at the nearest safe authored road anchor,
   breakable with three tongue hits, self-expiring after ten seconds, and
   cleared immediately when pursuit ends;
+- one deterministic draw-only Animal Control sidewalk snare per pursuit,
+  deployed after six eligible seconds with a 0.75-second arming warning,
+  harmless to flight and maximum growth, self-expiring after twelve seconds,
+  and applying one 15-point capped knockback when an eligible frog triggers it;
 - knockback and score loss that never reduces the score below zero;
 - short, deterministic, eight-pixel-or-less camera shake for damage and whole
   building captures, suppressed during camera gestures and struggles;
@@ -304,7 +308,9 @@ The deterministic structural budgets are enforced in CI:
 | Ordinary pursuit | 263 nodes, 34 collision objects, 48 collision shapes, 1 pursuer |
 | Pursuit in active crowd cover | Pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
 | Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 263 nodes, 34 collision objects, and 48 collision shapes |
-| Roadblock pursuit or gameplay peak | 265 nodes, 35 collision objects, 49 collision shapes, 1 pursuer, 1 roadblock |
+| Animal Control snare | 264 nodes, 34 collision objects, 48 collision shapes, 1 pursuer, 1 draw-only snare |
+| Roadblock pursuit | 265 nodes, 35 collision objects, 49 collision shapes, 1 pursuer, 1 roadblock |
+| Reachable gameplay peak | 266 nodes, 35 collision objects, 49 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
 | Populated Belly sample | 64 items and rows, 517 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
@@ -321,13 +327,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 The harness uses fixed random seeds and covers baseline play, the night-open
 Oddities Shop, the active Leap Café stockroom, the active Canal Apartments
 upper hall, busy daytime, ordinary and crowd-cover pursuit, a temporary
-roadblock, an Animal Control net in flight, maximum growth, a finite maximum
-presentation burst, a 64-item Belly, the populated Field Guide, both
-accessibility options, and a reachable gameplay peak combining daytime
-activity, pursuit, growth, the roadblock, and presentation effects. It prints
-median FPS, frame-time percentiles, memory, and a post-sample render snapshot.
-The command-driven Windows run can show isolated scheduling/window stalls, so
-p95 is more useful than its maximum or arithmetic-mean FPS.
+roadblock, a draw-only pursuit snare, an Animal Control net in flight, maximum
+growth, a finite maximum presentation burst, a 64-item Belly, the populated
+Field Guide, both accessibility options, and a reachable gameplay peak
+combining daytime activity, pursuit, growth, the roadblock, the snare, and
+presentation effects. It prints median FPS, frame-time percentiles, memory, and
+a post-sample render snapshot. The command-driven Windows run can show isolated
+scheduling/window stalls, so p95 is more useful than its maximum or
+arithmetic-mean FPS.
 
 An August 2026 local GL Compatibility measurement at 1280×960 on an NVIDIA RTX
 4050 laptop used about 40–46 MiB static memory and 17–22 MiB video memory.

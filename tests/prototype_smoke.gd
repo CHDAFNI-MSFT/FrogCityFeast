@@ -352,6 +352,7 @@ func _run() -> void:
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
 	await _test_pursuer_roadblock(game_scene)
+	await _test_pursuer_snare(game_scene)
 	await _test_pursuer_net_escape(game_scene)
 	await _test_accessibility(game_scene)
 	await _test_game_feel(game_scene)
@@ -1943,6 +1944,212 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 	)
 
 	game.queue_free()
+	await process_frame
+
+
+func _test_pursuer_snare(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("snare_test", "Snare Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	game._frog.global_position = Vector2(0, -520)
+	game._spawn_pursuer()
+	var pursuer := game._pursuer
+	_check(
+		is_instance_valid(pursuer)
+		and not is_instance_valid(game._pursuit_trap)
+		and is_equal_approx(
+			game._pursuit_trap_deploy_time,
+			FrogGame.PURSUIT_TRAP_DEPLOY_DELAY
+		),
+		"Animal Control begins pursuit before deploying one delayed snare."
+	)
+	if not is_instance_valid(pursuer):
+		game.queue_free()
+		await process_frame
+		return
+	pursuer.set_physics_process(false)
+
+	game._frog.movement_enabled = false
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+	var blocked_while_rooted := not is_instance_valid(game._pursuit_trap)
+	game._frog.movement_enabled = true
+	seed(20260830)
+	var expected_random := randf()
+	seed(20260830)
+	game._update_pursuit_trap(0.1)
+	var actual_random := randf()
+	var pursuit_trap := game._pursuit_trap
+	_check(
+		blocked_while_rooted
+		and is_instance_valid(pursuit_trap)
+		and pursuit_trap.global_position == Vector2(350, -285)
+		and not pursuit_trap.is_armed()
+		and is_equal_approx(actual_random, expected_random)
+		and game._pursuit_trap_deployed,
+		"The snare deploys at the nearest safe authored anchor without gameplay RNG."
+	)
+	if not is_instance_valid(pursuit_trap):
+		game.queue_free()
+		await process_frame
+		return
+	var avoids_targets := true
+	for target in game._targets:
+		if (
+			is_instance_valid(target)
+			and target.kind != "building"
+			and target.global_position.distance_to(
+				pursuit_trap.global_position
+			) < target.pick_radius + PrototypePursuitTrap.RADIUS
+		):
+			avoids_targets = false
+	_check(
+		avoids_targets
+		and not game._position_inside_building(
+			pursuit_trap.global_position
+		)
+		and game._circle_position_clear(
+			pursuit_trap.global_position,
+			PrototypePursuitTrap.RADIUS,
+			true
+		),
+		"The draw-only snare avoids targets, buildings, and physical collision."
+	)
+
+	var score_before := 40
+	game._score = score_before
+	var growth_before := game._growth_points
+	var target_count_before := game._targets.size()
+	var discovery_count_before := game._known_discovery_count()
+	game._frog.global_position = pursuit_trap.global_position
+	game._update_pursuit_trap(
+		PrototypePursuitTrap.ARM_DELAY * 0.5
+	)
+	_check(
+		is_instance_valid(game._pursuit_trap)
+		and not pursuit_trap.is_armed()
+		and game._score == score_before,
+		"The warning interval cannot trigger the snare before it arms."
+	)
+	game._frog.set_flying(true)
+	game._update_pursuit_trap(
+		PrototypePursuitTrap.ARM_DELAY * 0.5
+	)
+	_check(
+		is_instance_valid(game._pursuit_trap)
+		and pursuit_trap.is_armed()
+		and game._score == score_before,
+		"Flight safely crosses an armed snare."
+	)
+	game._frog.set_flying(false)
+	game._growth_tier = 2
+	game._frog.set_growth_tier(2)
+	game._update_pursuit_trap(0.0)
+	_check(
+		is_instance_valid(game._pursuit_trap)
+		and game._score == score_before,
+		"Maximum growth is immune to the Animal Control snare."
+	)
+	game._growth_tier = 0
+	game._frog.set_growth_tier(0)
+	game._update_pursuit_trap(0.0)
+	await process_frame
+	_check(
+		not is_instance_valid(game._pursuit_trap)
+		and game._score == score_before - 15
+		and game._growth_points == growth_before
+		and game._targets.size() == target_count_before
+		and game._known_discovery_count() == discovery_count_before
+		and game._frog.knockback_active()
+		and game._status_label.text.contains("snare"),
+		"An eligible frog triggers one bounded penalty without rewards or progression changes."
+	)
+	game._update_pursuit_trap(PrototypePursuitTrap.LIFETIME)
+	_check(
+		not is_instance_valid(game._pursuit_trap),
+		"A triggered snare cannot redeploy during the same pursuit."
+	)
+	game.queue_free()
+	await process_frame
+
+	var expiry_game := game_scene.instantiate() as FrogGame
+	expiry_game.configure("snare_expiry_test", "Snare Expiry Tester", false)
+	root.add_child(expiry_game)
+	await process_frame
+	await physics_frame
+	expiry_game.set_motion_scale(0.0)
+	expiry_game.set_process(false)
+	expiry_game._frog.set_physics_process(false)
+	expiry_game._frog.global_position = Vector2(0, -520)
+	expiry_game._spawn_pursuer()
+	if is_instance_valid(expiry_game._pursuer):
+		expiry_game._pursuer.set_physics_process(false)
+	expiry_game._pursuit_trap_deploy_time = 0.0
+	expiry_game._update_pursuit_trap(0.1)
+	var expiring_trap := expiry_game._pursuit_trap
+	_check(
+		is_instance_valid(expiring_trap)
+		and is_instance_valid(expiry_game._pursuer),
+		"A pursuit can deploy a snare while reduced motion is enabled."
+	)
+	expiry_game._frog.global_position = Vector2(-300, -520)
+	expiry_game._update_pursuit_trap(PrototypePursuitTrap.ARM_DELAY)
+	_check(
+		is_instance_valid(expiring_trap)
+		and expiring_trap.is_armed(),
+		"Reduced motion preserves the snare's static armed-state transition."
+	)
+	expiry_game._update_pursuit_trap(
+		PrototypePursuitTrap.LIFETIME - PrototypePursuitTrap.ARM_DELAY
+	)
+	_check(
+		is_instance_valid(expiry_game._pursuer)
+		and not is_instance_valid(expiry_game._pursuit_trap)
+		and (
+			not is_instance_valid(expiring_trap)
+			or expiring_trap.is_queued_for_deletion()
+		),
+		"An untouched snare expires on schedule even with reduced motion."
+	)
+	await process_frame
+	expiry_game.queue_free()
+	await process_frame
+
+	var cleanup_game := game_scene.instantiate() as FrogGame
+	cleanup_game.configure("snare_cleanup_test", "Snare Cleanup Tester", false)
+	root.add_child(cleanup_game)
+	await process_frame
+	await physics_frame
+	cleanup_game.set_process(false)
+	cleanup_game._frog.set_physics_process(false)
+	cleanup_game._frog.global_position = Vector2(0, -520)
+	cleanup_game._spawn_pursuer()
+	var cleanup_pursuer := cleanup_game._pursuer
+	if is_instance_valid(cleanup_pursuer):
+		cleanup_pursuer.set_physics_process(false)
+	cleanup_game._pursuit_trap_deploy_time = 0.0
+	cleanup_game._update_pursuit_trap(0.1)
+	var escape_trap := cleanup_game._pursuit_trap
+	if is_instance_valid(cleanup_pursuer):
+		cleanup_pursuer._escape()
+	await process_frame
+	_check(
+		not is_instance_valid(cleanup_game._pursuer)
+		and not is_instance_valid(cleanup_game._pursuit_trap)
+		and (
+			not is_instance_valid(escape_trap)
+			or escape_trap.is_queued_for_deletion()
+		),
+		"Ending pursuit immediately clears its temporary snare."
+	)
+
+	cleanup_game.queue_free()
 	await process_frame
 
 

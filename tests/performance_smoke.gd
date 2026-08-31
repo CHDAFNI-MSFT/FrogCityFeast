@@ -54,6 +54,10 @@ func _run() -> void:
 		"The Animal Control roadblock budget remains capped at one."
 	)
 	_check(
+		BUDGETS.MAX_PURSUIT_TRAPS == 1,
+		"The Animal Control snare budget remains capped at one."
+	)
+	_check(
 		BUDGETS.MAX_INTERIOR_ROOMS == 2,
 		"The authored separate-room budget matches both connected rooms."
 	)
@@ -129,6 +133,12 @@ func _run() -> void:
 		{
 			"name": "roadblock",
 			"setup": _setup_roadblock,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "pursuit_trap",
+			"setup": _setup_pursuit_trap,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -306,6 +316,13 @@ func _setup_roadblock(game: FrogGame) -> void:
 	game._update_pursuit_roadblock(0.1)
 
 
+func _setup_pursuit_trap(game: FrogGame) -> void:
+	game._frog.global_position = Vector2(0, -520)
+	game._spawn_pursuer()
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+
+
 func _setup_net_attack(game: FrogGame) -> void:
 	game._spawn_pursuer()
 	game._pursuer._begin_net_attack()
@@ -367,6 +384,8 @@ func _setup_accessibility_options(game: FrogGame) -> void:
 func _setup_gameplay_peak(game: FrogGame) -> void:
 	_setup_busy_daytime(game)
 	_setup_roadblock(game)
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
 	_setup_presentation_peak(game)
 
 
@@ -449,6 +468,13 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_ROADBLOCKS,
 				"Roadblock stress contains one pursuer and one physical barricade."
 			)
+		"pursuit_trap":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["pursuit_traps"])
+				== BUDGETS.MAX_PURSUIT_TRAPS,
+				"Snare stress contains one pursuer and one draw-only trap."
+			)
 		"net_attack":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -492,6 +518,8 @@ func _check_scenario_expectations(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
 				and int(snapshot["roadblocks"])
 				== BUDGETS.MAX_ROADBLOCKS
+				and int(snapshot["pursuit_traps"])
+				== BUDGETS.MAX_PURSUIT_TRAPS
 				and int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS,
 				"Gameplay peak combines reachable pursuit and daytime activity."

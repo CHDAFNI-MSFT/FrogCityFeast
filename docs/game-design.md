@@ -78,23 +78,26 @@ profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
 prototype permits 28 gameplay targets, 4 buildings, 2 separate interior rooms,
-1 pursuer, 1 temporary physical roadblock, 20 draw-only city actors, 84
-draw-only rain streaks, 1 draw-only Animal Control net projectile, 24 capped
-world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
-effect voices. Baseline and separate-room states permit up to 261 game-subtree
-nodes, 33 collision objects, and 47 collision shapes; ordinary pursuit and net
-attack permit 263 nodes, 34 collision objects, and 48 collision shapes; a
-roadblock pursuit and the reachable gameplay peak permit 265 nodes, 35
-collision objects, and 49 collision shapes. The performance Belly scenario
-renders 64 item rows within 517 nodes without changing the belly's unlimited
-gameplay semantics. The populated Field Guide contains exactly 29 rows.
+1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
+draw-only city actors, 84 draw-only rain streaks, 1 draw-only Animal Control
+net projectile, 24 capped world effects, 3 touch cues, and 6 fixed audio
+players including 4 reusable effect voices. Baseline and separate-room states
+permit up to 261 game-subtree nodes, 33 collision objects, and 47 collision
+shapes; ordinary pursuit and net attack permit 263 nodes, 34 collision objects,
+and 48 collision shapes; a snare pursuit permits 264 nodes with the same
+physics structure; a roadblock pursuit permits 265 nodes, 35 collision objects,
+and 49 collision shapes; the reachable roadblock-and-snare gameplay peak
+permits 266 nodes with the same 35 collision objects and 49 shapes. The
+performance Belly scenario renders 64 item rows within 517 nodes without
+changing the belly's unlimited gameplay semantics. The populated Field Guide
+contains exactly 29 rows.
 
 Reproducible stress coverage includes both connected rooms, busy daytime city
-activity, peak rain, pursuit, active crowd cover, a roadblock pursuit, a net in
-flight, maximum growth, a finite simultaneous presentation burst, a 64-item
-Belly, the fully populated Field Guide, both accessibility settings, and a
-reachable gameplay peak. Desktop measurements are advisory; the target iPad
-release build is authoritative. The exact commands and current local
+activity, peak rain, pursuit, active crowd cover, roadblock and snare pursuit,
+a net in flight, maximum growth, a finite simultaneous presentation burst, a
+64-item Belly, the fully populated Field Guide, both accessibility settings,
+and a reachable gameplay peak. Desktop measurements are advisory; the target
+iPad release build is authoritative. The exact commands and current local
 measurement notes are recorded in
 [`playable-prototype.md`](playable-prototype.md).
 
@@ -362,6 +365,19 @@ or expiry never deploys a replacement during the same pursuit, and ending the
 pursuit clears it immediately. Placement is deterministic, uses no gameplay
 random numbers, and changes no score, growth, target, save, challenge, or Field
 Guide state.
+
+Animal Control also deploys one draw-only sidewalk snare per chase after six
+unpaused, movement-enabled pursuit seconds. The nearest safe authored anchor
+180–700 units from the frog receives a clearly labeled 0.75-second arming
+warning. Once armed, contact by an eligible small or medium ground frog applies
+the existing capped damage and knockback flow for 15 points and removes the
+snare. Flight, maximum growth, knockback, movement-disabled states, net escape,
+tongue pulls, target struggles, and active damage recovery prevent triggering.
+An untouched snare expires after twelve seconds, never redeploys in the same
+pursuit, and clears immediately when pursuit ends. Reduce motion freezes its
+pulse while retaining the static armed-state change and all gameplay timing.
+Placement and timing use no gameplay random numbers, and the snare adds no
+collision, target, save, challenge, or Field Guide state.
 
 If a pursuer catches the frog:
 
