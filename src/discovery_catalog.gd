@@ -68,6 +68,11 @@ const ENTRIES := [
 		"hint": "Follow the marked boardwalk beside the River Park pond.",
 	},
 	{
+		"id": "construction_crane_toolbox",
+		"name": "Crane Operator Toolbox",
+		"hint": "Grow once and ride the construction lift in the northwest.",
+	},
+	{
 		"id": "golden_cake",
 		"name": "Flying Golden Cake",
 		"hint": "Search the northern city for a rare moving treat.",

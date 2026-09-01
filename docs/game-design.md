@@ -77,24 +77,24 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-authored core permits 34 gameplay targets, 4 buildings, 8 separate exploration
+authored core permits 35 gameplay targets, 4 buildings, 9 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 10 draw-only festival
 lanterns, 1 draw-only Animal Control net projectile, 24 capped world effects,
 3 touch cues, and 6 fixed audio players including 4 reusable effect voices.
-Baseline and separate-room states permit up to 343 game-subtree nodes, 39
-collision objects, and 95 collision shapes; ordinary pursuit and net attack
-permit 345 nodes, 40 collision objects, and 96 collision shapes; a snare
-pursuit permits 346 nodes with the same physics structure; a roadblock pursuit
-permits 347 nodes, 41 collision objects, and 97 collision shapes; the reachable
-roadblock-and-snare gameplay peak permits 348 nodes with the same 41 collision
-objects and 97 shapes. The performance Belly scenario renders 64 item rows
-within 599 nodes without changing the belly's unlimited gameplay semantics.
-The populated Field Guide contains exactly 45 rows.
+Baseline and separate-room states permit up to 355 game-subtree nodes, 40
+collision objects, and 103 collision shapes; ordinary pursuit and net attack
+permit 357 nodes, 41 collision objects, and 104 collision shapes; a snare
+pursuit permits 358 nodes with the same physics structure; a roadblock pursuit
+permits 359 nodes, 42 collision objects, and 105 collision shapes; the
+reachable roadblock-and-snare gameplay peak permits 360 nodes with the same 42
+collision objects and 105 shapes. The performance Belly scenario renders 64
+item rows within 611 nodes without changing the belly's unlimited gameplay
+semantics. The populated Field Guide contains exactly 46 rows.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 553 game-subtree nodes, 98 collision objects, and 156
+structural ceiling is 565 game-subtree nodes, 99 collision objects, and 164
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
@@ -115,7 +115,7 @@ microseconds. Both states completed every request without fallback, failure, or
 budget rejection.
 
 Reproducible stress coverage includes the maximum generated-district ring, all
-four connected rooms, the night
+nine connected exploration rooms, the night
 bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
 roadblock and snare pursuit, a net in flight, maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
@@ -326,6 +326,14 @@ things to eat.
   return positions, open maximum-growth navigation space, and a room-scoped
   Lily Pad Planter. Entering ends pursuit and blocks remote pursuit spawning;
   leaving restores the River Park camera and exact safe return position.
+- The northwest construction site now has a marked lift that unlocks after the
+  first growth tier and reaches a large Construction Crane High Deck. Its
+  bounded follow camera permits limited rotation without exposing neighboring
+  authored rooms, while the widened deck, authored lift landings, and central
+  route remain safe at maximum growth. Entering ends pursuit, blocks remote
+  pursuit spawning, and preserves a room-scoped dangerous, resistant Crane
+  Operator Toolbox for Belly returns and restocking. Reduce motion uses an
+  immediate lift cut and restores the city camera on return.
 - Moonlight Market has the first progression-gated rooftop: after growing once,
   the frog can use the marked interior ladder to reach a compact rooftop garden
   with solid wall-side planters, a centered room camera, a return-to-market

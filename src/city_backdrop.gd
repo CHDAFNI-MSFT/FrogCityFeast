@@ -11,6 +11,11 @@ const ROAD_RECTS := [
 ]
 const EXPLORATION_MARKERS := [
 	{
+		"position": Vector2(-1510, -1120),
+		"label": "CRANE LIFT",
+		"color": Color("c28a43"),
+	},
+	{
 		"position": Vector2(520, 560),
 		"label": "POND BOARDWALK",
 		"color": Color("5d8c71"),
@@ -84,3 +89,15 @@ func _draw() -> void:
 			17,
 			Color("e7f0e9")
 		)
+	draw_line(
+		Vector2(-1580, -1240),
+		Vector2(-1370, -1240),
+		Color("e0a147"),
+		18.0
+	)
+	draw_line(
+		Vector2(-1470, -1240),
+		Vector2(-1470, -980),
+		Color("c77d37"),
+		14.0
+	)

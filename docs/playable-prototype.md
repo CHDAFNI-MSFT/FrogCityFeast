@@ -131,7 +131,7 @@ The prototype includes:
   actions, safely resets failed guided struggles, and returns to the city after
   required belly actions;
 - a Skip action that marks the tutorial complete and restores normal play;
-- a persistent, per-profile Frog Field Guide covering all 34 target IDs in the
+- a persistent, per-profile Frog Field Guide covering all 35 target IDs in the
   prototype, including Golden Cake, all four destructible-building sequences,
   and Animal Control;
 - first-swallow discovery credit that never adds score or growth, cannot be
@@ -180,6 +180,15 @@ The prototype includes:
 - a marked River Park pond boardwalk leading to a larger navigable Lily Pond
   space with maximum-growth-safe central routes and a room-scoped Lily Pad
   Planter;
+- a growth-gated northwest construction lift leading to a large Construction
+  Crane High Deck with authored safe landings, maximum-growth central space, a
+  bounded follow camera, limited rotation, and a room-scoped resistant Crane
+  Operator Toolbox whose dangerous-location bonus survives valid deck returns
+  and restocking;
+- crane-deck traversal that ends active pursuit, blocks remote pursuit
+  spawning, rejects cross-space Belly returns, restocks its target on the
+  deck, uses an immediate cut with Reduce motion, and restores the original
+  city camera and lift position;
 - a marked Moonlight Market rooftop ladder that requires one growth tier,
   leads through the same bounded transition to a solid rooftop garden, uses a
   fixed room camera, and provides a return-to-market marker;
@@ -380,23 +389,23 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 343 game-subtree nodes, 39 collision objects, 95 collision shapes, 34 targets, 4 buildings, 8 separate rooms |
-| Ordinary pursuit | 345 nodes, 40 collision objects, 96 collision shapes, 1 pursuer |
-| Animal Control tongue deflection | Pursuit structure remains at 345 nodes, 40 collision objects, and 96 collision shapes; feedback is draw-only |
-| Pursuit in active crowd cover | Pursuit structure remains at 345 nodes, 40 collision objects, and 96 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 345 nodes, 40 collision objects, and 96 collision shapes |
-| Animal Control snare | 346 nodes, 40 collision objects, 96 collision shapes, 1 pursuer, 1 draw-only snare |
-| Roadblock pursuit | 347 nodes, 41 collision objects, 97 collision shapes, 1 pursuer, 1 roadblock |
-| Reachable gameplay peak | 348 nodes, 41 collision objects, 97 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
-| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 553 nodes, 98 collision objects, and 156 collision shapes including the authored core |
+| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 355 game-subtree nodes, 40 collision objects, 103 collision shapes, 35 targets, 4 buildings, 9 separate rooms |
+| Ordinary pursuit | 357 nodes, 41 collision objects, 104 collision shapes, 1 pursuer |
+| Animal Control tongue deflection | Pursuit structure remains at 357 nodes, 41 collision objects, and 104 collision shapes; feedback is draw-only |
+| Pursuit in active crowd cover | Pursuit structure remains at 357 nodes, 41 collision objects, and 104 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 357 nodes, 41 collision objects, and 104 collision shapes |
+| Animal Control snare | 358 nodes, 41 collision objects, 104 collision shapes, 1 pursuer, 1 draw-only snare |
+| Roadblock pursuit | 359 nodes, 42 collision objects, 105 collision shapes, 1 pursuer, 1 roadblock |
+| Reachable gameplay peak | 360 nodes, 42 collision objects, 105 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
+| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 565 nodes, 99 collision objects, and 164 collision shapes including the authored core |
 | Navigation query | At most 160 active obstacle rectangles, 70,000 total coarse/fine grid cells, and 512 smoothed route points per request |
-| Populated Belly sample | 64 items and rows, 599 nodes; this is a stress sample, not a gameplay capacity limit |
+| Populated Belly sample | 64 items and rows, 611 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 45 rows, matching the fixed authored and generated-type catalog |
+| Populated Field Guide | 46 rows, matching the fixed authored and generated-type catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -408,6 +417,7 @@ The harness uses fixed random seeds and covers baseline play, the night-open
 Oddities Shop and Moonlight Market bazaar, the active Leap Café stockroom, the
 active Canal Apartments upper hall and connected fire escape, the two-section
 River Park sewer and subway chain, the River Park pond boardwalk, the
+growth-gated Construction Crane High Deck, the
 progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
 Shop cellar, busy daytime, ordinary
 and crowd-cover pursuit, active tongue-deflection feedback, a temporary
@@ -423,25 +433,32 @@ arithmetic-mean FPS.
 
 Repeated August 31, 2026 local GL Compatibility measurements at 1280×960 on an
 NVIDIA RTX 4050 laptop measured the fixed-seed maximum nine-district ring at
-8.46–16.88 ms frame-time p95, 48.5 MiB static memory, 21.5 MiB video memory, 54
-draw calls, 542 rendered objects, and 3,962 primitives. Its structural snapshot
-was 553 game-subtree nodes, 98 collision objects, 156 collision shapes, 106
-total targets, and 13 total buildings, at or within the deterministic ceilings
-above. Its successful deliberate multi-corner navigation request used 61
-active obstacle rectangles, 6,408 grid cells, 4 smoothed points, and at most
-2,986 microseconds across the repeated runs.
+8.46–16.88 ms frame-time p95, 48.5–48.7 MiB static memory, 21.5 MiB video
+memory, 54 draw calls, 542 rendered objects, and 3,962 primitives. Its current
+structural snapshot is 565 game-subtree nodes, 99 collision objects, 164
+collision shapes, 107 total targets, and 13 total buildings, exactly matching
+the deterministic ceilings above. Its successful deliberate multi-corner
+navigation request used 61 active obstacle rectangles, 6,408 grid cells, 4
+smoothed points, and at most 2,986 microseconds across the repeated runs.
 
 The same runs measured the combined authored gameplay peak at 8.54–17.52 ms
-frame-time p95, 47.2 MiB static memory, 21.6 MiB video memory, 431 draw calls,
-1,032 rendered objects, and 25,654 primitives. Its structural snapshot was 348
-nodes, 41 collision objects, and 97 collision shapes. Four navigation requests
-all succeeded per run; the largest used 31 active obstacle rectangles, 6,480
-grid cells, 4 smoothed points, and at most 2,872 microseconds. Neither peak
-recorded a navigation fallback, failure, or budget rejection. Command-driven
-desktop measurements remain advisory and can contain scheduling outliers; both
-peaks still require explicit profiling on the A16 iPad. The unsigned
-Godot-to-Xcode pipeline is verified, but installing and profiling on the target
-device still requires a separately authorized, developer-signed device build.
+frame-time p95, 47.2–47.3 MiB static memory, 21.6 MiB video memory, up to 436
+draw calls, 1,049 rendered objects, and 25,870 primitives. Its current
+structural snapshot is exactly 360 nodes, 42 collision objects, and 105
+collision shapes. Four navigation requests all succeeded per run; the largest
+used 31 active obstacle rectangles, 6,480 grid cells, 4 smoothed points, and at
+most 2,872 microseconds.
+
+The Construction Crane High Deck measured 8.56 ms frame-time p95, 45.7 MiB
+static memory, 17.3 MiB video memory, 37 draw calls, 356 rendered objects, and
+2,994 primitives. Its exact structural snapshot was 355 nodes, 40 collision
+objects, 103 collision shapes, 35 targets, 4 buildings, and 9 authored rooms.
+Neither peak nor the crane deck recorded a navigation fallback, failure, or
+budget rejection. Command-driven desktop measurements remain advisory and can
+contain scheduling outliers; all states still require explicit profiling on
+the A16 iPad. The unsigned Godot-to-Xcode pipeline is verified, but installing
+and profiling on the target device still requires a separately authorized,
+developer-signed device build.
 
 ## Unsigned iOS export verification
 

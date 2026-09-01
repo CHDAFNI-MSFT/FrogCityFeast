@@ -63,7 +63,7 @@ func _run() -> void:
 		"The Animal Control snare budget remains capped at one."
 	)
 	_check(
-		BUDGETS.MAX_INTERIOR_ROOMS == 8,
+		BUDGETS.MAX_INTERIOR_ROOMS == 9,
 		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
@@ -153,6 +153,15 @@ func _run() -> void:
 		{
 			"name": "pond_boardwalk",
 			"setup": _setup_pond_boardwalk,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "crane_deck",
+			"setup": _setup_crane_deck,
 			"preferences": {
 				"reduce_motion": true,
 				"larger_text_controls": false,
@@ -421,6 +430,17 @@ func _setup_pond_boardwalk(game: FrogGame) -> void:
 	)
 
 
+func _setup_crane_deck(game: FrogGame) -> void:
+	var portal := game._city_portal_by_id("construction_crane_lift")
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._frog.global_position = portal["approach_position"] as Vector2
+	game._begin_interior_transition(
+		FrogGame.CONSTRUCTION_CRANE_ID,
+		"construction_crane_lift"
+	)
+
+
 func _setup_market_rooftop(game: FrogGame) -> void:
 	var market := (
 		game._building_by_id.get("moonlight_market")
@@ -681,6 +701,16 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_INTERIOR_ROOMS
 				and int(snapshot["pursuers"]) == 0,
 				"Pond stress activates the navigable River Park boardwalk."
+			)
+		"crane_deck":
+			_check(
+				str(snapshot["active_interior"])
+				== FrogGame.CONSTRUCTION_CRANE_ID
+				and int(snapshot["interior_rooms"])
+				== BUDGETS.MAX_INTERIOR_ROOMS
+				and int(snapshot["growth_tier"]) == 1
+				and int(snapshot["pursuers"]) == 0,
+				"Crane stress activates the growth-gated elevated deck."
 			)
 		"market_rooftop":
 			_check(

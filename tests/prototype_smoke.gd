@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 34,
+		game._targets.size() == 35,
 		"Prototype targets, connected spaces, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -353,6 +353,7 @@ func _run() -> void:
 	await _test_canal_fire_escape(game_scene)
 	await _test_river_sewer_chain(game_scene)
 	await _test_river_pond_boardwalk(game_scene)
+	await _test_construction_crane(game_scene)
 	await _test_cafe_stockroom(game_scene)
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
@@ -1141,9 +1142,9 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, rain, and the night bazaar share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 34
+		game._targets.size() == 35
 			and DiscoveryCatalog.count()
-			== 35 + DistrictGenerator.discovery_ids().size(),
+			== 36 + DistrictGenerator.discovery_ids().size(),
 		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
@@ -1310,10 +1311,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 34
+		int(rainy_snapshot["targets"]) == 35
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 39
-		and int(rainy_snapshot["collision_shapes"]) == 95,
+		and int(rainy_snapshot["collision_objects"]) == 40
+		and int(rainy_snapshot["collision_shapes"]) == 103,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1710,8 +1711,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 345
-		and int(net_snapshot["collision_objects"]) == 40,
+		and int(net_snapshot["game_nodes"]) == 357
+		and int(net_snapshot["collision_objects"]) == 41,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -3915,7 +3916,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 8
+		and game._interior_rooms.size() == 9
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -4175,7 +4176,7 @@ func _test_oddities_cellar(game_scene: PackedScene) -> void:
 		and is_instance_valid(cellar)
 		and is_instance_valid(shelf)
 		and is_instance_valid(music_box)
-		and game._interior_rooms.size() == 8
+		and game._interior_rooms.size() == 9
 		and shop.transition_room_id == FrogGame.ODDITIES_CELLAR_ID
 		and shop.transition_required_removed_part
 		== PrototypeBuilding.PART_COUNTER
@@ -4383,7 +4384,7 @@ func _test_market_rooftop(game_scene: PackedScene) -> void:
 		is_instance_valid(market)
 		and is_instance_valid(rooftop)
 		and is_instance_valid(beehive)
-		and game._interior_rooms.size() == 8
+		and game._interior_rooms.size() == 9
 		and market.transition_room_id == FrogGame.MARKET_ROOFTOP_ID
 		and market.transition_min_growth_tier == 1
 		and rooftop.return_label == "RETURN TO MARKET"
@@ -4563,7 +4564,7 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 		is_instance_valid(apartments)
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(vacuum)
-		and game._interior_rooms.size() == 8
+		and game._interior_rooms.size() == 9
 		and apartments.transition_room_id
 		== FrogGame.CANAL_UPPER_HALL_ID
 		and upper_hall.return_label == "RETURN TO LOBBY"
@@ -4731,7 +4732,7 @@ func _test_canal_fire_escape(game_scene: PackedScene) -> void:
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(fire_escape)
 		and is_instance_valid(laundry)
-		and game._interior_rooms.size() == 8
+		and game._interior_rooms.size() == 9
 		and str(outward_portal["destination"])
 		== FrogGame.CANAL_FIRE_ESCAPE_ID
 		and str(return_portal["destination"])
@@ -4982,7 +4983,7 @@ func _test_river_sewer_chain(game_scene: PackedScene) -> void:
 		and is_instance_valid(tunnel)
 		and is_instance_valid(valve)
 		and is_instance_valid(signal_lamp)
-		and game._interior_rooms.size() == 8
+		and game._interior_rooms.size() == 9
 		and str(tunnel_portal["destination"])
 		== FrogGame.RIVER_SUBWAY_TUNNEL_ID
 		and str(tunnel_return["destination"])
@@ -5219,7 +5220,7 @@ func _test_river_pond_boardwalk(game_scene: PackedScene) -> void:
 		not city_portal.is_empty()
 		and is_instance_valid(boardwalk)
 		and is_instance_valid(planter)
-		and game._interior_rooms.size() == 8
+		and game._interior_rooms.size() == 9
 		and boardwalk.camera_follows_frog()
 		and boardwalk.room_size == Vector2(1900, 1200)
 		and planter.building_id == FrogGame.RIVER_POND_BOARDWALK_ID
@@ -5330,6 +5331,237 @@ func _test_river_pond_boardwalk(game_scene: PackedScene) -> void:
 			restocked_planter.global_position
 		),
 		"Digesting the Lily Pad Planter restocks it on the boardwalk."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
+func _test_construction_crane(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("crane_test", "Crane Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var city_portal := game._city_portal_by_id(
+		"construction_crane_lift"
+	)
+	var crane := (
+		game._interior_rooms.get(FrogGame.CONSTRUCTION_CRANE_ID)
+		as PrototypeInteriorRoom
+	)
+	var return_portal := crane.portal_by_id("return")
+	var toolbox := _find_target(game, "construction_crane_toolbox")
+	_check(
+		not city_portal.is_empty()
+		and is_instance_valid(crane)
+		and is_instance_valid(toolbox)
+		and game._interior_rooms.size() == 9
+		and crane.camera_follows_frog()
+		and crane.room_size == Vector2(2100, 1300)
+		and crane._collision_body.get_child_count() == 8
+		and str(return_portal["destination"]) == "city"
+		and toolbox.size_tier == 1
+		and toolbox.resistant
+		and toolbox.dangerous_location
+		and toolbox.building_id == FrogGame.CONSTRUCTION_CRANE_ID
+		and toolbox.move_bounds == crane.interior_rect(),
+		"The construction lift reaches one elevated deck with a scoped dangerous target."
+	)
+	_check(
+		game._circle_position_clear(
+			city_portal["approach_position"] as Vector2,
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			crane.entry_position("from_lift"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			crane.exit_approach_position(),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			crane.global_position,
+			44.0,
+			true
+		),
+		"The lift approach, deck landings, and center are safe at maximum size."
+	)
+
+	game._frog.global_position = city_portal["approach_position"] as Vector2
+	var handled_locked := game._try_handle_interior_transition_tap(
+		city_portal["marker_position"] as Vector2
+	)
+	_check(
+		handled_locked
+		and game._active_interior_id.is_empty()
+		and game._pending_interior_transition.is_empty()
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and game._status_label.text.contains("Grow once"),
+		"Starting-size frogs cannot operate the construction lift."
+	)
+
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._begin_interior_transition(FrogGame.CONSTRUCTION_CRANE_ID)
+	_check(
+		game._active_interior_id.is_empty()
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and game._status_label.text.contains("not accessible"),
+		"Direct transition calls cannot bypass the marked construction lift."
+	)
+
+	var city_camera_rotation := -0.21
+	game._camera.rotation = city_camera_rotation
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._begin_interior_transition(
+		FrogGame.CONSTRUCTION_CRANE_ID,
+		"construction_crane_lift"
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id
+		== FrogGame.CONSTRUCTION_CRANE_ID
+		and game._frog.global_position
+		== crane.entry_position("from_lift")
+		and game._camera.zoom == crane.camera_zoom
+		and game._active_navigation_rect() == crane.interior_rect(),
+		"Riding the lift uses its authored landing and ends active pursuit."
+	)
+	game._spawn_pursuer()
+	_check(
+		not is_instance_valid(game._pursuer)
+		and game._status_label.text.contains("cannot find"),
+		"Animal Control cannot spawn remotely on the crane deck."
+	)
+
+	game._frog.global_position = (
+		crane.global_position + Vector2(720, 0)
+	)
+	game._update_camera()
+	var camera_before_rotation := game._camera.global_position
+	game._rotate_camera(40.0, Vector2(640, 480))
+	game._update_camera()
+	game._camera.force_update_scroll()
+	var half_view := (
+		game.get_viewport().get_visible_rect().size
+		/ (game._camera.zoom * 2.0)
+	)
+	var cosine := absf(cos(game._camera.rotation))
+	var sine := absf(sin(game._camera.rotation))
+	var rotated_half_view := Vector2(
+		cosine * half_view.x + sine * half_view.y,
+		sine * half_view.x + cosine * half_view.y
+	)
+	_check(
+		not is_zero_approx(game._camera.rotation)
+		and absf(game._camera.rotation)
+		<= crane.camera_rotation_limit
+		and not game._camera.position_smoothing_enabled
+		and game._camera.global_position != crane.global_position
+		and game._camera.global_position != camera_before_rotation
+		and crane.interior_rect().grow(0.1).encloses(
+			Rect2(
+				game._camera.global_position - rotated_half_view,
+				rotated_half_view * 2.0
+			)
+		),
+		"The elevated deck camera follows movement without revealing adjacent rooms."
+	)
+
+	game._pending_growth_tier = 2
+	game._frog.global_position = crane.global_position
+	game._last_safe_ground_position = crane.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1
+		and game._find_safe_frog_position(44.0) != Vector2.INF,
+		"The crane deck retains safe central navigation at maximum size."
+	)
+
+	game._frog.global_position = toolbox.global_position + Vector2(0, 120)
+	game._swallow_target(toolbox, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id
+		== "construction_crane_toolbox"
+		and game._belly[0].movement_bounds == crane.interior_rect(),
+		"Swallowing the toolbox preserves its crane-deck restock bounds."
+	)
+	game._spit_item(0)
+	var spat_toolbox := _find_target(
+		game,
+		"construction_crane_toolbox"
+	)
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_toolbox)
+		and spat_toolbox.dangerous_location
+		and crane.interior_rect().has_point(
+			spat_toolbox.global_position
+		),
+		"Spitting the toolbox on the deck preserves its dangerous elevated location."
+	)
+	game._swallow_target(spat_toolbox, 1.0)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = crane.exit_approach_position()
+	var handled_return := game._try_handle_interior_transition_tap(
+		crane.exit_marker_position()
+	)
+	_check(
+		handled_return
+		and game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== (city_portal["approach_position"] as Vector2)
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and is_equal_approx(game._camera.rotation, city_camera_rotation)
+		and game._camera.position_smoothing_enabled
+		and game._active_navigation_rect() == FrogGame.WORLD_RECT,
+		"Reduce motion returns immediately to the lift and restores the city camera."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains(
+			"construction crane high deck"
+		),
+		"A crane-deck target cannot be spat into the city."
+	)
+	game._digest_item(0)
+
+	await create_timer(9.2, false).timeout
+	var restocked_toolbox := _find_target(
+		game,
+		"construction_crane_toolbox"
+	)
+	_check(
+		is_instance_valid(restocked_toolbox)
+		and restocked_toolbox.dangerous_location
+		and crane.interior_rect().has_point(
+			restocked_toolbox.global_position
+		)
+		and game._active_interior_id.is_empty(),
+		"Digesting the toolbox restocks it on the crane deck."
 	)
 
 	paused = false

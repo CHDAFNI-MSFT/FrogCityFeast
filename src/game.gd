@@ -139,7 +139,21 @@ const RIVER_POND_BOARDWALK_ID := "river_park_pond_boardwalk"
 const RIVER_POND_BOARDWALK_POSITION := (
 	INTERIOR_SPACE_ORIGIN + Vector2(0, 9200)
 )
+const CONSTRUCTION_CRANE_ID := "construction_crane_deck"
+const CONSTRUCTION_CRANE_POSITION := (
+	INTERIOR_SPACE_ORIGIN + Vector2(0, 10600)
+)
 const CITY_EXPLORATION_PORTALS := [
+	{
+		"id": "construction_crane_lift",
+		"label": "construction crane lift",
+		"marker_position": Vector2(-1510, -1120),
+		"approach_position": Vector2(-1410, -1120),
+		"destination": CONSTRUCTION_CRANE_ID,
+		"destination_entry_id": "from_lift",
+		"min_growth_tier": 1,
+		"requirement_text": "Grow once before riding the construction lift.",
+	},
 	{
 		"id": "river_pond_boardwalk",
 		"label": "River Park pond boardwalk",
@@ -2470,7 +2484,7 @@ func _spit_item(index: int) -> void:
 		)
 		_next_session_instance_id += 1
 	target.position = spawn_position
-	target.dangerous_location = false
+	target.dangerous_location = _belly_item_retains_danger(item)
 	if target.velocity != Vector2.ZERO and not target.is_vehicle:
 		target.move_bounds = Rect2(
 			spawn_position - Vector2(360, 260),
@@ -2500,6 +2514,13 @@ func _belly_item_matches_active_space(item: BellyItem) -> bool:
 	if item.kind == "building":
 		return item.district_coordinate == _current_district_coordinate
 	return true
+
+
+func _belly_item_retains_danger(item: BellyItem) -> bool:
+	return (
+		item.intrinsic_dangerous_location
+		and _interior_rooms.has(item.building_id)
+	)
 
 
 func _belly_item_space_label(item: BellyItem) -> String:
@@ -3838,7 +3859,7 @@ func _respawn_living_later(item: BellyItem) -> void:
 	var target := EDIBLE_SCRIPT.new() as EdibleTarget
 	target.configure_from_belly(item)
 	target.position = spawn_position
-	target.dangerous_location = false
+	target.dangerous_location = _belly_item_retains_danger(item)
 	if target.building_id.is_empty():
 		if target.velocity.length() < 60.0:
 			target.velocity = Vector2(100, 70)
@@ -3875,7 +3896,7 @@ func _restock_target_later(item: BellyItem) -> void:
 	var target := EDIBLE_SCRIPT.new() as EdibleTarget
 	target.configure_from_belly(item)
 	target.position = spawn_position
-	target.dangerous_location = false
+	target.dangerous_location = _belly_item_retains_danger(item)
 	_world.add_child(target)
 	_targets.append(target)
 	_rare_respawn_pending.erase(item.target_id)
@@ -5268,6 +5289,26 @@ func _build_prototype_city() -> void:
 	pond_boardwalk.camera_follow_distance = 120.0
 	pond_boardwalk.camera_rotation_limit = 0.25
 	pond_boardwalk.set_entry("from_park", Vector2(0, 430))
+	var crane_deck := _spawn_interior_room(
+		CONSTRUCTION_CRANE_ID,
+		"Construction Crane High Deck",
+		CONSTRUCTION_CRANE_POSITION,
+		Vector2(2100, 1300),
+		Color("9a784e"),
+		[
+			Rect2(-950, -450, 320, 90),
+			Rect2(630, -450, 320, 90),
+			Rect2(-960, 315, 270, 90),
+			Rect2(690, 305, 240, 100),
+		],
+		"",
+		"RETURN TO CONSTRUCTION SITE"
+	)
+	crane_deck.camera_mode = PrototypeInteriorRoom.CAMERA_FOLLOW
+	crane_deck.camera_zoom = Vector2(1.1, 1.1)
+	crane_deck.camera_follow_distance = 130.0
+	crane_deck.camera_rotation_limit = 0.25
+	crane_deck.set_entry("from_lift", Vector2(-760, 250))
 	var market_rooftop := _spawn_interior_room(
 		MARKET_ROOFTOP_ID,
 		"Moonlight Market Rooftop Garden",
@@ -5534,6 +5575,21 @@ func _build_prototype_city() -> void:
 		"bounds": pond_boardwalk.interior_rect(),
 		"building_id": RIVER_POND_BOARDWALK_ID,
 		"color": Color("79b962"),
+	})
+	_spawn_target({
+		"id": "construction_crane_toolbox",
+		"name": "Crane Operator Toolbox",
+		"position": crane_deck.global_position + Vector2(520, -180),
+		"value": 78,
+		"tier": 1,
+		"kind": "object",
+		"radius": 38.0,
+		"resistant": true,
+		"taps": 7,
+		"bounds": crane_deck.interior_rect(),
+		"building_id": CONSTRUCTION_CRANE_ID,
+		"dangerous": true,
+		"color": Color("d7a34b"),
 	})
 
 
