@@ -519,36 +519,36 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, peak wind, Enormous growth, Field Guide, or options | 377 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
-| Day-open Moonlight Market | The exact kite-festival overlap remains at the 377-node baseline ceiling; one existing removable door collision is disabled and navigation uses one fewer obstacle |
-| Ordinary Animal Control pursuit | 379 nodes, 42 collision objects, 112 collision shapes, 1 pursuer |
-| Security Guard pursuit or flashlight warning | 379 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the flashlight is draw-only |
-| Watchdog pursuit or lunge | 379 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the lunge reuses that body |
-| Animal Control tongue deflection | Pursuit structure remains at 379 nodes, 42 collision objects, and 112 collision shapes; feedback is draw-only |
-| Pursuit in active crowd cover | Pursuit structure remains at 379 nodes, 42 collision objects, and 112 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 379 nodes, 42 collision objects, and 112 collision shapes |
-| Any pursuer-specific trap | At the zero-event clock boundary: 380 nodes, 42 collision objects, 112 collision shapes, 1 pursuer, and 1 draw-only snare, motion beacon, or sticky patch |
-| Straight-roadblock pursuit | 381 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock segment |
-| Staggered-roadblock pursuit | 382 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 2 roadblock segments |
-| Reachable gameplay peak | 383 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 1 two-segment roadblock, 1 draw-only snare |
-| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 587 nodes, 100 collision objects, and 172 collision shapes including the authored core |
-| Secret-district ring | Same 9-district, 9-building, and 72-target cap; worst-case obstacle composition allows up to 602 nodes, 104 collision objects, and 183 shapes, with one draw-only star-path mark |
+| Baseline, night shop, any separate room, busy daytime, peak wind, Enormous growth, Guide, or options | 331 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
+| Day-open Moonlight Market | The exact kite-festival overlap remains at the 331-node baseline ceiling; one existing removable door collision is disabled and navigation uses one fewer obstacle |
+| Ordinary Animal Control pursuit | 333 nodes, 42 collision objects, 112 collision shapes, 1 pursuer |
+| Security Guard pursuit or flashlight warning | 333 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the flashlight is draw-only |
+| Watchdog pursuit or lunge | 333 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the lunge reuses that body |
+| Animal Control tongue deflection | Pursuit structure remains at 333 nodes, 42 collision objects, and 112 collision shapes; feedback is draw-only |
+| Pursuit in active crowd cover | Pursuit structure remains at 333 nodes, 42 collision objects, and 112 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 333 nodes, 42 collision objects, and 112 collision shapes |
+| Any pursuer-specific trap | At the zero-event clock boundary: 334 nodes, 42 collision objects, 112 collision shapes, 1 pursuer, and 1 draw-only snare, motion beacon, or sticky patch |
+| Straight-roadblock pursuit | 335 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock segment |
+| Staggered-roadblock pursuit | 336 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 2 roadblock segments |
+| Reachable gameplay peak | 337 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 1 two-segment roadblock, 1 draw-only snare |
+| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 541 nodes, 100 collision objects, and 172 collision shapes including the authored core |
+| Secret-district ring | Same 9-district, 9-building, and 72-target cap; worst-case obstacle composition allows up to 556 nodes, 104 collision objects, and 183 shapes, with one draw-only star-path mark |
 | Navigation query | At most 160 active obstacle rectangles, 70,000 total coarse/fine grid cells, and 512 smoothed route points per request |
-| Populated Belly sample | 64 items and rows, 633 nodes; this is a stress sample, not a gameplay capacity limit |
-| Save warning with enlarged Options | 379 nodes; the two-node warning subtree is retained but hidden while the warning is integrated into the wrapped modal summary |
-| Score epilogue with save warning | 394 nodes; the 15-node ending postcard integrates the warning while retaining the hidden two-node gameplay banner |
+| Populated Belly sample | 64 items and rows, 587 nodes; this is a stress sample, not a gameplay capacity limit |
+| Save warning with enlarged Options | 333 nodes; the two-node warning subtree is retained but hidden while the warning is integrated into the wrapped modal summary |
+| Score epilogue with save warning | 348 nodes; the 15-node ending postcard integrates the warning while retaining the hidden two-node gameplay banner |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
 | Canal Kite Festival | Moonlight Market is open with 8 fixed draw-only kites over daytime activity; structural counts remain at the baseline ceiling |
-| Kite festival with Security or Watchdog | Moonlight Market remains open with one pursuer-specific draw-only trap, 20 city actors, 8 kites, and 24 presentation effects; 380 nodes, 42 collision objects, and 112 collision shapes |
-| Kite festival gameplay peak | Moonlight Market remains open with Animal Control, one draw-only snare, the two-segment staggered roadblock, 20 city actors, 8 kites, and 24 presentation effects; 383 nodes, 43 collision objects, and 114 collision shapes |
-| Peak rainy daytime with water-main repair | Both shops are closed with 4 pedestrians, 3 secondary vehicles, 84 batched draw-only rain streaks, and 1 physical detour segment; 379 nodes, 42 collision objects, and 112 collision shapes |
-| Water-main repair with any pursuer profile | Both shops are closed with one pursuer, one profile-specific draw-only trap, one physical detour segment, and no roadblock; 382 nodes, 43 collision objects, and 113 collision shapes |
+| Kite festival with Security or Watchdog | Moonlight Market remains open with one pursuer-specific draw-only trap, 20 city actors, 8 kites, and 24 presentation effects; 334 nodes, 42 collision objects, and 112 collision shapes |
+| Kite festival gameplay peak | Moonlight Market remains open with Animal Control, one draw-only snare, the two-segment staggered roadblock, 20 city actors, 8 kites, and 24 presentation effects; 337 nodes, 43 collision objects, and 114 collision shapes |
+| Peak rainy daytime with water-main repair | Both shops are closed with 4 pedestrians, 3 secondary vehicles, 84 batched draw-only rain streaks, and 1 physical detour segment; 333 nodes, 42 collision objects, and 112 collision shapes |
+| Water-main repair with any pursuer profile | Both shops are closed with one pursuer, one profile-specific draw-only trap, one physical detour segment, and no roadblock; 336 nodes, 43 collision objects, and 113 collision shapes |
 | Peak wind squall | Moonlight Market is open with 10 pedestrians, 5 meetup visitors, 5 secondary vehicles, and 40 batched draw-only directional ribbons; structural counts remain at the baseline ceiling |
-| Wind with Security or Watchdog | Moonlight Market remains open with one pursuer-specific draw-only trap, 20 city actors, 40 wind ribbons, and 24 presentation effects; 380 nodes, 42 collision objects, and 112 collision shapes |
+| Wind with Security or Watchdog | Moonlight Market remains open with one pursuer-specific draw-only trap, 20 city actors, 40 wind ribbons, and 24 presentation effects; 334 nodes, 42 collision objects, and 112 collision shapes |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 49 rows, matching the fixed authored and generated-type catalog |
+| Populated Guide | 49 authored Field Guide entries plus journal scopes, rendered through 1 bounded text row; profile pages contain at most 6 entries, clue pages 5, and Field Guide pages 7 |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -573,9 +573,10 @@ Security Guard pursuit and flashlight warning, active tongue-deflection
 feedback, Watchdog pursuit and lunge, a temporary
 straight roadblock, a two-segment staggered roadblock, all three
 pursuer-specific draw-only traps, an Animal Control net in flight, maximum
-growth, a finite maximum presentation burst, a 64-item Belly, the populated
-Field Guide, both accessibility options, a maximum 3x3 generated-district ring,
-and a reachable gameplay peak combining peak wind, daytime activity, pursuit,
+growth, a finite maximum presentation burst, a 64-item Belly, the longest
+populated Guide page, both accessibility options, a maximum 3x3
+generated-district ring, and a reachable gameplay peak combining peak wind,
+daytime activity, pursuit,
 growth, the roadblock, the snare, and presentation effects. It prints median
 FPS, frame-time percentiles, memory, and
 a post-sample render snapshot. The command-driven Windows run can show isolated
@@ -588,94 +589,48 @@ Oddities Shop's overlap with the night bazaar, both shops being closed during
 the repair, and schedule handoffs at clocks 0.46, 0.56, 0.58, 0.62, 0.74, and
 0.78.
 
-Repeated August 31, 2026 local GL Compatibility measurements at 1280×960 on an
-NVIDIA RTX 4050 laptop measured the fixed-seed maximum nine-district ring at
-8.46–16.88 ms frame-time p95, 48.5–48.9 MiB static memory, 21.5 MiB video
-memory, 54 draw calls, 542 rendered objects, and 3,962 primitives. Its current
-structural snapshot is 587 game-subtree nodes, 100 collision objects, 172
-collision shapes, 108 total targets, and 13 total buildings, exactly matching
-the deterministic ceilings above. Its successful deliberate multi-corner
-navigation request used 61 active obstacle rectangles, 6,408 grid cells, 4
-smoothed points, and at most 2,986 microseconds across the repeated runs.
+The final September 1, 2026 fixed-seed production-tree matrix ran at 1280×960
+with the GL Compatibility renderer on an NVIDIA RTX 4050 laptop. The particle
+pass batches every burst's spark marks into one multiline draw command while
+preserving the 24-effect cap. The Guide pass replaces 49 simultaneously
+rendered catalog labels with bounded journal pages and one rendered text row.
+Those changes resolved both pre-optimization render overruns without raising
+the A16 reference budgets:
 
-Two final September 1, 2026 fixed-seed full-matrix passes used all 20 daytime
-city actors and 40 wind ribbons in one draw command. The standalone squall
-measured 8.51–8.54 ms frame-time p95, 179–183 draws, 891–943 rendered objects,
-and 10,390–10,618 primitives. Security plus its beacon used 424 draws, 1,137
-objects, and 25,294 primitives; Watchdog plus its sticky patch used 425 draws,
-1,131 objects, and 25,364 primitives. Their desktop p95 samples ranged from
-17.93 to 24.56 ms and included isolated 500+ ms host stalls. Every render
-snapshot remained below its reference ceiling, and the exact structures stayed
-at 377 nodes standalone or 380 nodes with one pursuer and trap.
+| Stress state | Median FPS | Frame p95 | Static / video memory | Render snapshot |
+|---|---:|---:|---:|---:|
+| Baseline | 101.5 | 16.25 ms | 45.4 / 18.3 MiB | 210 draws, 931 objects, 11,876 primitives |
+| Presentation peak | 109.9 | 16.54 ms | 45.7 / 18.5 MiB | 293 draws, 1,441 objects, 14,578 primitives |
+| Longest populated Guide page | 119.9 | 11.09 ms | 45.9 / 19.5 MiB | 226 draws, 1,665 objects, 15,046 primitives |
+| 64-item Belly | 120.0 | 11.80 ms | 51.4 / 20.9 MiB | 276 draws, 1,411 objects, 21,258 primitives |
+| Reachable gameplay peak | 114.8 | 14.43 ms | 46.9 / 20.1 MiB | 270 draws, 1,484 objects, 13,330 primitives |
+| Maximum generated ring | 118.6 | 11.18 ms | 48.2 / 20.3 MiB | 49 draws, 536 objects, 3,606 primitives |
 
-The same passes measured the authored wind gameplay peak at 15.89–22.77 ms
-frame-time p95, 48.5 MiB static memory, 21.6 MiB video memory, 438 draws, 1,220
-objects, and 25,524 primitives. Its exact structure remains 383 nodes, 43
-collision objects, and 114 collision shapes with Animal Control, one snare,
-and the two-segment staggered roadblock. Both passes contained one isolated
-500+ ms host stall. The presentation-only peak uses capped seven-spoke damage
-bursts and measured 444 draws, below the 450-draw reference ceiling.
+Across the full matrix, the highest observed render counters were 293 draw
+calls, 1,665 objects, and 21,258 primitives. The highest static and video
+memory observations were 51.4 MiB and 20.9 MiB. Every render and memory
+snapshot was below its reference ceiling. Five short command-driven desktop
+samples were marked `REVIEW` only for frame p95: busy daytime at 20.74 ms, the
+Animal Control repair peak at 19.01 ms, wind plus Security at 18.15 ms, kite
+festival plus Watchdog at 22.58 ms, and the straight roadblock at 21.99 ms.
+These development-machine samples are advisory rather than acceptance results.
 
-The final Canal Kite Festival passes held the exact 8-kite cap. Standalone
-samples measured 8.47–8.48 ms frame-time p95, 180–184 draws, 924–976 objects,
-and 10,440–10,668 primitives. Security plus its beacon measured 14.63–14.83 ms
-p95 with 420–425 draws; Watchdog plus its sticky patch measured 9.46–19.14 ms
-with 426 draws. The full Animal Control festival peak measured 17.87–23.49 ms
-p95, 439 draws, 1,253 objects, and 25,574 primitives. All exact structures
-remain at 377, 380, or 383 nodes as documented above, all render snapshots stay
-below their ceilings, and the higher desktop samples coincide with host stalls
-or short scheduling bursts rather than target-device acceptance data.
+The exact structural snapshots were 331 nodes for baseline and Guide, 333 for
+ordinary pursuit or the detour, 334 for one pursuer and trap, 335 and 336 for
+the straight and staggered roadblocks, 337 for the authored gameplay peak, 587
+for the Belly sample, 541 for the generated ring, and 538 for the sampled
+secret ring against its 556-node worst-case ceiling. The gameplay-peak
+navigation query used 31 active obstacles, 6,480 grid cells, 4 smoothed points,
+and at most 2,794 microseconds. The generated ring used 61 obstacles, 6,408
+cells, 4 points, and at most 4,063 microseconds. Neither recorded a fallback,
+failure, or budget rejection.
 
-The final day-open Moonlight Market sample was taken during its exact
-kite-festival overlap and measured 8.47 ms frame-time p95, 46.9 MiB static
-memory, 17.3 MiB video memory, 184 draws, 976 objects, and 10,668 primitives.
-Its exact structure remains 377 nodes, 41 collision objects, and 111 collision
-shapes with all 36 targets and 4 buildings retained; opening disables one
-existing door collision and reduces active navigation obstacles from 30 to 29.
-
-The final water-main repair passes measured 8.56–8.57 ms frame-time p95,
-146–151 draws, 945–961 objects, and 8,806–9,044 primitives. Its Enormous-growth
-detour query used 31 active obstacles, 1,128 grid cells, 4 smoothed points, and
-946 microseconds. With 24 presentation effects and one profile trap, Animal
-Control used 390 draws and measured 11.15–24.77 ms p95, Security used 392 draws
-with one unobstructed 16.33 ms sample and one isolated 512.95 ms stall, and
-Watchdog used 393 draws at 13.30–13.65 ms p95. All combined snapshots remained
-at 382 nodes, 43 collision objects, and 113 collision shapes with no roadblock.
-
-The final straight-roadblock sample measured 10.85 ms frame-time p95 with 211
-draws, 906 objects, and 11,974 primitives. The staggered sample measured 10.65
-ms p95 with 221 draws, 977 objects, and 12,192 primitives. Their exact
-structures remain respectively 381 nodes and 113 collision shapes for one
-segment, and 382 nodes and 114 shapes for two segments; both retain one
-collision body and 43 total collision objects.
-
-At the exact zero-event boundary, Security pursuit measured 8.91 ms frame-time
-p95 with 166 draws, 833 objects, and 9,594 primitives. Its draw-only flashlight
-warning measured 8.70 ms p95 with 170 draws, 859 objects, and 9,770 primitives.
-Watchdog pursuit measured 8.86 ms p95 with 167 draws, 820 objects, and 9,566
-primitives; its lunge measured 9.21 ms with 171 draws, 846 objects, and 9,742
-primitives. Each structure remains 379 nodes, 42 collision objects, and 112
-collision shapes.
-
-The zero-event trap samples measured 8.74 ms frame-time p95 for Animal
-Control's snare, 8.68 ms for Security's motion beacon, and 8.95 ms for
-Watchdog's sticky patch. They used respectively 156, 154, and 158 draws, with
-815–872 objects and 8,886–9,124 primitives. Each exact snapshot is 380 nodes,
-42 collision objects, and 112 collision shapes with one pursuer and one
-draw-only trap.
-
-The Construction Crane High Deck measured 8.56 ms frame-time p95, 45.7–45.9
-MiB static memory, 17.3 MiB video memory, 37 draw calls, 356 rendered objects,
-and 2,994 primitives. The Hidden Sewer Maintenance Pocket measured 8.59 ms
-frame-time p95 with the same 45.9 MiB memory and render snapshot. Both have an
-exact structural snapshot of 377 nodes, 41 collision objects, 111 collision
-shapes, 36 targets, 4 buildings, and 10 authored rooms. Neither peak nor either
-exploration space recorded a navigation fallback, failure, or budget
-rejection. Command-driven desktop measurements remain advisory and can contain
-scheduling outliers; all states still require explicit profiling on the A16
-iPad. The unsigned Godot-to-Xcode pipeline is verified, but installing and
-profiling on the target device still requires a separately authorized,
-developer-signed device build.
+Physical-device acceptance remains pending. Frame scheduling, main-thread and
+physics p95, GPU frame time, thermal behavior, and final memory/render
+acceptance must be measured from a signed release build on the A16 iPad with
+Godot and Xcode/Metal profiling. The unsigned Godot-to-Xcode pipeline is
+verified, but installing or profiling a signed build remains separately
+authorized, secret-dependent release work.
 
 ## Unsigned iOS export verification
 

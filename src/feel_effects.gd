@@ -150,12 +150,18 @@ func _draw_burst(
 	var ring_color := color
 	ring_color.a *= alpha * 0.9
 	draw_arc(position, radius, 0.0, TAU, 32, ring_color, 5.0)
+	var spark_segments := PackedVector2Array()
+	var spark_half_length := lerpf(5.0, 1.5, progress)
 	for direction in directions:
 		var particle_position := position + direction * radius
-		draw_circle(
-			particle_position,
-			lerpf(8.0, 2.0, progress),
-			Color(color, alpha)
+		var tangent := direction.orthogonal() * spark_half_length
+		spark_segments.append(particle_position - tangent)
+		spark_segments.append(particle_position + tangent)
+	if not spark_segments.is_empty():
+		draw_multiline(
+			spark_segments,
+			Color(color, alpha),
+			lerpf(7.0, 2.0, progress)
 		)
 
 

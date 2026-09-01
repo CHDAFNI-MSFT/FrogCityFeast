@@ -207,16 +207,20 @@ func _test_game_progression() -> void:
 	)
 
 	game._rebuild_guide()
-	var first_row := game._guide_list.get_child(0) as Label
+	var guide_text := ""
+	for page in game._guide_pages():
+		guide_text += "\n" + str(page["text"])
 	_check(
-		first_row.text.contains("SESSION GOALS")
-		and first_row.text.contains("PROFILE ACHIEVEMENTS")
-		and first_row.text.contains("DEVICE MILESTONES")
-		and first_row.text.contains("STORY CLUES")
-		and first_row.text.contains("Folded Blueprint")
-		and first_row.text.contains("Secret path revealed")
+		guide_text.contains("SESSION GOALS")
+		and guide_text.contains("PROFILE ACHIEVEMENTS")
+		and guide_text.contains("DEVICE MILESTONES")
+		and guide_text.contains("STORY CLUES")
+		and guide_text.contains("Folded Blueprint")
+		and guide_text.contains("Secret path revealed")
+		and game._guide_list.get_child_count() == 1
+		and not game._next_guide_page_button.disabled
 		and game._guide_progress.text.contains("Story clues"),
-		"The Guide journal visibly separates scopes and presents found story clues."
+		"The paginated Guide journal separates scopes and presents found story clues."
 	)
 
 	game.queue_free()

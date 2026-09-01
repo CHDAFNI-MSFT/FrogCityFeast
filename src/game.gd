@@ -66,6 +66,9 @@ const TONGUE_COLOR := Color(0.96, 0.42, 0.56, 1.0)
 const STRUGGLE_DURATION := GAMEPLAY_TUNING_SCRIPT.STRUGGLE_DURATION
 const DAMAGE_COOLDOWN := 1.4
 const NIGHT_AUDIO_THRESHOLD := 0.38
+const GUIDE_PROFILE_ENTRIES_PER_PAGE := 6
+const GUIDE_CLUES_PER_PAGE := 5
+const GUIDE_FIELD_ENTRIES_PER_PAGE := 7
 const RAIN_START := 0.58
 const RAIN_FULL_START := 0.62
 const RAIN_FULL_END := 0.74
@@ -470,7 +473,15 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _reward_label: Label = %RewardLabel
 @onready var _guide_overlay: Control = %GuideOverlay
 @onready var _guide_progress: Label = %GuideProgress
+@onready var _guide_scroll: ScrollContainer = (
+	$HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Scroll
+)
 @onready var _guide_list: VBoxContainer = %GuideList
+@onready var _previous_guide_page_button: Button = (
+	%PreviousGuidePageButton
+)
+@onready var _guide_page_label: Label = %GuidePageLabel
+@onready var _next_guide_page_button: Button = %NextGuidePageButton
 @onready var _end_game_guide_button: Button = %EndGameGuideButton
 @onready var _close_guide_button: Button = %CloseGuideButton
 @onready var _options_overlay: Control = %OptionsOverlay
@@ -604,6 +615,7 @@ var _assist_hold_pointer_id := -2
 var _tutorial: TutorialController
 var _tutorial_original_target_states: Dictionary = {}
 var _discoveries: Dictionary = {}
+var _guide_page_index := 0
 var _challenges := SessionChallenges.new()
 var _motion_scale := 1.0
 var _motion_scale_configured := false
@@ -652,6 +664,10 @@ func _ready() -> void:
 	_end_game_belly_button.pressed.connect(_end_game)
 	_close_belly_button.pressed.connect(_close_belly)
 	_end_game_guide_button.pressed.connect(_end_game)
+	_previous_guide_page_button.pressed.connect(
+		_on_previous_guide_page
+	)
+	_next_guide_page_button.pressed.connect(_on_next_guide_page)
 	_close_guide_button.pressed.connect(_close_guide)
 	_populate_input_assist_options()
 	_reduce_motion_toggle.toggled.connect(_on_accessibility_toggled)
@@ -2766,46 +2782,56 @@ func _rebuild_guide() -> void:
 		),
 		ProgressionCatalog.device_achievement_ids().size(),
 	]
-	var first_entry := true
-	for entry in DiscoveryCatalog.entries():
-		var target_id := str(entry["id"])
-		var discovered := _discoveries.has(target_id)
-		var row := Label.new()
-		row.custom_minimum_size = Vector2(0, 46)
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		row.add_theme_font_size_override("font_size", 19)
-		row.add_theme_color_override(
-			"font_color",
-			Color(0.62, 1.0, 0.68)
-			if discovered
-			else Color(0.76, 0.8, 0.82)
-		)
-		var entry_text := (
-			"FOUND: %s - %s" % [entry["name"], entry["hint"]]
-			if discovered
-			else "UNKNOWN - Hint: %s" % entry["hint"]
-		)
-		row.text = (
-			"%s\n\nFIELD GUIDE\n%s" % [
-				_meta_journal_text(),
-				entry_text,
-			]
-			if first_entry
-			else entry_text
-		)
-		first_entry = false
-		_guide_list.add_child(row)
-		AccessibilityPresentation.apply(
-			row,
-			_larger_text_controls_enabled
-		)
-
-
-func _meta_journal_text() -> String:
-	var lines: Array[String] = [
-		"SESSION GOALS - reset with every Start New Game",
+	var pages := _guide_pages()
+	_guide_page_index = clampi(
+		_guide_page_index,
+		0,
+		maxi(0, pages.size() - 1)
+	)
+	var page := pages[_guide_page_index]
+	var row := Label.new()
+	row.custom_minimum_size = Vector2(0, 390)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_theme_font_size_override("font_size", 19)
+	row.add_theme_color_override("font_color", Color(0.84, 0.92, 0.88))
+	row.text = str(page["text"])
+	_guide_list.add_child(row)
+	AccessibilityPresentation.apply(
+		row,
+		_larger_text_controls_enabled
+	)
+	_guide_page_label.text = "%d / %d  %s" % [
+		_guide_page_index + 1,
+		pages.size(),
+		page["title"],
 	]
+	_previous_guide_page_button.disabled = _guide_page_index <= 0
+	_next_guide_page_button.disabled = _guide_page_index >= pages.size() - 1
+	_guide_scroll.scroll_vertical = 0
+
+
+func _on_previous_guide_page() -> void:
+	if _guide_page_index <= 0:
+		return
+	_guide_page_index -= 1
+	_rebuild_guide()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+
+
+func _on_next_guide_page() -> void:
+	var pages := _guide_pages()
+	if _guide_page_index >= pages.size() - 1:
+		return
+	_guide_page_index += 1
+	_rebuild_guide()
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+
+
+func _guide_pages() -> Array[Dictionary]:
+	var pages: Array[Dictionary] = []
+	var lines: Array[String] = []
+
 	for entry in ProgressionCatalog.session_goal_entries():
 		var goal_id := str(entry["id"])
 		var definition := SessionChallenges.definition_for(goal_id)
@@ -2825,9 +2851,15 @@ func _meta_journal_text() -> String:
 				entry["description"],
 			]
 		)
+	_append_guide_pages(
+		pages,
+		"SESSION GOALS",
+		"SESSION GOALS - reset with every Start New Game",
+		lines,
+		lines.size()
+	)
 
-	lines.append("")
-	lines.append("PROFILE ACHIEVEMENTS - saved for %s" % _display_name)
+	lines = []
 	for entry in ProgressionCatalog.profile_achievement_entries():
 		var achievement_id := str(entry["id"])
 		lines.append(
@@ -2844,9 +2876,15 @@ func _meta_journal_text() -> String:
 				entry["description"],
 			]
 		)
+	_append_guide_pages(
+		pages,
+		"PROFILE ACHIEVEMENTS",
+		"PROFILE ACHIEVEMENTS - saved for %s" % _display_name,
+		lines,
+		GUIDE_PROFILE_ENTRIES_PER_PAGE
+	)
 
-	lines.append("")
-	lines.append("DEVICE MILESTONES - shared on this device")
+	lines = []
 	for entry in ProgressionCatalog.device_achievement_entries():
 		var achievement_id := str(entry["id"])
 		lines.append(
@@ -2863,9 +2901,15 @@ func _meta_journal_text() -> String:
 				entry["description"],
 			]
 		)
+	_append_guide_pages(
+		pages,
+		"DEVICE MILESTONES",
+		"DEVICE MILESTONES - shared on this device",
+		lines,
+		lines.size()
+	)
 
-	lines.append("")
-	lines.append("STORY CLUES - POSTCARDS saved for %s" % _display_name)
+	lines = []
 	var postcard_number := 1
 	for entry in ProgressionCatalog.story_clue_entries():
 		var clue_id := str(entry["id"])
@@ -2882,9 +2926,15 @@ func _meta_journal_text() -> String:
 			)
 		)
 		postcard_number += 1
+	_append_guide_pages(
+		pages,
+		"STORY CLUES",
+		"STORY CLUES - POSTCARDS saved for %s" % _display_name,
+		lines,
+		GUIDE_CLUES_PER_PAGE
+	)
 
-	lines.append("")
-	lines.append("POWER DISCOVERIES - saved for %s" % _display_name)
+	lines = []
 	for entry in ProgressionCatalog.power_entries():
 		var power_id := str(entry["id"])
 		lines.append(
@@ -2894,8 +2944,6 @@ func _meta_journal_text() -> String:
 				else "[?] Undiscovered power"
 			)
 		)
-
-	lines.append("")
 	lines.append(
 		(
 			"[UNLOCKED] Secret path revealed"
@@ -2908,7 +2956,58 @@ func _meta_journal_text() -> String:
 			]
 		)
 	)
-	return "\n".join(lines)
+	_append_guide_pages(
+		pages,
+		"POWERS & SECRET PATH",
+		"POWER DISCOVERIES - saved for %s" % _display_name,
+		lines,
+		lines.size()
+	)
+
+	lines = []
+	for entry in DiscoveryCatalog.entries():
+		var target_id := str(entry["id"])
+		var discovered := _discoveries.has(target_id)
+		lines.append(
+			(
+				"[FOUND] %s - %s" % [entry["name"], entry["hint"]]
+				if discovered
+				else "[UNKNOWN] Hint: %s" % entry["hint"]
+			)
+		)
+	_append_guide_pages(
+		pages,
+		"FIELD GUIDE",
+		"FIELD GUIDE - city discoveries",
+		lines,
+		GUIDE_FIELD_ENTRIES_PER_PAGE
+	)
+	return pages
+
+
+func _append_guide_pages(
+	pages: Array[Dictionary],
+	title: String,
+	heading: String,
+	lines: Array[String],
+	lines_per_page: int
+) -> void:
+	var page_size := maxi(1, lines_per_page)
+	var page_count := maxi(1, ceili(float(lines.size()) / float(page_size)))
+	for page_index in page_count:
+		var start := page_index * page_size
+		var end := mini(lines.size(), start + page_size)
+		var page_lines := lines.slice(start, end)
+		var numbered_heading := heading
+		if page_count > 1:
+			numbered_heading += " (%d / %d)" % [page_index + 1, page_count]
+		pages.append({
+			"title": title,
+			"text": "%s\n\n%s" % [
+				numbered_heading,
+				"\n\n".join(page_lines),
+			],
+		})
 
 
 func _known_discovery_count() -> int:

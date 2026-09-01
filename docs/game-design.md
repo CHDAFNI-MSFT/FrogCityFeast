@@ -69,7 +69,7 @@ never changes audio volume.
 
 ### Performance requirements
 
-The fixed 1280×960 prototype targets 60 FPS on an A16 iPad. Performance
+The fixed 1280×960 presentation targets 60 FPS on an A16 iPad. Performance
 instrumentation is a developer-only local tool: it is off by default,
 input-transparent when enabled, writes no reports or save data, and performs no
 remote analytics, player tracking, or network telemetry.
@@ -100,30 +100,32 @@ batched draw-only rain streaks, 40 batched draw-only wind ribbons, 10 draw-only
 night-bazaar lanterns, 8 draw-only
 kite-festival decorations, 1 draw-only Animal Control net projectile, 24 capped
 world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
-effect voices. Baseline and separate-room states permit up to 377 game-subtree
-nodes,
-41 collision objects, and 111 collision shapes; ordinary pursuit and net attack
-permit 379 nodes, 42 collision objects, and 112 collision shapes; any
-pursuit-trap profile permits 380 nodes with the same physics structure; a
-straight-roadblock pursuit permits 381 nodes, 43 collision objects, and 113
-collision shapes; a staggered-roadblock pursuit permits 382 nodes, 43 collision
-objects, and 114 collision shapes; the reachable staggered-roadblock-and-snare
-gameplay peak permits 383 nodes with the same 43 collision objects and 114
-shapes. The scheduled city detour permits 379 nodes, 42 collision objects, and
-112 shapes by itself, or 382 nodes, 43 collision objects, and 113 shapes with
-one pursuer and profile trap. The performance Belly scenario renders 64
-item rows within 633 nodes without changing the belly's unlimited gameplay
-semantics. A recoverable save warning adds exactly two temporary UI nodes,
-including while Options is open. The score epilogue adds 15 temporary UI
-nodes, for a maximum 394-node ending state when a save warning is also
-retained. The populated Field Guide contains exactly 49 rows.
+effect voices. Baseline and separate-room states permit up to 331 game-subtree
+nodes, 41 collision objects, and 111 collision shapes; ordinary pursuit, net
+attack, and the scheduled city detour permit 333 nodes. Any pursuit-trap
+profile permits 334 nodes; a straight-roadblock pursuit permits 335 nodes; a
+staggered-roadblock pursuit permits 336 nodes; and the reachable
+staggered-roadblock-and-snare gameplay peak permits 337 nodes. Physics ceilings
+remain 42 collision objects and 112 shapes for ordinary pursuit or a trap, 43
+objects and 113 shapes for a straight roadblock or detour-plus-trap state, and
+43 objects and 114 shapes for the staggered roadblock and gameplay peak. The
+performance Belly scenario renders 64 item rows within 587 nodes without
+changing the Belly's unlimited gameplay semantics. A recoverable save warning
+adds exactly two temporary UI nodes, including while Options is open. The score
+epilogue adds 15 temporary UI nodes, for a maximum 348-node ending state when a
+save warning is also retained. The Guide catalog contains 49 Field Guide
+entries, but bounded journal pagination renders one text row at a time, with at
+most 7 Field Guide entries on a page.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 587 game-subtree nodes, 100 collision objects, and 172
+structural ceiling is 541 game-subtree nodes, 100 collision objects, and 172
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
+The secret-district variant retains the same district, building, and target
+caps; its worst-case obstacle composition permits 556 nodes, 104 collision
+objects, and 183 collision shapes.
 
 Ground navigation uses a deterministic, world-aligned `AStarGrid2D` query
 window over the active room or loaded district bounds. Requests are fail-closed
@@ -132,11 +134,11 @@ smoothed route points. A 16-pixel cardinal grid handles ordinary routes; a
 bounded 4-pixel refinement is used only for nearby physically valid narrow
 passages. Navigation state adds no scene nodes or physics bodies.
 
-Repeated fixed-seed August 31, 2026 rendered Windows stress runs included
+The final fixed-seed September 1, 2026 rendered Windows stress run included
 deliberate multi-corner queries in both peak states. The authored gameplay peak
 held 31 active obstacle rectangles and reached 6,480 query cells, 4 smoothed
-points, and 2,872 microseconds for its largest observed request. The maximum
-generated ring held 61 obstacles and reached 6,408 cells, 4 points, and 2,986
+points, and 2,794 microseconds for its largest observed request. The maximum
+generated ring held 61 obstacles and reached 6,408 cells, 4 points, and 4,063
 microseconds. Both states completed every request without fallback, failure, or
 budget rejection.
 
@@ -147,8 +149,8 @@ the zero-event clock boundary, the wind squall and Canal Kite Festival alone
 and with every pursuer-and-trap profile, pursuit, active crowd cover, both
 roadblock layouts, the staggered-roadblock-and-snare peak, the rain-window city
 detour alone and with every pursuer-and-trap profile, a net in flight, maximum
-growth, a finite simultaneous presentation burst, a 64-item Belly, the fully
-populated Field Guide, both accessibility settings, and a reachable gameplay
+growth, a finite simultaneous presentation burst, a 64-item Belly, the longest
+fully populated Guide page, both accessibility settings, and a reachable gameplay
 peak. The same snapshots assert that Moonlight Market remains open throughout
 wind and kite states, Oddities Shop overlaps the night bazaar, and both shops
 are closed during the repair. Boundary tests cover the exact handoffs at

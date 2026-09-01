@@ -579,20 +579,40 @@ theme_override_constants/separation = 7
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Spacer" type="Control" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
+[node name="PreviousGuidePageButton" type="Button" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(138, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Previous"
+
+[node name="GuidePageLabel" type="Label" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(170, 58)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Page 1 of 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NextGuidePageButton" type="Button" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(138, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Next"
 
 [node name="EndGameGuideButton" type="Button" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(180, 58)
+custom_minimum_size = Vector2(140, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 21
 text = "End Game"
 
 [node name="CloseGuideButton" type="Button" parent="HUD/Root/GuideOverlay/Center/Panel/Margin/Content/Actions"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(210, 58)
+custom_minimum_size = Vector2(180, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 21
 text = "Return to City"

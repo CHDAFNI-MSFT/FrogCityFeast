@@ -36,6 +36,7 @@ const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
 const MAX_AUDIO_PLAYERS := 6
 const MAX_AUDIO_EFFECT_VOICES := 4
+const MAX_GUIDE_RENDER_ROWS := 1
 const MAX_NAVIGATION_OBSTACLES := NAVIGATION.MAX_OBSTACLES
 const MAX_NAVIGATION_QUERY_CELLS := NAVIGATION.MAX_TOTAL_QUERY_CELLS
 const MAX_NAVIGATION_PATH_POINTS := NAVIGATION.MAX_PATH_POINTS
@@ -56,7 +57,7 @@ const MAX_GENERATED_TARGETS := (
 )
 const MAX_SECRET_RING_ENVIRONMENT_BODIES := 9
 const MAX_SECRET_RING_OBSTACLE_SHAPES := 18
-const BASE_GAME_NODES := 377
+const BASE_GAME_NODES := 331
 const SAVE_WARNING_NODES := 2
 const SCORE_EPILOGUE_NODES := 15
 const MAX_SECRET_DISTRICT_NODES := BASE_GAME_NODES + 225
@@ -427,14 +428,14 @@ const STRUCTURAL_LIMITS := {
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
-		"guide_rows": FIELD_GUIDE_ROWS,
+		"guide_rows": MAX_GUIDE_RENDER_ROWS,
 	},
 	"accessibility_options": {
 		"game_nodes": BASE_GAME_NODES,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
-		"guide_rows": FIELD_GUIDE_ROWS,
+		"guide_rows": MAX_GUIDE_RENDER_ROWS,
 	},
 	"save_warning_options": {
 		"game_nodes": BASE_GAME_NODES + SAVE_WARNING_NODES,

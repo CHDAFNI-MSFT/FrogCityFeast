@@ -4400,13 +4400,21 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		and not game._mouse_rotating,
 		"Opening the Field Guide pauses gameplay and clears held input gestures."
 	)
-	var discovered_row := game._guide_list.get_child(0) as Label
-	var unknown_row := game._guide_list.get_child(2) as Label
+	var guide_pages := game._guide_pages()
+	for page_index in guide_pages.size():
+		if str(guide_pages[page_index]["title"]) == "FIELD GUIDE":
+			game._guide_page_index = page_index
+			break
+	game._rebuild_guide()
+	var guide_row := game._guide_list.get_child(0) as Label
 	_check(
-		discovered_row.text.contains("Street Donut")
-		and not unknown_row.text.contains("Runaway Hot Dog")
-		and unknown_row.text.contains("Hint:"),
-		"Guide rows reveal found names while unknown entries show only useful hints."
+		game._guide_list.get_child_count() == 1
+		and guide_row.text.contains("Street Donut")
+		and not guide_row.text.contains("Runaway Hot Dog")
+		and guide_row.text.contains("Hint:")
+		and not game._previous_guide_page_button.disabled
+		and not game._next_guide_page_button.disabled,
+		"Guide pages reveal found names, protect unknown names, and keep one bounded text row."
 	)
 	var hotdog := _find_target(game, "running_hotdog")
 	var belly_size_before_touch := game._belly.size()

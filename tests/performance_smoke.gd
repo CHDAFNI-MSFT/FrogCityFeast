@@ -8,6 +8,7 @@ const INSTRUMENTATION := preload(
 
 var _failures: Array[String] = []
 var _measure := false
+var _report_structure := false
 
 
 func _init() -> void:
@@ -16,6 +17,9 @@ func _init() -> void:
 
 func _run() -> void:
 	_measure = OS.get_cmdline_user_args().has("--measure")
+	_report_structure = (
+		OS.get_cmdline_user_args().has("--report-structure")
+	)
 	if _measure and DisplayServer.get_name().to_lower() == "headless":
 		_failures.append(
 			"Rendered performance measurement cannot run in headless mode."
@@ -480,6 +484,11 @@ func _run_scenario(scenario: Dictionary) -> void:
 	await process_frame
 	var scenario_name := str(scenario["name"])
 	var snapshot := game.performance_structure_snapshot()
+	if _report_structure:
+		print(
+			"STRUCTURE %s | %s"
+			% [scenario_name, JSON.stringify(snapshot)]
+		)
 	var violations := BUDGETS.structural_violations(
 		scenario_name,
 		snapshot
@@ -897,6 +906,16 @@ func _setup_belly_overlay(game: FrogGame) -> void:
 
 func _setup_field_guide_overlay(game: FrogGame) -> void:
 	game._open_guide()
+	var pages := game._guide_pages()
+	var longest_page_index := 0
+	var longest_page_length := 0
+	for page_index in pages.size():
+		var page_length := str(pages[page_index]["text"]).length()
+		if page_length > longest_page_length:
+			longest_page_index = page_index
+			longest_page_length = page_length
+	game._guide_page_index = longest_page_index
+	game._rebuild_guide()
 
 
 func _setup_accessibility_options(game: FrogGame) -> void:
@@ -1030,7 +1049,8 @@ func _check_scenario_expectations(
 	match scenario_name:
 		"baseline":
 			_check(
-				int(snapshot["targets"]) == BUDGETS.MAX_TARGETS
+				int(snapshot["game_nodes"]) == BUDGETS.BASE_GAME_NODES
+				and int(snapshot["targets"]) == BUDGETS.MAX_TARGETS
 				and int(snapshot["buildings"]) == BUDGETS.MAX_BUILDINGS
 				and int(snapshot["pursuers"]) == 0
 				and int(snapshot["active_effects"]) == 0
@@ -1451,9 +1471,10 @@ func _check_scenario_expectations(
 			_check(
 				int(snapshot["known_discoveries"])
 				== BUDGETS.FIELD_GUIDE_ROWS
-				and int(snapshot["guide_rows"]) == BUDGETS.FIELD_GUIDE_ROWS
+				and int(snapshot["guide_rows"])
+				== BUDGETS.MAX_GUIDE_RENDER_ROWS
 				and bool(snapshot["guide_overlay_visible"]),
-				"Field Guide stress renders the populated catalog."
+				"Field Guide stress paginates the populated catalog through one bounded text row."
 			)
 		"accessibility_options":
 			_check(
