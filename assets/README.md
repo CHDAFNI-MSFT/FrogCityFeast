@@ -31,13 +31,35 @@ The following original WAV files are generated from
 - `digest.wav`
 - `spit.wav`
 - `growth.wav`
+- `growth_major.wav`
 - `damage.wav`
 - `discovery.wav`
+- `clue_found.wav`
+- `achievement.wav`
 - `challenge_complete.wav`
+- `power_activate.wav`
+- `shield_pop.wav`
+- `pursuit_alert.wav`
+- `pursuit_escape.wav`
+- `net_warning.wav`
+- `flashlight_warning.wav`
+- `watchdog_lunge.wav`
+- `trap_deploy.wav`
+- `trap_trigger.wav`
+- `roadblock_deploy.wav`
+- `roadblock_hit.wav`
+- `roadblock_break.wav`
+- `room_travel.wav`
+- `destruction.wav`
+- `epilogue_open.wav`
+- `epilogue_return.wav`
 - `city_day.wav`
 - `city_night.wav`
 - `menu_music.wav`
-- `gameplay_music.wav`
+- `gameplay_day.wav`
+- `gameplay_night.wav`
+- `pursuit_music.wav`
+- `epilogue_music.wav`
 
 Their waveform source, authorship, license, generation date, technical format,
 and deterministic reproduction command are recorded in

@@ -32,6 +32,14 @@ static func set_game_ambience(context: Node, is_night: bool) -> void:
 	director().set_game_ambience(context, is_night)
 
 
+static func set_pursuit(context: Node, active: bool) -> void:
+	director().set_pursuit(context, active)
+
+
+static func enter_epilogue(context: Node) -> void:
+	director().enter_epilogue(context)
+
+
 static func leave_context(context: Node) -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree == null:

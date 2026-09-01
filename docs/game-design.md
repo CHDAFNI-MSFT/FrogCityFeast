@@ -59,11 +59,13 @@ Each profile also stores three audio controls:
 - **Music & ambience**, defaulting to 45%; and
 - **Effects volume**, defaulting to 80%.
 
-The first audio direction is soft, playful arcade-like synthesis with gentle
-city texture. It is non-vocal, unobtrusive, and original to the project. Music
-and ambience share one control while gameplay and interface effects remain
-independently adjustable. A zero setting mutes its bus. Reduce Motion remains
-independent and never changes audio volume.
+The production audio direction is soft chamber-synth with marimba-like plucks,
+warm pads, toy percussion, playful city motifs, and gentle day/night texture.
+It is non-vocal, unobtrusive, and original to the project. Menu, daytime,
+nighttime, pursuit, and epilogue contexts have distinct music while music and
+ambience share one control. Gameplay and interface effects remain independently
+adjustable. A zero setting mutes its bus. Reduce Motion remains independent and
+never changes audio volume.
 
 ### Performance requirements
 
@@ -689,7 +691,7 @@ changing score or progression; timing out applies a 22-point capped loss and
 knockback. Flight and Enormous growth are immune. Reduce motion removes
 the telegraph and escape scale pulses while preserving the gameplay timing and
 static net information. The attack is deterministic, uses no gameplay random
-numbers, adds no collision or scene nodes, and reuses existing audio.
+numbers, adds no collision or scene nodes, and has a distinct warning sound.
 
 Animal Control also explicitly deflects tongue shots from a small or medium
 frog. A direct shot at the officer, or a shot whose path crosses the officer
@@ -939,6 +941,11 @@ camera shake, pulsing, and decorative motion.
 - Preserve independent Master, Music & ambience, and Effects controls, bounded
   reusable effect voices, deterministic variation, and gameplay-randomness
   isolation.
+- The production implementation uses five compact four-second music loops, two
+  four-second ambience loops, 31 semantic effects, and exactly six persistent
+  players: one music, one ambience, and four reusable effect voices. Pursuit
+  temporarily overrides day/night music and restores the current time-of-day
+  cue when the chase ends; the score postcard uses the epilogue context.
 
 ### Menu, onboarding, and ending
 

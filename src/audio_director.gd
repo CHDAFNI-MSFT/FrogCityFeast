@@ -17,9 +17,31 @@ const GROWTH := &"growth"
 const DAMAGE := &"damage"
 const DISCOVERY := &"discovery"
 const CHALLENGE_COMPLETE := &"challenge_complete"
+const PURSUIT_ALERT := &"pursuit_alert"
+const PURSUIT_ESCAPE := &"pursuit_escape"
+const NET_WARNING := &"net_warning"
+const FLASHLIGHT_WARNING := &"flashlight_warning"
+const WATCHDOG_LUNGE := &"watchdog_lunge"
+const TRAP_DEPLOY := &"trap_deploy"
+const TRAP_TRIGGER := &"trap_trigger"
+const ROADBLOCK_DEPLOY := &"roadblock_deploy"
+const ROADBLOCK_HIT := &"roadblock_hit"
+const ROADBLOCK_BREAK := &"roadblock_break"
+const POWER_ACTIVATE := &"power_activate"
+const SHIELD_POP := &"shield_pop"
+const ROOM_TRAVEL := &"room_travel"
+const DESTRUCTION := &"destruction"
+const CLUE_FOUND := &"clue_found"
+const ACHIEVEMENT := &"achievement"
+const GROWTH_MAJOR := &"growth_major"
+const EPILOGUE_OPEN := &"epilogue_open"
+const EPILOGUE_RETURN := &"epilogue_return"
 
 const MENU_MUSIC := preload("res://assets/audio/menu_music.wav")
-const GAMEPLAY_MUSIC := preload("res://assets/audio/gameplay_music.wav")
+const GAMEPLAY_DAY_MUSIC := preload("res://assets/audio/gameplay_day.wav")
+const GAMEPLAY_NIGHT_MUSIC := preload("res://assets/audio/gameplay_night.wav")
+const PURSUIT_MUSIC := preload("res://assets/audio/pursuit_music.wav")
+const EPILOGUE_MUSIC := preload("res://assets/audio/epilogue_music.wav")
 const CITY_DAY := preload("res://assets/audio/city_day.wav")
 const CITY_NIGHT := preload("res://assets/audio/city_night.wav")
 
@@ -38,6 +60,27 @@ const EFFECT_STREAMS := {
 	CHALLENGE_COMPLETE: preload(
 		"res://assets/audio/challenge_complete.wav"
 	),
+	PURSUIT_ALERT: preload("res://assets/audio/pursuit_alert.wav"),
+	PURSUIT_ESCAPE: preload("res://assets/audio/pursuit_escape.wav"),
+	NET_WARNING: preload("res://assets/audio/net_warning.wav"),
+	FLASHLIGHT_WARNING: preload(
+		"res://assets/audio/flashlight_warning.wav"
+	),
+	WATCHDOG_LUNGE: preload("res://assets/audio/watchdog_lunge.wav"),
+	TRAP_DEPLOY: preload("res://assets/audio/trap_deploy.wav"),
+	TRAP_TRIGGER: preload("res://assets/audio/trap_trigger.wav"),
+	ROADBLOCK_DEPLOY: preload("res://assets/audio/roadblock_deploy.wav"),
+	ROADBLOCK_HIT: preload("res://assets/audio/roadblock_hit.wav"),
+	ROADBLOCK_BREAK: preload("res://assets/audio/roadblock_break.wav"),
+	POWER_ACTIVATE: preload("res://assets/audio/power_activate.wav"),
+	SHIELD_POP: preload("res://assets/audio/shield_pop.wav"),
+	ROOM_TRAVEL: preload("res://assets/audio/room_travel.wav"),
+	DESTRUCTION: preload("res://assets/audio/destruction.wav"),
+	CLUE_FOUND: preload("res://assets/audio/clue_found.wav"),
+	ACHIEVEMENT: preload("res://assets/audio/achievement.wav"),
+	GROWTH_MAJOR: preload("res://assets/audio/growth_major.wav"),
+	EPILOGUE_OPEN: preload("res://assets/audio/epilogue_open.wav"),
+	EPILOGUE_RETURN: preload("res://assets/audio/epilogue_return.wav"),
 }
 const EFFECT_COOLDOWNS_MSEC := {
 	UI_FEEDBACK: 90,
@@ -52,6 +95,25 @@ const EFFECT_COOLDOWNS_MSEC := {
 	DAMAGE: 260,
 	DISCOVERY: 360,
 	CHALLENGE_COMPLETE: 320,
+	PURSUIT_ALERT: 500,
+	PURSUIT_ESCAPE: 500,
+	NET_WARNING: 500,
+	FLASHLIGHT_WARNING: 500,
+	WATCHDOG_LUNGE: 500,
+	TRAP_DEPLOY: 600,
+	TRAP_TRIGGER: 400,
+	ROADBLOCK_DEPLOY: 600,
+	ROADBLOCK_HIT: 120,
+	ROADBLOCK_BREAK: 400,
+	POWER_ACTIVATE: 180,
+	SHIELD_POP: 350,
+	ROOM_TRAVEL: 250,
+	DESTRUCTION: 240,
+	CLUE_FOUND: 400,
+	ACHIEVEMENT: 450,
+	GROWTH_MAJOR: 400,
+	EPILOGUE_OPEN: 500,
+	EPILOGUE_RETURN: 500,
 }
 const EFFECT_VOLUME_DB := {
 	UI_FEEDBACK: -8.0,
@@ -66,10 +128,31 @@ const EFFECT_VOLUME_DB := {
 	DAMAGE: -3.0,
 	DISCOVERY: -6.0,
 	CHALLENGE_COMPLETE: -5.0,
+	PURSUIT_ALERT: -4.0,
+	PURSUIT_ESCAPE: -6.0,
+	NET_WARNING: -4.0,
+	FLASHLIGHT_WARNING: -6.0,
+	WATCHDOG_LUNGE: -3.0,
+	TRAP_DEPLOY: -6.0,
+	TRAP_TRIGGER: -4.0,
+	ROADBLOCK_DEPLOY: -5.0,
+	ROADBLOCK_HIT: -5.0,
+	ROADBLOCK_BREAK: -3.0,
+	POWER_ACTIVATE: -5.0,
+	SHIELD_POP: -3.0,
+	ROOM_TRAVEL: -7.0,
+	DESTRUCTION: -2.0,
+	CLUE_FOUND: -6.0,
+	ACHIEVEMENT: -5.0,
+	GROWTH_MAJOR: -2.0,
+	EPILOGUE_OPEN: -6.0,
+	EPILOGUE_RETURN: -7.0,
 }
 const PITCH_VARIANTS := [0.97, 1.0, 1.035, 1.0]
 const MENU_MUSIC_VOLUME_DB := -11.0
 const GAMEPLAY_MUSIC_VOLUME_DB := -13.0
+const PURSUIT_MUSIC_VOLUME_DB := -11.5
+const EPILOGUE_MUSIC_VOLUME_DB := -12.0
 const AMBIENCE_VOLUME_DB := -15.0
 
 var _music_player: AudioStreamPlayer
@@ -80,6 +163,8 @@ var _context: Node
 var _context_kind := ""
 var _current_music_key := ""
 var _current_ambience_key := ""
+var _game_is_night := false
+var _pursuit_active := false
 var _effect_voice_cursor := 0
 var _last_effect_msec: Dictionary = {}
 var _effect_play_counts: Dictionary = {}
@@ -94,7 +179,10 @@ func _ready() -> void:
 	_create_players()
 	_loop_streams = {
 		"menu": _prepare_loop(MENU_MUSIC),
-		"gameplay": _prepare_loop(GAMEPLAY_MUSIC),
+		"gameplay_day": _prepare_loop(GAMEPLAY_DAY_MUSIC),
+		"gameplay_night": _prepare_loop(GAMEPLAY_NIGHT_MUSIC),
+		"pursuit": _prepare_loop(PURSUIT_MUSIC),
+		"epilogue": _prepare_loop(EPILOGUE_MUSIC),
 		"day": _prepare_loop(CITY_DAY),
 		"night": _prepare_loop(CITY_NIGHT),
 	}
@@ -114,6 +202,8 @@ func _exit_tree() -> void:
 func enter_menu(context: Node, preferences: Dictionary) -> void:
 	_context = context
 	_context_kind = "menu"
+	_game_is_night = false
+	_pursuit_active = false
 	apply_preferences(preferences)
 	_play_music("menu", MENU_MUSIC_VOLUME_DB)
 	_stop_ambience()
@@ -126,8 +216,13 @@ func enter_game(
 ) -> void:
 	_context = context
 	_context_kind = "game"
+	_game_is_night = is_night
+	_pursuit_active = false
 	apply_preferences(preferences)
-	_play_music("gameplay", GAMEPLAY_MUSIC_VOLUME_DB)
+	_play_music(
+		"gameplay_night" if is_night else "gameplay_day",
+		GAMEPLAY_MUSIC_VOLUME_DB
+	)
 	_play_ambience("night" if is_night else "day")
 
 
@@ -138,7 +233,46 @@ func set_game_ambience(context: Node, is_night: bool) -> void:
 		or _context != context
 	):
 		return
+	_game_is_night = is_night
+	if not _pursuit_active:
+		_play_music(
+			"gameplay_night" if is_night else "gameplay_day",
+			GAMEPLAY_MUSIC_VOLUME_DB
+		)
 	_play_ambience("night" if is_night else "day")
+
+
+func set_pursuit(context: Node, active: bool) -> void:
+	if (
+		_context_kind != "game"
+		or not is_instance_valid(_context)
+		or _context != context
+		or _pursuit_active == active
+	):
+		return
+	_pursuit_active = active
+	_play_music(
+		"pursuit"
+		if active
+		else (
+			"gameplay_night"
+			if _game_is_night
+			else "gameplay_day"
+		),
+		PURSUIT_MUSIC_VOLUME_DB
+		if active
+		else GAMEPLAY_MUSIC_VOLUME_DB
+	)
+
+
+func enter_epilogue(context: Node) -> void:
+	if not is_instance_valid(context):
+		return
+	_context = context
+	_context_kind = "epilogue"
+	_pursuit_active = false
+	_play_music("epilogue", EPILOGUE_MUSIC_VOLUME_DB)
+	_stop_ambience()
 
 
 func leave_context(context: Node) -> void:
@@ -148,6 +282,8 @@ func leave_context(context: Node) -> void:
 	_stop_ambience()
 	_context = null
 	_context_kind = ""
+	_game_is_night = false
+	_pursuit_active = false
 
 
 func apply_preferences(value: Variant) -> void:
@@ -216,6 +352,7 @@ func structure_snapshot() -> Dictionary:
 		"audio_effect_voices": _effect_players.size(),
 		"audio_active_effect_voices": active_effect_voice_count(),
 		"audio_context": _context_kind,
+		"pursuit_active": _pursuit_active,
 		"music_key": _current_music_key,
 		"ambience_key": _current_ambience_key,
 		"music_start_count": _music_start_count,
@@ -231,6 +368,8 @@ func reset_for_tests() -> void:
 		player.stream = null
 	_context = null
 	_context_kind = ""
+	_game_is_night = false
+	_pursuit_active = false
 	_effect_voice_cursor = 0
 	_last_effect_msec.clear()
 	_effect_play_counts.clear()

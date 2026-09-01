@@ -629,6 +629,7 @@ var _refreshing_accessibility_controls := false
 var _audio_preferences := AudioPreferences.defaults()
 var _refreshing_audio_controls := false
 var _audio_dragging := false
+var _progression_audio_enabled := false
 var _tutorial_panel_was_visible_before_options := false
 var _performance_instrumentation: CanvasLayer
 var _score_epilogue: ScoreEpilogue
@@ -703,6 +704,7 @@ func _ready() -> void:
 	_profile_label.text = _display_name
 	_status_label.text = _default_status_text()
 	_evaluate_persisted_progression()
+	_progression_audio_enabled = true
 	_rebuild_guide()
 	if _tutorial_required:
 		_challenge_panel.visible = false
@@ -2153,6 +2155,7 @@ func _update_interior_transition(delta: float) -> void:
 
 
 func _complete_interior_transfer() -> void:
+	AudioDirector.play_effect(FrogAudioDirector.ROOM_TRAVEL)
 	if _interior_transition_destination == SECRET_DISTRICT_DESTINATION:
 		_active_interior_id = ""
 		_clear_city_detour()
@@ -2564,6 +2567,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	_frog.celebrate_swallow()
 	_effects.emit_swallow(effect_position, effect_color, swallowed_building)
 	if swallowed_building or swallowed_building_part:
+		AudioDirector.play_effect(FrogAudioDirector.DESTRUCTION)
 		_effects.emit_destruction(
 			effect_position,
 			effect_color,
@@ -3073,6 +3077,8 @@ func _evaluate_device_achievements() -> void:
 func _unlock_profile_achievement(achievement_id: String) -> bool:
 	if not _achievement_model.unlock_profile(achievement_id):
 		return false
+	if _progression_audio_enabled:
+		AudioDirector.play_effect(FrogAudioDirector.ACHIEVEMENT)
 	var clue_id := (
 		ProgressionCatalog.story_clue_for_profile_achievement(
 			achievement_id
@@ -3083,6 +3089,8 @@ func _unlock_profile_achievement(achievement_id: String) -> bool:
 		clue_was_added = _accept_story_clue(clue_id)
 	profile_achievement_unlocked.emit(achievement_id, clue_id)
 	if clue_was_added:
+		if _progression_audio_enabled:
+			AudioDirector.play_effect(FrogAudioDirector.CLUE_FOUND)
 		story_clue_found.emit(clue_id)
 		_apply_story_clue_thresholds()
 	if ProgressionCatalog.event_profile_achievement_ids().has(
@@ -3095,6 +3103,8 @@ func _unlock_profile_achievement(achievement_id: String) -> bool:
 func _unlock_device_achievement(achievement_id: String) -> bool:
 	if not _achievement_model.unlock_device(achievement_id):
 		return false
+	if _progression_audio_enabled:
+		AudioDirector.play_effect(FrogAudioDirector.ACHIEVEMENT)
 	device_achievement_unlocked.emit(achievement_id)
 	return true
 
@@ -3103,6 +3113,8 @@ func _record_story_clue(clue_id: String) -> bool:
 	var normalized_id := clue_id.strip_edges()
 	if not _accept_story_clue(normalized_id):
 		return false
+	if _progression_audio_enabled:
+		AudioDirector.play_effect(FrogAudioDirector.CLUE_FOUND)
 	story_clue_found.emit(normalized_id)
 	_apply_story_clue_thresholds()
 	return true
@@ -3581,7 +3593,11 @@ func _apply_growth_tier(tier: int) -> void:
 	_invalidate_navigation()
 	_frog.celebrate_growth(_motion_scale)
 	_effects.emit_growth(_frog.global_position)
-	AudioDirector.play_effect(FrogAudioDirector.GROWTH)
+	AudioDirector.play_effect(
+		FrogAudioDirector.GROWTH_MAJOR
+		if _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
+		else FrogAudioDirector.GROWTH
+	)
 	if _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER:
 		if is_instance_valid(_pursuer):
 			_pursuer.cancel_active_attack()
@@ -4424,6 +4440,7 @@ func _apply_damage(
 		and _power_state.consume(TemporaryPowerState.BUBBLE_SHIELD)
 	):
 		_update_power_label()
+		AudioDirector.play_effect(FrogAudioDirector.SHIELD_POP)
 		_show_status("The Bubble Shield blocked the pursuit hit!")
 		return
 	_damage_cooldown = DAMAGE_COOLDOWN
@@ -4484,9 +4501,12 @@ func _spawn_pursuer(
 	)
 	_pursuer.caught.connect(_on_pursuer_caught)
 	_pursuer.netted.connect(_on_pursuer_netted)
+	_pursuer.attack_started.connect(_on_pursuer_attack_started)
 	_pursuer.attack_hit.connect(_on_pursuer_attack_hit)
 	_pursuer.escaped.connect(_on_pursuer_escaped)
 	_world.add_child(_pursuer)
+	AudioDirector.set_pursuit(self, true)
+	AudioDirector.play_effect(FrogAudioDirector.PURSUIT_ALERT)
 	_clear_roadblock()
 	_roadblock_deploy_time = (
 		ROADBLOCK_DEPLOY_DELAY if _pursuer.deploys_roadblock() else 0.0
@@ -4636,6 +4656,7 @@ func _spawn_roadblock() -> bool:
 	roadblock.removed.connect(_on_roadblock_removed)
 	_world.add_child(roadblock)
 	_roadblock = roadblock
+	AudioDirector.play_effect(FrogAudioDirector.ROADBLOCK_DEPLOY)
 	_invalidate_navigation()
 	_show_status(
 		"Animal Control deployed a %s!" % roadblock.display_name()
@@ -4771,6 +4792,11 @@ func _handle_tongue_obstruction(
 		var roadblock := _roadblock
 		var broken := roadblock.register_tongue_hit()
 		AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
+		AudioDirector.play_effect(
+			FrogAudioDirector.ROADBLOCK_BREAK
+			if broken
+			else FrogAudioDirector.ROADBLOCK_HIT
+		)
 		if broken:
 			_show_status("The Animal Control roadblock broke apart!")
 		else:
@@ -4819,6 +4845,7 @@ func _update_pursuit_trap(delta: float) -> void:
 			var source_position := triggered_trap.global_position
 			var variant_id := triggered_trap.variant_id
 			_pursuit_trap.dismiss(true)
+			AudioDirector.play_effect(FrogAudioDirector.TRAP_TRIGGER)
 			match variant_id:
 				PrototypePursuitTrap.VARIANT_MOTION_BEACON:
 					_pursuer.reveal_frog(
@@ -4896,6 +4923,7 @@ func _spawn_pursuit_trap() -> bool:
 	pursuit_trap.removed.connect(_on_pursuit_trap_removed)
 	_world.add_child(pursuit_trap)
 	_pursuit_trap = pursuit_trap
+	AudioDirector.play_effect(FrogAudioDirector.TRAP_DEPLOY)
 	_show_status(
 		pursuit_trap.deployment_status(_pursuer.display_name())
 	)
@@ -5090,6 +5118,21 @@ func _on_pursuer_attack_hit(
 	_apply_damage(source_position, penalty, message, true)
 
 
+func _on_pursuer_attack_started(attack_id: StringName) -> void:
+	var effect_id := FrogAudioDirector.NET_WARNING
+	match attack_id:
+		PrototypePursuer.ATTACK_FLASHLIGHT:
+			effect_id = FrogAudioDirector.FLASHLIGHT_WARNING
+		PrototypePursuer.ATTACK_LUNGE:
+			effect_id = FrogAudioDirector.WATCHDOG_LUNGE
+		PrototypePursuer.ATTACK_NET:
+			pass
+		_:
+			push_warning("Unknown pursuer attack audio event: %s" % attack_id)
+			return
+	AudioDirector.play_effect(effect_id)
+
+
 func _on_pursuer_netted(source_position: Vector2) -> void:
 	if (
 		_frog.growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
@@ -5103,6 +5146,7 @@ func _on_pursuer_netted(source_position: Vector2) -> void:
 			_pursuer.set_frog_netted(false)
 			_pursuer.cancel_active_attack()
 		_update_power_label()
+		AudioDirector.play_effect(FrogAudioDirector.SHIELD_POP)
 		_show_status("The Bubble Shield popped Animal Control's net!")
 		return
 	if is_instance_valid(_struggle_target):
@@ -5196,6 +5240,8 @@ func _on_pursuer_escaped() -> void:
 		if is_instance_valid(_pursuer)
 		else "The pursuer"
 	)
+	AudioDirector.set_pursuit(self, false)
+	AudioDirector.play_effect(FrogAudioDirector.PURSUIT_ESCAPE)
 	_pursuer = null
 	_clear_roadblock()
 	_clear_pursuit_trap()
@@ -5248,6 +5294,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	_belly.append(item)
 	pursuer.active = false
 	pursuer.queue_free()
+	AudioDirector.set_pursuit(self, false)
 	_pursuer = null
 	_clear_roadblock()
 	_clear_pursuit_trap()
@@ -5427,6 +5474,7 @@ func _activate_power(power_id: String, duration: float = -1.0) -> void:
 		push_warning("Cannot activate unknown temporary power '%s'." % power_id)
 		return
 	_power_state.activate(power_id, duration)
+	AudioDirector.play_effect(FrogAudioDirector.POWER_ACTIVATE)
 	if not _power_discoveries.has(power_id):
 		_power_discoveries[power_id] = true
 		power_discovered.emit(power_id)
@@ -6958,6 +7006,8 @@ func _end_game() -> void:
 	)
 	_score_epilogue.apply_safe_area_insets(_safe_area_insets)
 	_score_epilogue.continue_requested.connect(_finish_end_game)
+	AudioDirector.enter_epilogue(self)
+	AudioDirector.play_effect(FrogAudioDirector.EPILOGUE_OPEN)
 	_update_save_warning_surfaces()
 	get_tree().paused = true
 
@@ -6969,6 +7019,7 @@ func _finish_end_game() -> void:
 	):
 		return
 	_end_return_requested = true
+	AudioDirector.play_effect(FrogAudioDirector.EPILOGUE_RETURN)
 	end_requested.emit(_score)
 
 

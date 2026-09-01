@@ -8,10 +8,14 @@ signal caught(source_position: Vector2)
 signal escaped
 signal netted(source_position: Vector2)
 signal attack_hit(source_position: Vector2, penalty: int, message: String)
+signal attack_started(attack_id: StringName)
 
 const ARCHETYPE_ANIMAL_CONTROL := "animal_control"
 const ARCHETYPE_SECURITY_GUARD := "security_guard"
 const ARCHETYPE_WATCHDOG := "watchdog"
+const ATTACK_NET := &"net"
+const ATTACK_FLASHLIGHT := &"flashlight"
+const ATTACK_LUNGE := &"lunge"
 
 enum NetPhase {
 	IDLE,
@@ -742,6 +746,7 @@ func _begin_net_attack() -> void:
 	_net_windup_left = NET_WINDUP_DURATION
 	_net_target_position = frog.global_position
 	velocity = Vector2.ZERO
+	attack_started.emit(ATTACK_NET)
 	queue_redraw()
 
 
@@ -754,6 +759,7 @@ func _begin_flashlight_attack() -> void:
 	_flashlight_windup_left = SECURITY_FLASHLIGHT_WINDUP_DURATION
 	_flashlight_target_position = frog.global_position
 	velocity = Vector2.ZERO
+	attack_started.emit(ATTACK_FLASHLIGHT)
 	queue_redraw()
 
 
@@ -810,6 +816,7 @@ func _begin_lunge_attack() -> void:
 	_lunge_direction = Vector2.ZERO
 	_lunge_travel = 0.0
 	velocity = Vector2.ZERO
+	attack_started.emit(ATTACK_LUNGE)
 	queue_redraw()
 
 

@@ -347,14 +347,18 @@ The prototype includes:
   before starting and from the in-game Options panel;
 - per-profile **Master**, **Music & ambience**, and **Effects** volume controls,
   with 80%, 45%, and 80% defaults for migrated version 1 profiles;
-- an original, reproducibly generated soft arcade-like audio slice with
-  restrained menu and gameplay music, day and night city ambience, and
-  semantic feedback for interface actions, tongue outcomes, struggles,
-  swallowing, digestion, spitting, growth, damage, discoveries, and challenge
-  completion;
+- an original, reproducibly generated chamber-synth production set with
+  separate menu, daytime, nighttime, pursuit, and score-epilogue music; day and
+  night city ambience; and semantic feedback for interface actions, tongue
+  outcomes, struggles, swallowing, digestion, spitting, normal and major
+  growth, damage, powers, shield consumption, pursuit warnings and escape,
+  traps, roadblocks, room travel, destruction, discoveries, clues,
+  achievements, challenge completion, and epilogue actions;
 - centralized Music and Effects bus routing with one music player, one
   ambience player, four reusable effect voices, per-event cooldowns, and
-  deterministic pitch variation that never consumes gameplay randomness;
+  deterministic pitch variation that never consumes gameplay randomness; the
+  38 mono WAV sources total 1,834,910 bytes, and each of the seven loops is four
+  seconds with explicit runtime loop boundaries;
 - immediate reduced-motion behavior that removes camera shake, scale and
   wobble pulses, tongue travel, tutorial-marker pulsing, struggle-width pulses,
   and decorative city movement while retaining informational text, color
@@ -718,9 +722,7 @@ The following parts of the full design are not implemented yet:
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
 - further fantasy events;
-- remaining production art for overlays, target-specific hero detail, and
-  end-game presentation; expanded authored animation,
-  audio content and target-device mix validation; and remaining accessibility
+- target-device visual and audio mix validation, plus final accessibility
   publication review beyond the implemented motion, interface-size, contrast,
   touch-feedback, safe-area, input-timing, camera-assistance, haptic,
   left-handed, tutorial-replay, and volume controls; and

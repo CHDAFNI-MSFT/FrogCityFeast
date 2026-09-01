@@ -13,16 +13,62 @@ const AUDIO_PATHS := [
 	"res://assets/audio/damage.wav",
 	"res://assets/audio/discovery.wav",
 	"res://assets/audio/challenge_complete.wav",
+	"res://assets/audio/pursuit_alert.wav",
+	"res://assets/audio/pursuit_escape.wav",
+	"res://assets/audio/net_warning.wav",
+	"res://assets/audio/flashlight_warning.wav",
+	"res://assets/audio/watchdog_lunge.wav",
+	"res://assets/audio/trap_deploy.wav",
+	"res://assets/audio/trap_trigger.wav",
+	"res://assets/audio/roadblock_deploy.wav",
+	"res://assets/audio/roadblock_hit.wav",
+	"res://assets/audio/roadblock_break.wav",
+	"res://assets/audio/power_activate.wav",
+	"res://assets/audio/shield_pop.wav",
+	"res://assets/audio/room_travel.wav",
+	"res://assets/audio/destruction.wav",
+	"res://assets/audio/clue_found.wav",
+	"res://assets/audio/achievement.wav",
+	"res://assets/audio/growth_major.wav",
+	"res://assets/audio/epilogue_open.wav",
+	"res://assets/audio/epilogue_return.wav",
 	"res://assets/audio/city_day.wav",
 	"res://assets/audio/city_night.wav",
 	"res://assets/audio/menu_music.wav",
-	"res://assets/audio/gameplay_music.wav",
+	"res://assets/audio/gameplay_day.wav",
+	"res://assets/audio/gameplay_night.wav",
+	"res://assets/audio/pursuit_music.wav",
+	"res://assets/audio/epilogue_music.wav",
 ]
 const LOOP_PATHS := [
 	"res://assets/audio/city_day.wav",
 	"res://assets/audio/city_night.wav",
 	"res://assets/audio/menu_music.wav",
-	"res://assets/audio/gameplay_music.wav",
+	"res://assets/audio/gameplay_day.wav",
+	"res://assets/audio/gameplay_night.wav",
+	"res://assets/audio/pursuit_music.wav",
+	"res://assets/audio/epilogue_music.wav",
+]
+const PRODUCTION_EFFECT_IDS := [
+	FrogAudioDirector.PURSUIT_ALERT,
+	FrogAudioDirector.PURSUIT_ESCAPE,
+	FrogAudioDirector.NET_WARNING,
+	FrogAudioDirector.FLASHLIGHT_WARNING,
+	FrogAudioDirector.WATCHDOG_LUNGE,
+	FrogAudioDirector.TRAP_DEPLOY,
+	FrogAudioDirector.TRAP_TRIGGER,
+	FrogAudioDirector.ROADBLOCK_DEPLOY,
+	FrogAudioDirector.ROADBLOCK_HIT,
+	FrogAudioDirector.ROADBLOCK_BREAK,
+	FrogAudioDirector.POWER_ACTIVATE,
+	FrogAudioDirector.SHIELD_POP,
+	FrogAudioDirector.ROOM_TRAVEL,
+	FrogAudioDirector.DESTRUCTION,
+	FrogAudioDirector.CLUE_FOUND,
+	FrogAudioDirector.ACHIEVEMENT,
+	FrogAudioDirector.GROWTH_MAJOR,
+	FrogAudioDirector.EPILOGUE_OPEN,
+	FrogAudioDirector.EPILOGUE_RETURN,
 ]
 
 var _failures: Array[String] = []
@@ -36,6 +82,7 @@ func _run() -> void:
 	AudioDirector.reset_for_tests()
 	_test_buses_assets_and_limits()
 	_test_cooldowns_and_rng_isolation()
+	_test_production_effect_inventory()
 	_test_profile_compatibility()
 	await _test_controls_events_and_lifecycle()
 	await _finish()
@@ -96,16 +143,24 @@ func _test_buses_assets_and_limits() -> void:
 	_check(
 		resources_are_valid
 			and total_bytes < 2 * 1024 * 1024,
-		"All 16 original WAV assets are non-silent mono 22.05 kHz, importable, and under 2 MiB."
+		"All 38 original WAV assets are non-silent mono 22.05 kHz, importable, and under 2 MiB."
 	)
 
 	var loop_lengths_are_valid := true
 	for path in LOOP_PATHS:
 		var loop_stream := load(path) as AudioStreamWAV
-		if not is_equal_approx(loop_stream.get_length(), 8.0):
+		if not is_equal_approx(loop_stream.get_length(), 4.0):
 			loop_lengths_are_valid = false
 	var director := AudioDirector.director()
-	for key in ["menu", "gameplay", "day", "night"]:
+	for key in [
+		"menu",
+		"gameplay_day",
+		"gameplay_night",
+		"pursuit",
+		"epilogue",
+		"day",
+		"night",
+	]:
 		var runtime_loop := director._loop_streams[key] as AudioStreamWAV
 		if (
 			runtime_loop.loop_mode != AudioStreamWAV.LOOP_FORWARD
@@ -115,7 +170,7 @@ func _test_buses_assets_and_limits() -> void:
 			loop_lengths_are_valid = false
 	_check(
 		loop_lengths_are_valid,
-		"Music and ambience are exact eight-second assets with runtime loop boundaries."
+		"Music and ambience are exact four-second assets with runtime loop boundaries."
 	)
 
 	var provenance := FileAccess.get_file_as_string(
@@ -126,8 +181,10 @@ func _test_buses_assets_and_limits() -> void:
 	)
 	_check(
 		provenance.contains("No recordings, sample libraries")
-			and provenance.contains("reuse outside this project")
+			and provenance.contains("reuse outside")
+			and provenance.contains("requires the owner's permission")
 			and generator.contains("Write-MonoWav")
+			and generator.contains("Add-Pluck")
 			and generator.contains("New-MusicLoop")
 			and generator.contains("New-AmbienceLoop"),
 		"Audio provenance, reproduction, and licensing are recorded with the generator."
@@ -200,6 +257,62 @@ func _test_cooldowns_and_rng_isolation() -> void:
 	_check(
 		is_equal_approx(actual_random, expected_random),
 		"Audio variation never consumes the gameplay random-number stream."
+	)
+
+
+func _test_production_effect_inventory() -> void:
+	var inventory_is_complete := (
+		FrogAudioDirector.EFFECT_STREAMS.size() == 31
+		and FrogAudioDirector.EFFECT_COOLDOWNS_MSEC.size() == 31
+		and FrogAudioDirector.EFFECT_VOLUME_DB.size() == 31
+	)
+	for effect_id in PRODUCTION_EFFECT_IDS:
+		inventory_is_complete = (
+			inventory_is_complete
+			and FrogAudioDirector.EFFECT_STREAMS.has(effect_id)
+			and FrogAudioDirector.EFFECT_COOLDOWNS_MSEC.has(effect_id)
+			and FrogAudioDirector.EFFECT_VOLUME_DB.has(effect_id)
+		)
+	_check(
+		inventory_is_complete,
+		"Every production event has a stream, cooldown, and volume balance."
+	)
+
+	var game_source := FileAccess.get_file_as_string(
+		"res://src/game.gd"
+	)
+	var pursuer_source := FileAccess.get_file_as_string(
+		"res://src/pursuer.gd"
+	)
+	var service_source := FileAccess.get_file_as_string(
+		"res://src/audio_service.gd"
+	)
+	_check(
+		game_source.contains("FrogAudioDirector.PURSUIT_ALERT")
+			and game_source.contains("FrogAudioDirector.PURSUIT_ESCAPE")
+			and game_source.contains("FrogAudioDirector.ROADBLOCK_DEPLOY")
+			and game_source.contains("FrogAudioDirector.TRAP_TRIGGER")
+			and game_source.contains("FrogAudioDirector.POWER_ACTIVATE")
+			and game_source.contains("FrogAudioDirector.SHIELD_POP")
+			and game_source.contains("FrogAudioDirector.ROOM_TRAVEL")
+			and game_source.contains("FrogAudioDirector.DESTRUCTION")
+			and game_source.contains("FrogAudioDirector.CLUE_FOUND")
+			and game_source.contains("FrogAudioDirector.ACHIEVEMENT")
+			and game_source.contains("FrogAudioDirector.GROWTH_MAJOR")
+			and game_source.contains("FrogAudioDirector.EPILOGUE_OPEN")
+			and game_source.contains("FrogAudioDirector.EPILOGUE_RETURN")
+			and pursuer_source.contains(
+				"attack_started.emit(ATTACK_NET)"
+			)
+			and pursuer_source.contains(
+				"attack_started.emit(ATTACK_FLASHLIGHT)"
+			)
+			and pursuer_source.contains(
+				"attack_started.emit(ATTACK_LUNGE)"
+			)
+			and service_source.contains("static func set_pursuit")
+			and service_source.contains("static func enter_epilogue"),
+		"Production pursuit, obstacle, power, progression, travel, destruction, and epilogue events are wired."
 	)
 
 
@@ -462,6 +575,31 @@ func _test_controls_events_and_lifecycle() -> void:
 	)
 
 	AudioDirector.reset_for_tests()
+	game._apply_growth_tier(GameplayTuning.ENORMOUS_TIER)
+	game._apply_growth_tier(GameplayTuning.LARGE_TIER)
+	game._activate_power(TemporaryPowerState.SPEED_BURST, 1.0)
+	game._power_state.activate(TemporaryPowerState.BUBBLE_SHIELD, 1.0)
+	game._damage_cooldown = 0.0
+	game._apply_damage(
+		game._frog.global_position + Vector2.LEFT,
+		1,
+		"Shield audio test",
+		true
+	)
+	_check(
+		AudioDirector.effect_play_count(
+			FrogAudioDirector.GROWTH_MAJOR
+		) == 1
+			and AudioDirector.effect_play_count(
+				FrogAudioDirector.POWER_ACTIVATE
+			) == 1
+			and AudioDirector.effect_play_count(
+				FrogAudioDirector.SHIELD_POP
+			) == 1,
+		"Major growth, temporary powers, and shield consumption have distinct feedback."
+	)
+
+	AudioDirector.reset_for_tests()
 	game.activate_audio_context()
 	var game_snapshot := AudioDirector.structure_snapshot()
 	var music_starts := int(game_snapshot["music_start_count"])
@@ -475,26 +613,50 @@ func _test_controls_events_and_lifecycle() -> void:
 	game._update_day_night(0.0)
 	game._update_day_night(0.0)
 	var night_snapshot := AudioDirector.structure_snapshot()
+	AudioDirector.set_pursuit(game, true)
+	AudioDirector.set_pursuit(game, true)
+	var pursuit_snapshot := AudioDirector.structure_snapshot()
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	var pursuit_day_snapshot := AudioDirector.structure_snapshot()
+	AudioDirector.set_pursuit(game, false)
+	var resumed_snapshot := AudioDirector.structure_snapshot()
+	AudioDirector.enter_epilogue(game)
+	var epilogue_snapshot := AudioDirector.structure_snapshot()
 	_check(
 		game_snapshot["audio_context"] == "game"
-			and game_snapshot["music_key"] == "gameplay"
+			and game_snapshot["music_key"] == "gameplay_day"
 			and music_starts == 1
 			and int(day_snapshot["music_start_count"]) == 1
 			and int(day_snapshot["ambience_start_count"])
 			<= ambience_starts + 1
+			and night_snapshot["music_key"] == "gameplay_night"
 			and night_snapshot["ambience_key"] == "night"
+			and int(night_snapshot["music_start_count"]) == 2
 			and int(night_snapshot["ambience_start_count"])
 			<= ambience_starts + 2
-			and int(night_snapshot["audio_players"])
+			and pursuit_snapshot["music_key"] == "pursuit"
+			and pursuit_snapshot["pursuit_active"]
+			and int(pursuit_snapshot["music_start_count"]) == 3
+			and pursuit_day_snapshot["music_key"] == "pursuit"
+			and int(pursuit_day_snapshot["music_start_count"]) == 3
+			and resumed_snapshot["music_key"] == "gameplay_day"
+			and not resumed_snapshot["pursuit_active"]
+			and int(resumed_snapshot["music_start_count"]) == 4
+			and epilogue_snapshot["audio_context"] == "epilogue"
+			and epilogue_snapshot["music_key"] == "epilogue"
+			and epilogue_snapshot["ambience_key"] == ""
+			and int(epilogue_snapshot["music_start_count"]) == 5
+			and int(epilogue_snapshot["audio_players"])
 			== FrogAudioDirector.TOTAL_PLAYER_COUNT,
-		"Repeated game entry and day-night updates reuse one loop pair without stacking players."
+		"Day, night, pursuit, recovery, and epilogue contexts reuse one loop pair without stacking players."
 	)
 
 	menu.queue_free()
 	await process_frame
 	_check(
-		AudioDirector.structure_snapshot()["audio_context"] == "game",
-		"Removing an older menu cannot stop the active game context."
+		AudioDirector.structure_snapshot()["audio_context"] == "epilogue",
+		"Removing an older menu cannot stop the active epilogue context."
 	)
 	game.queue_free()
 	await process_frame
