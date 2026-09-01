@@ -236,7 +236,22 @@ Growth is a central form of progression within play.
 - New areas become reachable at larger sizes.
 
 One confirmed temporary power allows the frog to fly around the city for one
-minute. Other temporary powers have not yet been defined.
+minute. The progression milestone also adds:
+
+- a 20-second Speed Burst that increases ground movement by 35%;
+- a 30-second Long Tongue power that increases range by 40% and shortens
+  recovery by 20%;
+- a 20-second Camouflage power that prevents new pursuit calls and accelerates
+  loss of an existing pursuer; and
+- a Bubble Shield that blocks one eligible pursuit hit and otherwise expires
+  after 30 seconds.
+
+Power durations count active play only and pause while the Belly, Field Guide,
+or Options overlay pauses the game. Powers persist through connected-room
+transitions. Recollecting the same power keeps the longer of its current
+remaining time and the power's standard duration rather than adding durations;
+different powers may coexist. Speed Burst affects only ground movement, so it
+does not multiply flight speed.
 
 ## Infinite city
 
@@ -256,9 +271,14 @@ the core, the active district and its surrounding 3x3 ring are loaded, capped
 at nine generated districts. Distant generated nodes are removed from the
 scene tree. Untouched districts are regenerated on demand, while compact
 session-local deltas retain removed targets, moved or spat-out targets, removed
-building parts, and consumed or restored buildings. This generated world state
-is deliberately not written to profile saves while the new-game/resume
-decision remains unresolved.
+building parts, and consumed or restored buildings.
+
+**Start New Game always creates a fresh city.** Score, growth, Belly contents,
+location, city seed, destruction, moved targets, and generated-district deltas
+reset. Per-profile Field Guide entries, achievements, story clues, power
+discoveries, secret unlocks, preferences, and tutorial state persist, along
+with device-wide best score and device milestones. Generated world deltas are
+therefore session state and are not written to the profile save.
 
 The city contains a large variety of shops, apartments, restaurants, and other
 enterable locations. A rare discovery is a large open plot containing many
@@ -501,6 +521,13 @@ edible after sufficient growth.
 There is no automatic city-wide alert meter. A target that escapes or observes
 the right event can call for help.
 
+Pursuers are summoned only when the frog loses a resistant-target struggle.
+Successful swallows do not create a pursuit. A failed struggle against an
+object, vehicle, removable building part, or whole building calls Security; a
+failed living-target struggle calls the Watchdog; and another failed resistant
+target calls Animal Control. Ordinary eating and non-resistant targets never
+summon Security.
+
 Pursuers may:
 
 - chase the frog;
@@ -654,38 +681,57 @@ growth, or permanent Field Guide progress. Returning and re-eating a target can
 count as another accurate swallow, while the distinct-target task only counts
 each target ID once per session.
 
-The following possible goals remain under consideration:
+The progression milestone confirms all remaining optional goal categories:
 
-- find secret districts;
-- earn achievements;
-- reach enormous frog sizes;
-- collect temporary powers;
-- find hidden story clues; and
-- trigger specific city events.
+- non-farmable achievements with visibly separate session, profile, and
+  device-wide progress;
+- an enormous-growth tier beyond the current maximum, with explicit collision,
+  camera, navigation, room, target-eligibility, and performance behavior;
+- the four additional temporary powers defined above;
+- eight to ten optional, persistent story clues outside the Field Guide;
+- one bounded secret-fantasy district path unlocked through those clues; and
+- one-time goals tied to existing deterministic city events.
 
-The response also selected "score and exploration are enough," so the inclusion
-and priority of the remaining additional goals still require confirmation.
+The story remains a light environmental mystery. Clues use short,
+child-friendly captions in a separate journal section, imply rather than fully
+explain the mystery, and do not require cutscenes, dialogue trees, accounts, or
+personal information. Collecting enough clues reveals the secret-district
+path, but reading story text is never required for score-focused free play.
+
+## Progression milestone decisions
+
+The September 1, 2026 progression decision checkpoint resolved the remaining
+product questions:
+
+- **New games:** Start New Game creates a fresh generated city and gameplay
+  session while retaining only profile and device meta-progress.
+- **Pursuit calls:** only a lost resistant struggle summons the target's
+  documented pursuer archetype; successful eating does not alert Security.
+- **Goals:** achievements, enormous growth, additional powers, story clues,
+  secret districts, and deterministic event goals are all included.
+- **Attachment boundary:** only explicit edible targets and staged removable
+  sign, door or awning, counter, and other separately authored target parts can
+  be removed. Roads, walls, bridges, portals, and fixed structural geometry
+  remain permanent until an eligible whole building is swallowed. Enormous
+  growth does not turn arbitrary collision geometry into targets.
+- **Powers:** Speed Burst, Long Tongue, Camouflage, and Bubble Shield join the
+  existing one-minute Flight power under the timing and replacement rules
+  above.
+- **Tuning:** a full gameplay rebalance is approved for point values, growth
+  thresholds, tongue range and recovery, struggle difficulty, and pursuit
+  penalties. Exact values must remain deterministic, documented, and covered
+  by focused tests.
+- **Story:** use the light environmental mystery described above, with eight
+  to ten concise persistent clues and an implied secret-district reveal.
+
+Every new persistent field must be documented with its ownership scope and
+default. Existing saves must migrate forward without losing profiles, scores,
+tutorial completion, Field Guide discoveries, accessibility settings, or audio
+settings.
 
 ## Decisions still needed
 
-These points were not fully resolved in the interview:
-
-- Whether starting a new game from the main menu resets score, size, belly
-  contents, world destruction, location, and discoveries, or resumes a saved
-  city.
-- Whether ordinary citizens treat most eating as normal while only certain
-  protected targets call security, or whether stealing any owned target can
-  trigger a response.
-- Whether the remaining additional goals listed above are wanted, or whether
-  the game should focus on score, free exploration, the Field Guide, and short
-  session challenges.
-- The exact boundary between a target that is insufficiently secured and one
-  that is permanently attached to the city.
-- The point values, growth thresholds, tongue range, tongue recovery duration,
-  struggle difficulty, and caught-score penalty.
-- The final visual art style, expanded audio direction beyond the approved
-  soft arcade-like synth slice, story, and remaining menu or onboarding
-  polish.
-- Whether the camera needs additional automatic assistance while the player is
-  using one finger to move and a second finger to rotate it.
-- Which temporary powers should exist in addition to one-minute flight.
+The final visual art style, expanded audio direction beyond the approved soft
+arcade-like synth slice, remaining menu or onboarding polish, and possible
+additional camera assistance remain future publication decisions. Visual review
+is intentionally deferred until publication.
