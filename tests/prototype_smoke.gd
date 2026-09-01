@@ -1335,6 +1335,35 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		),
 		"The Moonlight Market bazaar follows one wrapped deterministic night window with smooth fades."
 	)
+	_check(
+		is_zero_approx(FrogGame.wind_squall_intensity_for_clock(0.46))
+			and is_zero_approx(
+				FrogGame.kite_festival_intensity_for_clock(0.46)
+			)
+			and is_zero_approx(
+				FrogGame.kite_festival_intensity_for_clock(0.56)
+			)
+			and is_zero_approx(FrogGame.crowd_intensity_for_clock(0.56))
+			and not FrogGame.moonlight_market_open_for_clock(0.58)
+			and is_zero_approx(FrogGame.rain_intensity_for_clock(0.58))
+			and not FrogGame.city_detour_active_for_clock(0.58)
+			and is_equal_approx(
+				FrogGame.rain_intensity_for_clock(0.62),
+				1.0
+			)
+			and FrogGame.city_detour_active_for_clock(0.62)
+			and is_equal_approx(
+				FrogGame.rain_intensity_for_clock(0.74),
+				1.0
+			)
+			and not FrogGame.city_detour_active_for_clock(0.74)
+			and is_zero_approx(FrogGame.rain_intensity_for_clock(0.78))
+			and FrogGame.oddities_shop_open_for_clock(0.78)
+			and is_zero_approx(
+				FrogGame.festival_intensity_for_clock(0.78)
+			),
+		"Shared dynamic-city boundaries preserve every schedule handoff without overlap or drift."
+	)
 
 	game._day_clock = 0.5
 	game._update_day_night(0.0)

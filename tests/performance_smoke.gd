@@ -370,19 +370,19 @@ func _run() -> void:
 		},
 		{
 			"name": "animal_control_snare",
-			"setup": _setup_animal_control_snare,
+			"setup": _setup_no_event_animal_control_snare,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
 		{
 			"name": "security_motion_beacon",
-			"setup": _setup_security_motion_beacon,
+			"setup": _setup_no_event_security_motion_beacon,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
 		{
 			"name": "watchdog_sticky_patch",
-			"setup": _setup_watchdog_sticky_patch,
+			"setup": _setup_no_event_watchdog_sticky_patch,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -643,7 +643,7 @@ func _setup_night_shop(game: FrogGame) -> void:
 
 
 func _setup_day_market(game: FrogGame) -> void:
-	game._day_clock = 0.54
+	game._day_clock = 0.52
 	game._update_day_night(0.0)
 
 
@@ -725,11 +725,20 @@ func _setup_kite_gameplay_peak(game: FrogGame) -> void:
 	_exercise_navigation_detour(game, false)
 
 
+func _setup_no_event_boundary(game: FrogGame) -> void:
+	game._day_clock = 0.58
+	game._update_day_night(0.0)
+	game._update_city_detour(0.0)
+	game.set_process(false)
+
+
 func _setup_pursuit(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
 	game._spawn_pursuer()
 
 
 func _setup_security_pursuit(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
 	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_SECURITY_GUARD)
 
 
@@ -739,6 +748,7 @@ func _setup_security_flashlight(game: FrogGame) -> void:
 
 
 func _setup_watchdog_pursuit(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
 	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_WATCHDOG)
 
 
@@ -748,6 +758,7 @@ func _setup_watchdog_lunge(game: FrogGame) -> void:
 
 
 func _setup_tongue_deflect(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
 	game._spawn_pursuer()
 	game._pursuer.pulse_deflect()
 
@@ -797,7 +808,23 @@ func _setup_watchdog_sticky_patch(game: FrogGame) -> void:
 	game._update_pursuit_trap(0.1)
 
 
+func _setup_no_event_animal_control_snare(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
+	_setup_animal_control_snare(game)
+
+
+func _setup_no_event_security_motion_beacon(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
+	_setup_security_motion_beacon(game)
+
+
+func _setup_no_event_watchdog_sticky_patch(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
+	_setup_watchdog_sticky_patch(game)
+
+
 func _setup_net_attack(game: FrogGame) -> void:
+	_setup_no_event_boundary(game)
 	game._spawn_pursuer()
 	game._pursuer._begin_net_attack()
 	game._pursuer._advance_net_attack(
@@ -1057,6 +1084,7 @@ func _check_scenario_expectations(
 		"night_shop":
 			_check(
 				bool(snapshot["oddities_shop_scheduled_open"])
+				and not bool(snapshot["moonlight_market_scheduled_open"])
 				and is_equal_approx(
 					float(snapshot["festival_intensity"]),
 					1.0
@@ -1069,9 +1097,15 @@ func _check_scenario_expectations(
 			_check(
 				bool(snapshot["moonlight_market_scheduled_open"])
 				and not bool(snapshot["oddities_shop_scheduled_open"])
+				and is_equal_approx(
+					float(snapshot["kite_festival_intensity"]),
+					1.0
+				)
+				and int(snapshot["kite_festival_kites"])
+				== BUDGETS.MAX_KITE_FESTIVAL_KITES
 				and int(snapshot["targets"]) == BUDGETS.MAX_TARGETS
 				and int(snapshot["buildings"]) == BUDGETS.MAX_BUILDINGS,
-				"Day-market stress opens Moonlight Market without adding or removing gameplay structure."
+				"Day-market stress opens Moonlight Market through the kite-festival overlap without changing gameplay structure."
 			)
 		"busy_daytime":
 			_check(
@@ -1097,6 +1131,12 @@ func _check_scenario_expectations(
 				int(snapshot["city_detours"])
 				== BUDGETS.MAX_CITY_DETOURS
 				and bool(snapshot["city_detour_window_active"])
+				and is_equal_approx(
+					float(snapshot["rain_intensity"]),
+					1.0
+				)
+				and not bool(snapshot["moonlight_market_scheduled_open"])
+				and not bool(snapshot["oddities_shop_scheduled_open"])
 				and int(snapshot["rain_streaks"])
 				== BUDGETS.MAX_RAIN_STREAKS
 				and int(snapshot["roadblocks"]) == 0,
@@ -1129,6 +1169,7 @@ func _check_scenario_expectations(
 				is_equal_approx(float(snapshot["wind_intensity"]), 1.0)
 				and int(snapshot["wind_ribbons"])
 				== BUDGETS.MAX_WIND_RIBBONS
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS
 				and int(snapshot["active_crowd_members"])
@@ -1140,6 +1181,7 @@ func _check_scenario_expectations(
 				is_equal_approx(float(snapshot["wind_intensity"]), 1.0)
 				and int(snapshot["wind_ribbons"])
 				== BUDGETS.MAX_WIND_RIBBONS
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS
 				and str(snapshot["pursuer_archetype"])
@@ -1154,6 +1196,7 @@ func _check_scenario_expectations(
 				is_equal_approx(float(snapshot["wind_intensity"]), 1.0)
 				and int(snapshot["wind_ribbons"])
 				== BUDGETS.MAX_WIND_RIBBONS
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS
 				and str(snapshot["pursuer_archetype"])
@@ -1171,6 +1214,7 @@ func _check_scenario_expectations(
 				)
 				and int(snapshot["kite_festival_kites"])
 				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS
 				and int(snapshot["festival_lanterns"]) == 0,
@@ -1180,6 +1224,7 @@ func _check_scenario_expectations(
 			_check(
 				int(snapshot["kite_festival_kites"])
 				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and str(snapshot["pursuer_archetype"])
 				== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
 				and str(snapshot["pursuit_trap_variant"])
@@ -1191,6 +1236,7 @@ func _check_scenario_expectations(
 			_check(
 				int(snapshot["kite_festival_kites"])
 				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and str(snapshot["pursuer_archetype"])
 				== PrototypePursuer.ARCHETYPE_WATCHDOG
 				and str(snapshot["pursuit_trap_variant"])
@@ -1202,6 +1248,7 @@ func _check_scenario_expectations(
 			_check(
 				int(snapshot["kite_festival_kites"])
 				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
 				and int(snapshot["roadblocks"])
 				== BUDGETS.MAX_ROADBLOCKS
@@ -1218,6 +1265,7 @@ func _check_scenario_expectations(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS,
 				"Pursuit stress contains one Animal Control pursuer."
 			)
+			_check_no_dynamic_city_event(snapshot, "Animal Control pursuit")
 		"security_pursuit":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1227,6 +1275,7 @@ func _check_scenario_expectations(
 					and int(snapshot["pursuit_traps"]) == 0,
 				"Security stress contains one slower sight-based pursuer without stacked obstacles."
 			)
+			_check_no_dynamic_city_event(snapshot, "Security pursuit")
 		"security_flashlight":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1236,6 +1285,7 @@ func _check_scenario_expectations(
 					and int(snapshot["net_projectiles"]) == 0,
 				"Security flashlight stress remains a bounded draw-only pursuer state."
 			)
+			_check_no_dynamic_city_event(snapshot, "Security flashlight")
 		"watchdog_pursuit":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1245,6 +1295,7 @@ func _check_scenario_expectations(
 					and int(snapshot["pursuit_traps"]) == 0,
 				"Watchdog stress contains one fast scent-based pursuer without stacked obstacles."
 			)
+			_check_no_dynamic_city_event(snapshot, "Watchdog pursuit")
 		"watchdog_lunge":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1254,12 +1305,14 @@ func _check_scenario_expectations(
 					and int(snapshot["net_projectiles"]) == 0,
 				"Watchdog lunge stress reuses its single physical pursuer body."
 			)
+			_check_no_dynamic_city_event(snapshot, "Watchdog lunge")
 		"tongue_deflect":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
 				and bool(snapshot["pursuer_deflecting"]),
 				"Tongue-deflection stress uses draw-only pursuer feedback."
 			)
+			_check_no_dynamic_city_event(snapshot, "Tongue deflection")
 		"crowd_pursuit":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1299,6 +1352,7 @@ func _check_scenario_expectations(
 				== PrototypePursuitTrap.VARIANT_SNARE,
 				"Snare stress contains Animal Control and one draw-only damaging trap."
 			)
+			_check_no_dynamic_city_event(snapshot, "Animal Control snare")
 		"security_motion_beacon":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1310,6 +1364,7 @@ func _check_scenario_expectations(
 				== PrototypePursuitTrap.VARIANT_MOTION_BEACON,
 				"Beacon stress contains Security and one draw-only reveal trap."
 			)
+			_check_no_dynamic_city_event(snapshot, "Security beacon")
 		"watchdog_sticky_patch":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1321,6 +1376,7 @@ func _check_scenario_expectations(
 				== PrototypePursuitTrap.VARIANT_STICKY_PATCH,
 				"Sticky-patch stress contains Watchdog and one draw-only tongue-delay trap."
 			)
+			_check_no_dynamic_city_event(snapshot, "Watchdog sticky patch")
 		"net_attack":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -1370,6 +1426,7 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_CITY_ACTORS
 				and int(snapshot["wind_ribbons"])
 				== BUDGETS.MAX_WIND_RIBBONS
+				and bool(snapshot["moonlight_market_scheduled_open"])
 				and str(snapshot["roadblock_layout"])
 				== PrototypeRoadblock.LAYOUT_STAGGERED
 				and int(snapshot["roadblock_segments"]) == 2,
@@ -1403,6 +1460,29 @@ func _check_presentation_peak(snapshot: Dictionary) -> void:
 	)
 
 
+func _check_no_dynamic_city_event(
+	snapshot: Dictionary,
+	label: String
+) -> void:
+	_check(
+		is_zero_approx(float(snapshot["rain_intensity"]))
+			and is_zero_approx(float(snapshot["wind_intensity"]))
+			and is_zero_approx(float(snapshot["crowd_intensity"]))
+			and is_zero_approx(float(snapshot["festival_intensity"]))
+			and is_zero_approx(
+				float(snapshot["kite_festival_intensity"])
+			)
+			and int(snapshot["rain_streaks"]) == 0
+			and int(snapshot["wind_ribbons"]) == 0
+			and int(snapshot["festival_lanterns"]) == 0
+			and int(snapshot["kite_festival_kites"]) == 0
+			and int(snapshot["city_detours"]) == 0
+			and not bool(snapshot["moonlight_market_scheduled_open"])
+			and not bool(snapshot["oddities_shop_scheduled_open"]),
+		"%s uses the exact zero-event boundary state." % label
+	)
+
+
 func _check_city_detour_peak(
 	snapshot: Dictionary,
 	archetype_id: String,
@@ -1412,6 +1492,9 @@ func _check_city_detour_peak(
 	_check(
 		int(snapshot["city_detours"]) == BUDGETS.MAX_CITY_DETOURS
 			and int(snapshot["roadblocks"]) == 0
+			and is_equal_approx(float(snapshot["rain_intensity"]), 1.0)
+			and not bool(snapshot["moonlight_market_scheduled_open"])
+			and not bool(snapshot["oddities_shop_scheduled_open"])
 			and int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
 			and int(snapshot["pursuit_traps"])
 			== BUDGETS.MAX_PURSUIT_TRAPS

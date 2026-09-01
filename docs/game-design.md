@@ -123,16 +123,19 @@ budget rejection.
 
 Reproducible stress coverage includes the maximum generated-district ring, all
 ten connected exploration rooms, both scheduled shops, the night bazaar,
-busy daytime city activity,
-peak rain, the wind squall alone and with each pursuer-and-trap profile, the
-Canal Kite Festival alone and with every pursuer-and-trap profile, pursuit,
-active crowd cover, both roadblock layouts, the
-staggered-roadblock-and-snare peak, the rain-window city detour alone and with
-every pursuer-and-trap profile, a net in flight, maximum growth, a finite
-simultaneous presentation burst, a 64-item Belly, the fully populated Field
-Guide, both accessibility settings, and a reachable gameplay peak. Desktop
-measurements are advisory; the target iPad release build is authoritative. The
-exact commands and current local measurement notes are recorded in
+busy daytime city activity, peak rain, all three pursuer-and-trap profiles at
+the zero-event clock boundary, the wind squall and Canal Kite Festival alone
+and with every pursuer-and-trap profile, pursuit, active crowd cover, both
+roadblock layouts, the staggered-roadblock-and-snare peak, the rain-window city
+detour alone and with every pursuer-and-trap profile, a net in flight, maximum
+growth, a finite simultaneous presentation burst, a 64-item Belly, the fully
+populated Field Guide, both accessibility settings, and a reachable gameplay
+peak. The same snapshots assert that Moonlight Market remains open throughout
+wind and kite states, Oddities Shop overlaps the night bazaar, and both shops
+are closed during the repair. Boundary tests cover the exact handoffs at
+clocks 0.46, 0.56, 0.58, 0.62, 0.74, and 0.78. Desktop measurements are
+advisory; the target iPad release build is authoritative. The exact commands
+and current local measurement notes are recorded in
 [`playable-prototype.md`](playable-prototype.md).
 
 ## Player character and touch controls
