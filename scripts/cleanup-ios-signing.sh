@@ -1,28 +1,69 @@
 #!/usr/bin/env bash
-set -u
+set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runner_temp="${RUNNER_TEMP:-}"
 installed_profile_name="SamuelIcecream-CI.mobileprovision"
+cleanup_failed=0
+
+remove_file() {
+  local path="$1"
+  if ! rm -f -- "$path"; then
+    echo "Failed to remove temporary file: $path" >&2
+    cleanup_failed=1
+  elif [[ -e "$path" || -L "$path" ]]; then
+    echo "Temporary file remains after cleanup: $path" >&2
+    cleanup_failed=1
+  fi
+}
+
+remove_tree() {
+  local path="$1"
+  if ! rm -rf -- "$path"; then
+    echo "Failed to remove temporary directory: $path" >&2
+    cleanup_failed=1
+  elif [[ -e "$path" || -L "$path" ]]; then
+    echo "Temporary directory remains after cleanup: $path" >&2
+    cleanup_failed=1
+  fi
+}
 
 if [[ -n "$runner_temp" ]]; then
-  security delete-keychain \
-    "$runner_temp/samuelicecream-signing.keychain-db" \
-    2>/dev/null || true
-  rm -f -- \
+  keychain_path="$runner_temp/samuelicecream-signing.keychain-db"
+  if [[ -e "$keychain_path" || -L "$keychain_path" ]]; then
+    if ! security delete-keychain "$keychain_path" 2>/dev/null; then
+      echo "Failed to delete the temporary signing keychain." >&2
+      cleanup_failed=1
+    fi
+    if [[ -e "$keychain_path" || -L "$keychain_path" ]]; then
+      echo "The temporary signing keychain remains after cleanup." >&2
+      cleanup_failed=1
+    fi
+  fi
+
+  for path in \
     "$runner_temp/samuelicecream-distribution.p12" \
     "$runner_temp/samuelicecream-distribution.pem" \
     "$runner_temp/samuelicecream-app-store.mobileprovision" \
     "$runner_temp/samuelicecream-profile.plist" \
-    "$runner_temp/TestFlightExportOptions.plist"
-  rm -rf -- \
-    "$runner_temp/app-store-connect" \
-    "$runner_temp/ios-upload"
+    "$runner_temp/TestFlightExportOptions.plist" \
+    "$runner_temp/AppStoreExportOptions.plist"; do
+    remove_file "$path"
+  done
+
+  remove_tree "$runner_temp/app-store-connect"
+  remove_tree "$runner_temp/ios-upload"
 fi
 
-rm -f -- \
-  "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$installed_profile_name" \
+remove_file \
+  "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$installed_profile_name"
+remove_file \
   "$HOME/Library/MobileDevice/Provisioning Profiles/$installed_profile_name"
-rm -rf -- "$repo_root/build"
+remove_tree "$repo_root/build"
 
-echo "Temporary iOS signing material was removed."
+if (( cleanup_failed != 0 )); then
+  echo "Temporary iOS signing cleanup was incomplete." >&2
+  exit 1
+fi
+
+echo "Temporary iOS signing material was removed and verified."

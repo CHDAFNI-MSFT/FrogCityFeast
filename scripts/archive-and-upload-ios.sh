@@ -10,6 +10,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${IOS_PROVISIONING_PROFILE_NAME:?IOS_PROVISIONING_PROFILE_NAME is required.}"
 : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required.}"
 : "${IOS_BUNDLE_ID:?IOS_BUNDLE_ID is required.}"
+: "${IOS_DISTRIBUTION:?IOS_DISTRIBUTION is required.}"
 : "${APP_STORE_CONNECT_KEY_ID:?APP_STORE_CONNECT_KEY_ID is required.}"
 : "${APP_STORE_CONNECT_ISSUER_ID:?APP_STORE_CONNECT_ISSUER_ID is required.}"
 : "${APP_STORE_CONNECT_PRIVATE_KEY_BASE64:?APP_STORE_CONNECT_PRIVATE_KEY_BASE64 is required.}"
@@ -26,8 +27,20 @@ fi
 
 archive_path="$repo_root/build/ios/SamuelIcecream.xcarchive"
 export_path="$RUNNER_TEMP/ios-upload"
-export_options_path="$RUNNER_TEMP/TestFlightExportOptions.plist"
 api_key_dir="$RUNNER_TEMP/app-store-connect"
+
+case "$IOS_DISTRIBUTION" in
+  internal-testflight)
+    export_options_path="$RUNNER_TEMP/TestFlightExportOptions.plist"
+    ;;
+  app-store)
+    export_options_path="$RUNNER_TEMP/AppStoreExportOptions.plist"
+    ;;
+  *)
+    echo "IOS_DISTRIBUTION must be internal-testflight or app-store." >&2
+    exit 1
+    ;;
+esac
 
 rm -rf -- "$archive_path" "$export_path" "$api_key_dir"
 
@@ -68,6 +81,7 @@ python3 "$repo_root/scripts/create-export-options.py" \
   --team-id "$APPLE_TEAM_ID" \
   --bundle-id "$IOS_BUNDLE_ID" \
   --profile-name "$IOS_PROVISIONING_PROFILE_NAME" \
+  --distribution "$IOS_DISTRIBUTION" \
   --output "$export_options_path"
 
 xcodebuild \
@@ -79,4 +93,9 @@ xcodebuild \
   -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
   -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
 
-echo "The signed build was submitted to App Store Connect."
+if [[ "$IOS_DISTRIBUTION" == "internal-testflight" ]]; then
+  echo "The signed build was uploaded for internal-only TestFlight testing."
+else
+  echo "The signed build was uploaded as a normal App Store candidate."
+  echo "It was not submitted for App Review or released."
+fi

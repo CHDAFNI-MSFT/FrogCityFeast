@@ -84,6 +84,17 @@ func _run() -> void:
 		"Signing cleanup runs even after an earlier release failure."
 	)
 	_check(
+		workflow.contains("IOS_DISTRIBUTION: internal-testflight"),
+		"The TestFlight workflow explicitly selects internal-only distribution."
+	)
+	_check(
+		workflow.contains(
+			"IOS_BUILD_NUMBER=$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
+		)
+			and not workflow.contains("$GITHUB_RUN_NUMBER"),
+		"The TestFlight workflow uses a repository-wide unique build number."
+	)
+	_check(
 		export_script.contains("validate-ios-generated-project.py")
 			and export_script.contains('--team-id "$APPLE_TEAM_ID"')
 			and export_script.contains('--bundle-id "$IOS_BUNDLE_ID"')
@@ -148,6 +159,9 @@ func _run() -> void:
 				'-derivedDataPath "$repo_root/build/ios/DerivedData"'
 			)
 			and archive_script.contains("-authenticationKeyPath")
+			and archive_script.contains(
+				'--distribution "$IOS_DISTRIBUTION"'
+			)
 			and not archive_script.contains("-allowProvisioningUpdates"),
 		"Archiving uses the reviewed manual identity and cannot modify signing "
 			+ "assets in the Apple portal."
@@ -164,15 +178,21 @@ func _run() -> void:
 				"samuelicecream-app-store.mobileprovision"
 			)
 			and cleanup_script.contains("app-store-connect")
-			and cleanup_script.contains("ios-upload"),
-		"Cleanup covers every temporary signing and upload path."
+			and cleanup_script.contains("ios-upload")
+			and cleanup_script.contains("cleanup_failed=0")
+			and cleanup_script.contains("exit 1")
+			and not cleanup_script.contains("|| true"),
+		"Cleanup verifies every temporary signing and upload path."
 	)
 	_check(
 		export_options.contains('"destination": "upload"')
 			and export_options.contains('"method": "app-store-connect"')
 			and export_options.contains('"signingStyle": "manual"')
 			and export_options.contains(
-				'"testFlightInternalTestingOnly": True'
+				'if args.distribution == "internal-testflight":'
+			)
+			and export_options.contains(
+				'options["testFlightInternalTestingOnly"] = True'
 			)
 			and export_options.contains(
 				'"signingCertificate": "Apple Distribution"'

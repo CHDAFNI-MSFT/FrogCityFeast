@@ -20,7 +20,7 @@ The repository's technical requirement remains a 2D game built with Godot
 the project's 2D visual style rather than changing the documented technology
 stack.
 
-The fixed prototype uses a safe-area-aware 1280×960 reference layout. Important
+The game uses a safe-area-aware 1280×960 reference layout. Important
 HUD controls stay inside device-safe edges without resizing or repositioning the
 game world. Interface text and controls use high-contrast original vector
 presentation, explicit text labels, and touch actions that are at least 56
@@ -453,7 +453,7 @@ things to eat.
   shell with a collision-safe doorway, three removable parts, and a
   large-growth whole-building capture. Generated separate rooms and upper
   levels remain future work.
-- The current prototype has staged destruction for all four authored
+- The current game has staged destruction for all four authored
   buildings. Each requires three removable parts and Large growth before the
   whole weakened building can be swallowed.
 - Leap Café stays enterable throughout its ordered sequence: remove the
@@ -468,7 +468,7 @@ things to eat.
   collision-aware routes through their central aisles. Their interior targets
   require the frog to enter, remain
   associated with their rooms when restocked, and reward exploring the space.
-- Leap Café also has the prototype's first separate room: a marked rear door
+- Leap Café also has the game's first separate room: a marked rear door
   leads through a short fade to a compact stockroom with solid shelving, a
   centered room camera, a return door, and a Stockroom Coffee Tin target.
   Entering hides the frog from active Animal Control pursuit. Reduce motion
@@ -546,7 +546,7 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements nine small deterministic dynamic-city
+The fixed city implements nine small deterministic dynamic-city
 slices. The day and night cycle changes the visible pedestrian crowd, secondary
 traffic level, streetlight glow, and restrained synthesized ambience. Once per
 180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
@@ -639,7 +639,7 @@ progress.
 
 Ambient pedestrians and vehicles use authored routes and are decorative rather
 than targets, hazards, or persistent world state. The labeled Delivery Van
-remains the prototype's interactive traffic target.
+remains the game's interactive traffic target.
 
 ### Target locations
 
@@ -682,7 +682,7 @@ They cannot route through active building or room collision, roadblocks, or
 district space that is not loaded. Their net sweeps and tongue-deflection
 checks remain direct physics queries rather than navigation decisions.
 
-The prototype's Animal Control pursuer now implements the first bounded net
+The game's Animal Control pursuer implements the first bounded net
 attack. A small or medium ground frog within the authored range receives a
 clear 0.8-second aim warning before one draw-only net travels along the locked
 path. The net sweeps its full radius against building collision, so walls and
@@ -808,8 +808,8 @@ can also eat its pursuers.
 
 ## Additional goals
 
-Discovering every target type is now a confirmed secondary goal. The first
-prototype implements this through a persistent per-player Frog Field Guide.
+Discovering every target type is now a confirmed secondary goal. The game
+implements this through a persistent per-player Frog Field Guide.
 Each unique target is recorded on its first successful swallow, without
 awarding extra score or growth.
 

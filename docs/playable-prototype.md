@@ -1,8 +1,8 @@
-# Playable Prototype
+# Implemented Game
 
-The repository contains a playable first prototype of **Frog City Feast**. The
-Godot project, on-device display name, bundle identifier, and App Store Connect
-record use this selected release title.
+The repository contains the production-complete release scope of **Frog City
+Feast**. The Godot project, on-device display name, bundle identifier, and App
+Store Connect record use this selected release title.
 
 The complete game vision remains in
 [`game-design.md`](game-design.md). This document describes only what is
@@ -10,7 +10,7 @@ currently implemented.
 
 ## Current gameplay
 
-The prototype includes:
+The release scope includes:
 
 - a landscape, touch-first 4:3 presentation intended for iPad;
 - a third-person 2D camera composition with the frog in the lower part of the
@@ -495,7 +495,7 @@ cells and request time. The gameplay-peak and generated-streaming harness
 states each issue a deterministic multi-corner query so these values are
 measured under obstacle-routing load rather than only direct movement.
 
-The prototype uses these **target-device acceptance budgets** for an A16 iPad
+The game uses these **target-device acceptance budgets** for an A16 iPad
 release build at the 1280×960 reference presentation:
 
 | Metric | Budget |
@@ -659,30 +659,31 @@ result and remain outside the unsigned iOS integration run until that manual
 workflow is separately authorized. Known non-fatal generated-project warnings
 are recorded in [`ios-release.md`](ios-release.md).
 
-## Prototype boundaries
+## Production and release boundaries
 
-This is a mechanics prototype, not a finished game. It deliberately uses
-simple vector graphics and a bounded streaming window so the eating, growth,
-destruction, and endless traversal loops can be evaluated before larger
-production work.
+The current public-release gameplay, progression, presentation, audio,
+accessibility, and save scope is implemented. The bounded generated-city model,
+fresh-city Start New Game behavior, six generator archetypes, authored
+connected rooms, nine deterministic city events, three pursuer profiles, five
+powers, Guide/Journal progression, and score epilogue define the version 1
+product rather than an unfinished prototype.
 
-The following parts of the full design are not implemented yet:
+Additional generated multi-room interiors, generator archetypes, city events,
+and persistent generated-city state are possible post-release expansions, not
+version 1 acceptance requirements. Generated city state intentionally resets
+with Start New Game; persistent profile progression remains separate.
 
-- generated multi-room interiors, upper levels, rooftops, and authored events;
-- restaurant, outdoor-market, suburban, construction, entertainment, and
-  additional fantasy generator archetypes;
-- generated pedestrian and traffic routes beyond the authored central
-  district;
-- persistence of generated district state across application launches, which
-  remains intentionally deferred until the new-game/resume decision is made;
-- further authored multi-room interiors and connected exploration spaces;
-- further fantasy events;
-- target-device visual and audio mix validation, plus final accessibility
-  publication review beyond the implemented motion, interface-size, contrast,
-  touch-feedback, safe-area, input-timing, camera-assistance, haptic,
-  left-handed, tutorial-replay, and volume controls; and
-- the first signed TestFlight upload, A16 iPad validation, and App Store
-  release.
+Remaining acceptance work is release-specific:
+
+- a signed release-build performance, thermal, visual, audio, haptic,
+  safe-area, readability, and accessibility pass on the physical A16 iPad;
+- one deferred final publication review of the screenshot and store
+  presentation;
+- live support and privacy URLs plus owner-specific App Store fields;
+- App Store Connect metadata, rating, pricing, and storefront configuration;
+  and
+- separate authorization for candidate upload, App Review submission, public
+  release, and any Git tag or GitHub release.
 
 Each player can change **Reduce motion**, **Larger text & controls**, Standard /
 Relaxed / Hold input timing, camera sensitivity, camera auto-align, haptics,
@@ -707,22 +708,18 @@ licensed commercial music are included, and the complete asset set remains
 below 2 MiB without Git LFS.
 
 An Apple Developer Program membership is not required for local gameplay
-development or the repository's unsigned checks. It becomes necessary before
-signed TestFlight or App Store distribution.
+development or the repository's unsigned checks. It is required for the
+protected App Store candidate workflow.
 
-## Next implementation priorities
+## Next release priorities
 
-Continue the prototype one reviewed priority at a time:
+1. Keep the credential-free unsigned iOS integration and exact-commit CI
+   results current.
+2. Complete physical A16 iPad acceptance and the deferred publication review.
+3. Fill the owner-specific listing fields in the versioned App Store templates.
+4. Stop for explicit authorization before signing, candidate upload, App
+   Review submission, public release, or tag creation.
 
-1. Keep credential-free unsigned iOS integration, signed TestFlight work, and
-   A16 iPad validation as separately approved release tasks; no gameplay change
-   implicitly authorizes them.
-2. Select one next bounded gameplay slice from the remaining prototype backlog,
-   such as a generated connected interior, another district archetype, another
-   pursuer behavior, or another dynamic city event.
-3. Review, test, document, and commit that slice before beginning another
-   system.
-
-The broader unimplemented feature list above defines the remaining prototype
-boundaries. `docs/game-design.md` remains the source of truth for the intended
-full-game experience.
+[`game-design.md`](game-design.md) remains the source of truth for durable game
+requirements. [`app-store-release-checklist.md`](app-store-release-checklist.md)
+is the source of truth for remaining publication gates.

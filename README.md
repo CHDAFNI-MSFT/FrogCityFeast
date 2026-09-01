@@ -6,11 +6,15 @@ Godot 4.7.2 touch-first iPad game. The repository retains its original
 ## Development planning
 
 - [Game design requirements](docs/game-design.md)
-- [Playable prototype status and controls](docs/playable-prototype.md)
+- [Implemented game status and controls](docs/playable-prototype.md)
 - [Game stack decision guide](docs/game-stack-decision-guide.md)
 - [Development toolchain setup](docs/development-setup.md)
 - [Clean-room environment rebuild runbook](docs/environment-rebuild-runbook.md)
 - [iOS build and App Store setup](docs/ios-release.md)
+- [App Store metadata template](docs/app-store-metadata.md)
+- [Privacy policy template](docs/privacy-policy.md)
+- [Support page template](docs/app-support.md)
+- [Public release checklist](docs/app-store-release-checklist.md)
 - [Asset provenance and reproduction](assets/README.md)
 
 ## Quick start on Windows
@@ -24,8 +28,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-project-wind
 ```
 
 Godot is pinned in [`tools/toolchain.json`](tools/toolchain.json). Routine game
-development stays on Windows; macOS is reserved for iOS export, signing, and
-TestFlight release work.
+development stays on Windows; macOS is reserved for approved iOS export,
+signing, and App Store candidate work.
 
 ## Automation
 
@@ -33,8 +37,11 @@ TestFlight release work.
   requests.
 - `iOS unsigned smoke build` manually validates the Godot-to-Xcode pipeline
   without Apple credentials.
-- `iOS TestFlight release` signs and submits approved builds from `main` or
-  version tags after the `testflight` environment is configured.
+- `iOS App Store candidate upload` is a manual, protected, main-only path for
+  an explicitly authorized normal App Store candidate.
+- `iOS TestFlight release` is retained as historical internal-only
+  infrastructure but is not usable by the target under-13 Apple Account.
 
-The signed release workflow intentionally publishes no IPA or Xcode archive
-artifacts from this public repository.
+Signed workflows intentionally publish no IPA or Xcode archive artifacts from
+this public repository. Candidate upload, App Review submission, public
+release, and Git tags each require separate authorization.

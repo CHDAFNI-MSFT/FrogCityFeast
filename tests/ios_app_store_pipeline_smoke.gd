@@ -1,0 +1,273 @@
+extends SceneTree
+
+const WORKFLOW := "res://.github/workflows/ios-app-store.yml"
+const TESTFLIGHT_WORKFLOW := "res://.github/workflows/ios-testflight.yml"
+const ARCHIVE_SCRIPT := "res://scripts/archive-and-upload-ios.sh"
+const CLEANUP_SCRIPT := "res://scripts/cleanup-ios-signing.sh"
+const EXPORT_OPTIONS_SCRIPT := "res://scripts/create-export-options.py"
+const IOS_RELEASE_DOC := "res://docs/ios-release.md"
+const METADATA_JSON := "res://tools/app-store-metadata.json"
+const METADATA_DOC := "res://docs/app-store-metadata.md"
+const PRIVACY_DOC := "res://docs/privacy-policy.md"
+const SUPPORT_DOC := "res://docs/app-support.md"
+const RELEASE_CHECKLIST := "res://docs/app-store-release-checklist.md"
+
+var _failures: Array[String] = []
+
+
+func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
+	var workflow := _read(WORKFLOW)
+	var testflight_workflow := _read(TESTFLIGHT_WORKFLOW)
+	var archive_script := _read(ARCHIVE_SCRIPT)
+	var cleanup_script := _read(CLEANUP_SCRIPT)
+	var export_options := _read(EXPORT_OPTIONS_SCRIPT)
+	var release_doc := _read(IOS_RELEASE_DOC)
+	var metadata_json := _read(METADATA_JSON)
+	var metadata_doc := _read(METADATA_DOC)
+	var privacy_doc := _read(PRIVACY_DOC)
+	var support_doc := _read(SUPPORT_DOC)
+	var checklist := _read(RELEASE_CHECKLIST)
+
+	_check(
+		workflow.contains("on:\n  workflow_dispatch:")
+			and not workflow.contains("\n  push:")
+			and not workflow.contains("\n  pull_request:"),
+		"The App Store candidate workflow is manual-only."
+	)
+	_check(
+		workflow.contains("confirm_upload:")
+			and workflow.contains(
+				"if: github.ref == 'refs/heads/main' && inputs.confirm_upload"
+			)
+			and workflow.contains(
+				"    environment:\n      name: app-store"
+			),
+		"The App Store upload requires main, explicit confirmation, and the "
+			+ "protected app-store environment."
+	)
+	_check(
+		workflow.contains("permissions:\n  contents: read")
+			and workflow.contains("persist-credentials: false")
+			and not workflow.contains("actions/upload-artifact"),
+		"The App Store workflow is read-only and publishes no build artifact."
+	)
+	_check(
+		workflow.contains("IOS_DISTRIBUTION: app-store")
+			and workflow.contains(
+				"Archive and upload App Store candidate"
+			)
+			and not workflow.contains("testFlightInternalTestingOnly"),
+		"The public workflow selects the normal App Store export mode."
+	)
+	_check(
+		workflow.contains(
+			"IOS_BUILD_NUMBER=$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
+		)
+			and testflight_workflow.contains(
+				"IOS_BUILD_NUMBER=$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
+			)
+			and not workflow.contains("$GITHUB_RUN_NUMBER")
+			and not testflight_workflow.contains("$GITHUB_RUN_NUMBER"),
+		"Both upload workflows share collision-resistant build numbering."
+	)
+	_check(
+		testflight_workflow.contains(
+			"IOS_DISTRIBUTION: internal-testflight"
+		),
+		"The historical TestFlight workflow explicitly retains internal mode."
+	)
+
+	for variable_name in ["APPLE_TEAM_ID", "IOS_BUNDLE_ID"]:
+		_check(
+			workflow.contains("${{ vars.%s }}" % variable_name),
+			"The App Store workflow references environment variable %s."
+				% variable_name
+		)
+	for secret_name in [
+		"APPLE_CERTIFICATE_BASE64",
+		"APPLE_CERTIFICATE_PASSWORD",
+		"APPLE_PROVISIONING_PROFILE_BASE64",
+		"APP_STORE_CONNECT_KEY_ID",
+		"APP_STORE_CONNECT_ISSUER_ID",
+		"APP_STORE_CONNECT_PRIVATE_KEY_BASE64",
+	]:
+		_check(
+			workflow.contains("${{ secrets.%s }}" % secret_name),
+			"The App Store workflow references environment secret %s."
+				% secret_name
+		)
+
+	_check(
+		archive_script.contains(
+			'IOS_DISTRIBUTION must be internal-testflight or app-store.'
+		)
+			and archive_script.contains(
+				'--distribution "$IOS_DISTRIBUTION"'
+			)
+			and archive_script.contains(
+				"It was not submitted for App Review or released."
+			),
+		"The shared archive script validates distribution mode and distinguishes "
+			+ "candidate upload from submission or release."
+	)
+	_check(
+		export_options.contains(
+			'choices=("internal-testflight", "app-store")'
+		)
+			and export_options.contains(
+				'if args.distribution == "internal-testflight":'
+			)
+			and export_options.contains(
+				'options["testFlightInternalTestingOnly"] = True'
+			),
+		"The export-options generator adds the TestFlight-only key only for "
+			+ "the internal mode."
+	)
+	_check(
+		cleanup_script.contains("TestFlightExportOptions.plist")
+			and cleanup_script.contains("AppStoreExportOptions.plist")
+			and cleanup_script.contains("app-store-connect")
+			and cleanup_script.contains("ios-upload")
+			and cleanup_script.contains("cleanup_failed=0")
+			and cleanup_script.contains("exit 1")
+			and not cleanup_script.contains("|| true"),
+		"Cleanup verifies both export modes and all temporary upload material."
+	)
+
+	_check(
+		release_doc.contains("normal public App Store")
+			and release_doc.contains(
+				"| Selected distribution | Normal public App Store release |"
+			)
+			and release_doc.contains("testFlightInternalTestingOnly")
+			and release_doc.contains("under 13"),
+		"The release guide records the public route and TestFlight restriction."
+	)
+	_validate_metadata(metadata_json)
+	_check(
+		metadata_doc.contains("Primary category: **Games**")
+			and metadata_doc.contains(
+				"Primary Games subcategory: **Casual**"
+			)
+			and metadata_doc.contains(
+				"Secondary Games subcategory: **Adventure**"
+			)
+			and metadata_doc.contains("Cartoon or fantasy violence")
+			and metadata_doc.contains(
+				"No, we do not collect data from this app"
+			),
+		"The metadata template covers category, rating, and privacy inputs."
+	)
+	_check(
+		privacy_doc.contains("does not collect")
+			and privacy_doc.contains("only on the device")
+			and privacy_doc.contains("Support communications"),
+		"The privacy template separates local saves from external support."
+	)
+	_check(
+		support_doc.contains("Delete the app and its app data")
+			and support_doc.contains("no account")
+			and support_doc.contains("REQUIRED_BEFORE_SUBMISSION"),
+		"The support template explains local-data deletion and pending contact "
+			+ "details."
+	)
+	_check(
+		checklist.contains("Physical A16 iPad acceptance")
+			and checklist.contains("Explicit upload authorization")
+			and checklist.contains("Explicit submission authorization")
+			and checklist.contains("Explicit release authorization"),
+		"The release checklist preserves every device and publication gate."
+	)
+
+	_finish()
+
+
+func _validate_metadata(source: String) -> void:
+	var parsed: Variant = JSON.parse_string(source)
+	_check(parsed is Dictionary, "The App Store metadata JSON is valid.")
+	if not parsed is Dictionary:
+		return
+	var metadata := parsed as Dictionary
+	var limits := {
+		"name": 30,
+		"subtitle": 30,
+		"promotional_text": 170,
+		"description": 4000,
+		"whats_new": 4000,
+	}
+	for field in limits:
+		var value := str(metadata.get(field, ""))
+		_check(
+			value.length() <= int(limits[field]),
+			"Metadata field %s stays within its character limit." % field
+		)
+	var keywords := str(metadata.get("keywords", ""))
+	_check(
+		keywords.to_utf8_buffer().size() <= 100,
+		"Metadata keywords stay within Apple's 100-byte limit."
+	)
+	_check(
+		str(metadata.get("primary_category", "")) == "Games"
+			and str(metadata.get("primary_subcategory", "")) == "Casual"
+			and str(metadata.get("secondary_subcategory", "")) == "Adventure",
+		"The machine-readable category recommendation remains reviewed."
+	)
+	var combined_copy := (
+		str(metadata.get("subtitle", ""))
+		+ " "
+		+ str(metadata.get("promotional_text", ""))
+		+ " "
+		+ str(metadata.get("description", ""))
+	).to_lower()
+	for inaccurate_claim in ["ice cream delivery", "pixel art", "retro"]:
+		_check(
+			not combined_copy.contains(inaccurate_claim),
+			"Metadata excludes the inaccurate claim %s." % inaccurate_claim
+		)
+	for required_claim in [
+		"no ads",
+		"no in-app purchases",
+		"no account",
+		"no data collection",
+	]:
+		_check(
+			combined_copy.contains(required_claim),
+			"Metadata retains the reviewed claim %s." % required_claim
+		)
+	for field in ["support_url", "privacy_policy_url"]:
+		var value := str(metadata.get(field, ""))
+		_check(
+			value.begins_with("https://")
+				or value == "REQUIRED_BEFORE_SUBMISSION",
+			"Metadata field %s is HTTPS or explicitly pending." % field
+		)
+
+
+func _read(path: String) -> String:
+	var content := FileAccess.get_file_as_string(path).replace("\r\n", "\n")
+	_check(not content.is_empty(), "%s is readable." % path)
+	return content
+
+
+func _check(condition: bool, description: String) -> void:
+	if condition:
+		print("PASS: %s" % description)
+		return
+	_failures.append(description)
+	push_error("FAIL: %s" % description)
+
+
+func _finish() -> void:
+	if _failures.is_empty():
+		print("Public App Store pipeline checks passed.")
+		quit(0)
+	else:
+		print(
+			"Public App Store pipeline checks failed: %s"
+			% ", ".join(_failures)
+		)
+		quit(1)

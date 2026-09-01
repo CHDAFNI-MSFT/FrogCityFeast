@@ -91,6 +91,9 @@ Invoke-GodotCheck `
     -Label "ios-release-pipeline-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/ios_release_pipeline_smoke.gd"
 Invoke-GodotCheck `
+    -Label "ios-app-store-pipeline-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/ios_app_store_pipeline_smoke.gd"
+Invoke-GodotCheck `
     -Label "startup" `
     -Arguments "--headless --path `"$repoRoot`" --quit-after 2"
 Invoke-GodotCheck `

@@ -16,6 +16,8 @@ fi
 
 mkdir -p "$logs_dir"
 
+python3 "$repo_root/tests/app_store_readiness_test.py"
+
 run_checked() {
   local label="$1"
   shift
@@ -33,6 +35,8 @@ run_checked ios-pipeline-smoke --headless --path "$repo_root" \
   --script res://tests/ios_pipeline_smoke.gd
 run_checked ios-release-pipeline-smoke --headless --path "$repo_root" \
   --script res://tests/ios_release_pipeline_smoke.gd
+run_checked ios-app-store-pipeline-smoke --headless --path "$repo_root" \
+  --script res://tests/ios_app_store_pipeline_smoke.gd
 run_checked startup --headless --path "$repo_root" --quit-after 2
 run_checked navigation-smoke --headless --path "$repo_root" \
   --script res://tests/navigation_smoke.gd
