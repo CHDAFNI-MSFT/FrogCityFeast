@@ -65,9 +65,13 @@ The prototype includes:
 - net failure that reuses the existing 25-point capped loss and knockback,
   while flight and maximum growth prevent capture;
 - one deterministic physical Animal Control roadblock per pursuit, deployed
-  after three eligible seconds at the nearest safe authored road anchor,
-  breakable with three tongue hits, self-expiring after ten seconds, and
-  cleared immediately when pursuit ends;
+  after three eligible seconds at the nearest safe authored road anchor as
+  either a straight segment or a two-segment staggered chicane, breakable with
+  three tongue hits, self-expiring after ten seconds, and cleared immediately
+  when pursuit ends;
+- a minimum 104-unit authored opening through every staggered chicane so the
+  maximum-growth frog retains a clear escape route, while flight passes over
+  either layout;
 - one deterministic draw-only Animal Control sidewalk snare per pursuit,
   deployed after six eligible seconds with a 0.75-second arming warning,
   harmless to flight and maximum growth, self-expiring after twelve seconds,
@@ -351,10 +355,12 @@ frame-step-independent rain, static reduced-motion weather, pursuit, net windup
 and wall clearance, dodging, tongue interruption and deflection, Security
 Guard sight loss, valuables-only protection, flashlight dodging and damage,
 Watchdog scent, living-target protection, lunge wall stopping and dodging,
-profile-driven trap selection, deployment retries, exact arming and expiry
-boundaries, harmless reveal and tongue-delay effects, simultaneous attack
-windows, transition and district-unload cleanup, maximum-size deflection
-immunity, rapid-tap escape and timeout damage, flight and growth immunity,
+straight and staggered roadblock selection, multi-segment collision and
+navigation, maximum-growth chicane passage, roadblock retries, breakage,
+expiry, transition and district-unload cleanup, profile-driven trap selection,
+exact arming and expiry boundaries, harmless reveal and tongue-delay effects,
+simultaneous attack windows, maximum-size deflection immunity, rapid-tap escape
+and timeout damage, flight and growth immunity,
 profile persistence, Field Guide catalog and overlay behavior,
 legacy discovery saves, per-profile accessibility persistence and legacy
 defaults, touch-target sizing, safe-area layout, touch feedback, reduced-motion
@@ -431,8 +437,9 @@ The deterministic structural budgets are enforced in CI:
 | Pursuit in active crowd cover | Pursuit structure remains at 371 nodes, 42 collision objects, and 112 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
 | Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 371 nodes, 42 collision objects, and 112 collision shapes |
 | Any pursuer-specific trap | 372 nodes, 42 collision objects, 112 collision shapes, 1 pursuer, 1 draw-only snare, motion beacon, or sticky patch |
-| Roadblock pursuit | 373 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock |
-| Reachable gameplay peak | 374 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
+| Straight-roadblock pursuit | 373 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock segment |
+| Staggered-roadblock pursuit | 374 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 2 roadblock segments |
+| Reachable gameplay peak | 375 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 1 two-segment roadblock, 1 draw-only snare |
 | Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 579 nodes, 100 collision objects, and 172 collision shapes including the authored core |
 | Navigation query | At most 160 active obstacle rectangles, 70,000 total coarse/fine grid cells, and 512 smoothed route points per request |
 | Populated Belly sample | 64 items and rows, 625 nodes; this is a stress sample, not a gameplay capacity limit |
@@ -459,9 +466,9 @@ progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
 Shop cellar, busy daytime, ordinary and crowd-cover Animal Control pursuit,
 Security Guard pursuit and flashlight warning, active tongue-deflection
 feedback, Watchdog pursuit and lunge, a temporary
-roadblock, all three pursuer-specific draw-only traps, an Animal Control net in
-flight, maximum growth, a finite maximum presentation burst, a 64-item Belly,
-the populated
+straight roadblock, a two-segment staggered roadblock, all three
+pursuer-specific draw-only traps, an Animal Control net in flight, maximum
+growth, a finite maximum presentation burst, a 64-item Belly, the populated
 Field Guide, both accessibility options, a maximum 3x3 generated-district ring,
 and a reachable gameplay peak
 combining daytime activity, pursuit, growth, the roadblock, the snare, and
@@ -480,13 +487,21 @@ the deterministic ceilings above. Its successful deliberate multi-corner
 navigation request used 61 active obstacle rectangles, 6,408 grid cells, 4
 smoothed points, and at most 2,986 microseconds across the repeated runs.
 
-The same runs measured the combined authored gameplay peak at 8.54–17.52 ms
-frame-time p95, 47.2–47.5 MiB static memory, 21.6 MiB video memory, up to 441
-draw calls, 1,085 rendered objects, and 26,162 primitives. Its current
-structural snapshot is exactly 374 nodes, 43 collision objects, and 113
-collision shapes. Four navigation requests all succeeded per run; the largest
-used 31 active obstacle rectangles, 6,480 grid cells, 4 smoothed points, and at
-most 2,872 microseconds.
+The latest fixed-seed combined authored gameplay peak measured 8.86 ms
+frame-time p95, 48.1 MiB static memory, 21.6 MiB video memory, 443 draw calls,
+1,136 rendered objects, and 25,932 primitives. Its exact structural snapshot is
+375 nodes, 43 collision objects, and 114 collision shapes with the two-segment
+staggered roadblock and Animal Control snare active together. The simultaneous
+presentation-only peak uses capped eight-spoke damage bursts and remains at the
+450-draw-call ceiling.
+
+The straight-roadblock snapshot measured 8.77 ms frame-time p95, 46.6 MiB
+static memory, 19.5 MiB video memory, 211 draw calls, 906 rendered objects, and
+11,974 primitives. The staggered snapshot measured 8.83 ms frame-time p95 with
+the same memory, 223 draw calls, 989 rendered objects, and 12,340 primitives.
+Their exact structural snapshots are respectively 373 nodes and 113 collision
+shapes for one segment, and 374 nodes and 114 collision shapes for two
+segments; both retain one collision body and 43 total collision objects.
 
 The bounded Security Guard pursuit measured 8.81 ms frame-time p95, 46.2 MiB
 static memory, 19.5 MiB video memory, 217 draw calls, 902 rendered objects, and
@@ -568,7 +583,6 @@ The following parts of the full design are not implemented yet:
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
-- additional roadblock layouts;
 - additional storms, festivals, shop schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;

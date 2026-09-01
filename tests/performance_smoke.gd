@@ -59,6 +59,22 @@ func _run() -> void:
 		"The Animal Control roadblock budget remains capped at one."
 	)
 	_check(
+		BUDGETS.MAX_ROADBLOCK_SEGMENTS
+		== PrototypeRoadblock.MAX_SEGMENTS,
+		"The roadblock segment budget matches the two-segment layout cap."
+	)
+	_check(
+		is_equal_approx(
+			PrototypeRoadblock.SAFE_EDGE_CLEARANCE,
+			PlayerFrog.TIER_RADII[2] + 24.0
+		)
+			and is_equal_approx(
+				PrototypeRoadblock.MIN_STAGGERED_OPENING,
+				PlayerFrog.TIER_RADII[2] * 2.0 + 16.0
+			),
+		"Roadblock safety clearances track the maximum frog diameter."
+	)
+	_check(
 		BUDGETS.MAX_PURSUIT_TRAPS == 1,
 		"The profile-driven pursuit-trap budget remains capped at one."
 	)
@@ -258,6 +274,12 @@ func _run() -> void:
 		{
 			"name": "roadblock",
 			"setup": _setup_roadblock,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "roadblock_staggered",
+			"setup": _setup_roadblock_staggered,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -588,6 +610,14 @@ func _setup_roadblock(game: FrogGame) -> void:
 	game._update_pursuit_roadblock(0.1)
 
 
+func _setup_roadblock_staggered(game: FrogGame) -> void:
+	game._frog.global_position = Vector2(-1080, -300)
+	game._spawn_pursuer()
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	game._frog.global_position = Vector2.ZERO
+
+
 func _setup_animal_control_snare(game: FrogGame) -> void:
 	game._frog.global_position = Vector2(0, -520)
 	game._spawn_pursuer()
@@ -669,7 +699,7 @@ func _setup_accessibility_options(game: FrogGame) -> void:
 
 func _setup_gameplay_peak(game: FrogGame) -> void:
 	_setup_busy_daytime(game)
-	_setup_roadblock(game)
+	_setup_roadblock_staggered(game)
 	game._pursuit_trap_deploy_time = 0.0
 	game._update_pursuit_trap(0.1)
 	_setup_presentation_peak(game)
@@ -926,8 +956,21 @@ func _check_scenario_expectations(
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
 				and int(snapshot["roadblocks"])
-				== BUDGETS.MAX_ROADBLOCKS,
-				"Roadblock stress contains one pursuer and one physical barricade."
+				== BUDGETS.MAX_ROADBLOCKS
+				and str(snapshot["roadblock_layout"])
+				== PrototypeRoadblock.LAYOUT_STRAIGHT
+				and int(snapshot["roadblock_segments"]) == 1,
+				"Straight-roadblock stress contains one pursuer and one physical segment."
+			)
+		"roadblock_staggered":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["roadblocks"])
+				== BUDGETS.MAX_ROADBLOCKS
+				and str(snapshot["roadblock_layout"])
+				== PrototypeRoadblock.LAYOUT_STAGGERED
+				and int(snapshot["roadblock_segments"]) == 2,
+				"Staggered-roadblock stress contains one pursuer and two capped physical segments."
 			)
 		"animal_control_snare":
 			_check(
@@ -1008,8 +1051,11 @@ func _check_scenario_expectations(
 				and int(snapshot["pursuit_traps"])
 				== BUDGETS.MAX_PURSUIT_TRAPS
 				and int(snapshot["active_city_actors"])
-				== BUDGETS.MAX_CITY_ACTORS,
-				"Gameplay peak combines reachable pursuit and daytime activity."
+				== BUDGETS.MAX_CITY_ACTORS
+				and str(snapshot["roadblock_layout"])
+				== PrototypeRoadblock.LAYOUT_STAGGERED
+				and int(snapshot["roadblock_segments"]) == 2,
+				"Gameplay peak combines the largest safe roadblock, snare, pursuit, and daytime activity."
 			)
 			_check_navigation_stress(snapshot, "Gameplay peak")
 			_check_presentation_peak(snapshot)

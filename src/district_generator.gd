@@ -217,18 +217,22 @@ static func generate(
 		{
 			"position": center + Vector2(-720, 0),
 			"size": Vector2(320, 52),
+			"layout": PrototypeRoadblock.LAYOUT_STRAIGHT,
 		},
 		{
 			"position": center + Vector2(720, 0),
 			"size": Vector2(320, 52),
+			"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 		},
 		{
 			"position": center + Vector2(0, -620),
 			"size": Vector2(52, 300),
+			"layout": PrototypeRoadblock.LAYOUT_STRAIGHT,
 		},
 		{
 			"position": center + Vector2(0, 620),
 			"size": Vector2(52, 300),
+			"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 		},
 	]
 	definition.pursuit_trap_anchors = [
@@ -313,6 +317,57 @@ static func validation_errors(
 			if other.grow(24.0).intersects(target_area):
 				errors.append("Generated targets overlap.")
 		target_areas.append(target_area)
+	var roadblock_layouts := {}
+	for anchor_value in definition.roadblock_anchors:
+		var anchor := anchor_value as Dictionary
+		var layout_id := str(anchor.get("layout", ""))
+		var size := anchor.get("size", Vector2.ZERO) as Vector2
+		var position := anchor.get("position", Vector2.INF) as Vector2
+		if (
+			size.x <= 0.0
+			or size.y <= 0.0
+			or position == Vector2.INF
+		):
+			errors.append("Generated roadblock anchor is incomplete.")
+			continue
+		if layout_id not in [
+			PrototypeRoadblock.LAYOUT_STRAIGHT,
+			PrototypeRoadblock.LAYOUT_STAGGERED,
+		]:
+			errors.append("Generated roadblock anchor has an unknown layout.")
+			continue
+		roadblock_layouts[layout_id] = true
+		var rects := PrototypeRoadblock.local_rects_for_layout(
+			layout_id,
+			size
+		)
+		if rects.is_empty() or rects.size() > PrototypeRoadblock.MAX_SEGMENTS:
+			errors.append("Generated roadblock layout exceeds its segment cap.")
+		for rect in rects:
+			var world_rect := Rect2(
+				position + rect.position,
+				rect.size
+			)
+			if not definition.bounds.encloses(
+				world_rect.grow(
+					PrototypeRoadblock.SAFE_EDGE_CLEARANCE
+				)
+			):
+				errors.append(
+					"Generated roadblock layout leaves safe district bounds."
+				)
+		if (
+			layout_id == PrototypeRoadblock.LAYOUT_STAGGERED
+			and PrototypeRoadblock.central_opening_width(
+				layout_id,
+				size
+			) < PrototypeRoadblock.MIN_STAGGERED_OPENING
+		):
+			errors.append(
+				"Generated staggered roadblock lacks a maximum-growth lane."
+			)
+	if roadblock_layouts.size() < 2:
+		errors.append("Generated district requires both roadblock layouts.")
 	return errors
 
 

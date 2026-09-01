@@ -2457,6 +2457,8 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 		and is_instance_valid(roadblock)
 		and roadblock.global_position == Vector2(0, -900)
 		and roadblock.barrier_size == Vector2(360, 52)
+		and roadblock.layout_id == PrototypeRoadblock.LAYOUT_STRAIGHT
+		and roadblock.collision_shape_count() == 1
 		and roadblock.remaining_hits()
 		== PrototypeRoadblock.REQUIRED_HITS
 		and is_equal_approx(actual_random, expected_random),
@@ -2580,6 +2582,194 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 	)
 
 	game.queue_free()
+	await process_frame
+
+	var staggered_game := game_scene.instantiate() as FrogGame
+	staggered_game.configure(
+		"staggered_roadblock_test",
+		"Staggered Roadblock Tester",
+		false
+	)
+	root.add_child(staggered_game)
+	await process_frame
+	await physics_frame
+	staggered_game.set_process(false)
+	staggered_game._frog.set_physics_process(false)
+	staggered_game._frog.global_position = Vector2(-1080, -300)
+	staggered_game._spawn_pursuer()
+	if is_instance_valid(staggered_game._pursuer):
+		staggered_game._pursuer.set_physics_process(false)
+	staggered_game._roadblock_deploy_time = 0.0
+	seed(20260902)
+	var expected_staggered_random := randf()
+	seed(20260902)
+	staggered_game._update_pursuit_roadblock(0.1)
+	var actual_staggered_random := randf()
+	await physics_frame
+	var staggered := staggered_game._roadblock
+	_check(
+		is_instance_valid(staggered)
+			and staggered.global_position == Vector2(-1080, -650)
+			and staggered.layout_id
+			== PrototypeRoadblock.LAYOUT_STAGGERED
+			and staggered.collision_shape_count() == 2
+			and staggered.navigation_obstacle_rects().size() == 2
+			and is_equal_approx(
+				actual_staggered_random,
+				expected_staggered_random
+			)
+			and staggered_game._status_label.text.contains(
+				"staggered chicane"
+			),
+		"The nearest authored staggered anchor deploys two capped segments without gameplay RNG."
+	)
+	if is_instance_valid(staggered):
+		var segment_rects := staggered.navigation_obstacle_rects()
+		var segments_safe := not segment_rects[0].intersects(
+			segment_rects[1]
+		)
+		for segment in segment_rects:
+			for target in staggered_game._targets:
+				if (
+					is_instance_valid(target)
+					and target.kind != "building"
+					and staggered_game._circle_overlaps_rect(
+						target.global_position,
+						target.pick_radius,
+						segment
+					)
+				):
+					segments_safe = false
+			for building in staggered_game._buildings:
+				if (
+					is_instance_valid(building)
+					and not building.consumed
+					and segment.intersects(
+						building.footprint_rect()
+					)
+				):
+					segments_safe = false
+		staggered_game._update_navigation_paths()
+		var maximum_radius := (
+			staggered_game._frog.radius_for_tier(2)
+		)
+		var route := staggered_game._navigation.find_path(
+			staggered.global_position + Vector2(0, -220),
+			staggered.global_position + Vector2(0, 220),
+			maximum_radius
+		)
+		var route_points := route["points"] as PackedVector2Array
+		var first_segment := segment_rects[0]
+		var crossing_start := (
+			first_segment.get_center() + Vector2(0, -120)
+		)
+		var crossing_destination := (
+			first_segment.get_center() + Vector2(0, 120)
+		)
+		staggered_game._frog.global_position = crossing_start
+		staggered_game._frog.set_physics_process(true)
+		staggered_game._frog.move_to(crossing_destination)
+		for _frame in 120:
+			await physics_frame
+		var ground_blocked := (
+			staggered_game._frog.global_position.distance_to(
+				crossing_destination
+			) > 60.0
+		)
+		staggered_game._frog.stop_moving()
+		staggered_game._frog.global_position = crossing_start
+		staggered_game._frog.set_flying(true)
+		staggered_game._frog.move_to(crossing_destination)
+		for _frame in 120:
+			await physics_frame
+			if not staggered_game._frog._has_move_target:
+				break
+		var flight_crossed := (
+			staggered_game._frog.global_position.distance_to(
+				crossing_destination
+			) <= PlayerFrog.WAYPOINT_TOLERANCE
+		)
+		staggered_game._frog.set_flying(false)
+		staggered_game._frog.set_physics_process(false)
+		_check(
+			segments_safe,
+			"The staggered layout avoids authored targets and buildings."
+		)
+		_check(
+			bool(route["reachable"])
+				and not bool(route["fallback"])
+				and route_points.size() >= 2
+				and staggered_game._navigation.path_is_clear(
+					route_points,
+					maximum_radius
+				),
+			"The staggered layout preserves a maximum-growth escape lane."
+		)
+		_check(
+			ground_blocked,
+			"The staggered layout blocks direct ground crossing through a segment."
+		)
+		_check(
+			flight_crossed,
+			"Flight crosses a staggered roadblock without collision."
+		)
+	staggered_game.queue_free()
+	await process_frame
+
+	var district_game := game_scene.instantiate() as FrogGame
+	district_game.configure(
+		"roadblock_district_test",
+		"Roadblock District Tester",
+		false
+	)
+	root.add_child(district_game)
+	await process_frame
+	await physics_frame
+	district_game.set_process(false)
+	district_game._frog.set_physics_process(false)
+	var first_coordinate := Vector2i(2, 2)
+	var first_bounds := DistrictGenerator.bounds_for_coordinate(
+		first_coordinate
+	)
+	district_game._frog.global_position = (
+		first_bounds.get_center() + Vector2(400, 0)
+	)
+	district_game._update_district_streaming()
+	district_game._spawn_pursuer()
+	if is_instance_valid(district_game._pursuer):
+		district_game._pursuer.set_physics_process(false)
+	district_game._roadblock_deploy_time = 0.0
+	district_game._update_pursuit_roadblock(0.1)
+	var district_roadblock := district_game._roadblock
+	var district_layout := (
+		district_roadblock.layout_id
+		if is_instance_valid(district_roadblock)
+		else ""
+	)
+	var first_loaded_count := district_game._loaded_districts.size()
+	district_game._frog.global_position = (
+		DistrictGenerator.bounds_for_coordinate(
+			Vector2i(4, 2)
+		).get_center()
+	)
+	district_game._update_district_streaming()
+	await process_frame
+	_check(
+		first_loaded_count
+			== DistrictGenerator.MAX_LOADED_GENERATED_DISTRICTS
+			and district_layout == PrototypeRoadblock.LAYOUT_STAGGERED
+			and is_instance_valid(district_game._pursuer)
+			and not is_instance_valid(district_game._roadblock)
+			and (
+				not is_instance_valid(district_roadblock)
+				or district_roadblock.collision_layer == 0
+			)
+			and not district_game._loaded_districts.has(
+				first_coordinate + Vector2i(-1, -1)
+			),
+		"Unloading a generated ring clears its staggered roadblock without ending pursuit."
+	)
+	district_game.queue_free()
 	await process_frame
 
 
@@ -5016,6 +5206,9 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	var pursuing_before_entry := is_instance_valid(game._pursuer)
 	if pursuing_before_entry:
 		game._pursuer.set_physics_process(false)
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	var transition_roadblock := game._roadblock
 	game._pursuit_trap_deploy_time = 0.0
 	game._update_pursuit_trap(0.1)
 	var transition_trap := game._pursuit_trap
@@ -5026,13 +5219,18 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	_check(
 		pursuing_before_entry
 		and not is_instance_valid(game._pursuer)
+		and not is_instance_valid(game._roadblock)
+		and (
+			not is_instance_valid(transition_roadblock)
+			or transition_roadblock.collision_layer == 0
+		)
 		and not is_instance_valid(game._pursuit_trap)
 		and (
 			not is_instance_valid(transition_trap)
 			or transition_trap.is_queued_for_deletion()
 		)
 		and game._active_interior_id == FrogGame.STOCKROOM_ID,
-		"Entering the stockroom clears Animal Control and its temporary trap."
+		"Entering the stockroom clears Animal Control, its roadblock, and its trap."
 	)
 
 	game.set_motion_scale(0.0)

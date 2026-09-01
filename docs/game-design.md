@@ -86,10 +86,11 @@ voices. Baseline and separate-room states permit up to 369 game-subtree nodes,
 41 collision objects, and 111 collision shapes; ordinary pursuit and net attack
 permit 371 nodes, 42 collision objects, and 112 collision shapes; any
 pursuit-trap profile permits 372 nodes with the same physics structure; a
-roadblock pursuit permits 373 nodes, 43 collision objects, and 113 collision
-shapes; the
-reachable roadblock-and-snare gameplay peak permits 374 nodes with the same 43
-collision objects and 113 shapes. The performance Belly scenario renders 64
+straight-roadblock pursuit permits 373 nodes, 43 collision objects, and 113
+collision shapes; a staggered-roadblock pursuit permits 374 nodes, 43 collision
+objects, and 114 collision shapes; the reachable staggered-roadblock-and-snare
+gameplay peak permits 375 nodes with the same 43 collision objects and 114
+shapes. The performance Belly scenario renders 64
 item rows within 625 nodes without changing the belly's unlimited gameplay
 semantics. The populated Field Guide contains exactly 49 rows.
 
@@ -118,8 +119,8 @@ budget rejection.
 Reproducible stress coverage includes the maximum generated-district ring, all
 ten connected exploration rooms, the night
 bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
-roadblock pursuit, all three pursuer-and-trap profiles, a net in flight,
-maximum growth, a finite
+both roadblock layouts, the staggered-roadblock-and-snare peak, all three
+pursuer-and-trap profiles, a net in flight, maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
 Guide, both accessibility settings, and a reachable gameplay peak. Desktop
 measurements are advisory; the target iPad release build is authoritative. The
@@ -516,17 +517,27 @@ and a static progress ring fills as an eligible frog stays within the crowd.
 Completing the short hold dismisses Animal Control without awarding score,
 growth, challenge progress, or Field Guide credit.
 
-The prototype implements the first temporary pursuit obstacle as one Animal
-Control roadblock per chase. After three unpaused, movement-enabled pursuit
-seconds, the nearest safe authored road anchor 260–850 units from the frog
-receives a physical barricade; if no anchor is currently valid, deployment
-waits and retries without consuming the chase's roadblock. The barricade blocks
-ground movement, pursuer movement, net sweeps, and tongue rays. Three tongue
-hits break it, while an untouched barricade expires after ten seconds. Breaking
-or expiry never deploys a replacement during the same pursuit, and ending the
-pursuit clears it immediately. Placement is deterministic, uses no gameplay
-random numbers, and changes no score, growth, target, save, challenge, or Field
-Guide state.
+Animal Control can deploy one temporary physical roadblock per chase. After
+three unpaused, movement-enabled pursuit seconds, the nearest safe authored road
+anchor 260–850 units from the frog selects its fixed layout; if no anchor is
+currently valid, deployment waits and retries without consuming the allowance.
+Straight anchors use one solid segment. Staggered anchors use two offset
+segments with an authored opening of at least 104 units, preserving a route for
+the 88-unit-diameter maximum-growth frog while still creating a visible
+chicane. Both layouts are represented by one capped roadblock body, with at
+most two collision shapes and two navigation rectangles.
+
+Every segment is checked against live collision, building footprints, targets,
+loaded navigation bounds, and maximum-growth edge clearance before deployment.
+The roadblock blocks ground movement, pursuer movement, net sweeps, and tongue
+rays; flight passes over it. Three tongue hits anywhere on its body break the
+entire layout, while an untouched roadblock expires after ten seconds.
+Breaking or expiry never
+deploys a replacement during the same pursuit. Pursuit end, connected-room
+travel, and generated-district changes clear it immediately and rebuild
+navigation topology. Placement is deterministic, uses no gameplay random
+numbers, and changes no score, growth, target, save, challenge, or Field Guide
+state.
 
 Each pursuer can deploy one profile-driven draw-only sidewalk trap per chase at
 the nearest safe authored anchor 180–700 units from the frog. If no anchor is
@@ -539,8 +550,8 @@ overlapping net so knockback cannot become an immediate capture loop. Security
 waits five seconds, then places a 54-unit motion beacon with a 0.5-second
 warning and ten-second lifetime. It deals no damage, clears partial crowd
 cover, and grants exactly two seconds of forced sight before wall-aware
-detection resumes. Watchdog waits
-four seconds, then leaves a 42-unit sticky patch with a one-second warning and
+detection resumes. Watchdog waits four seconds, then leaves a 42-unit sticky
+patch with a one-second warning and
 fourteen-second lifetime. It deals no damage or immobilization and applies 1.2
 seconds of tongue recovery while movement and pursuit escape remain available.
 

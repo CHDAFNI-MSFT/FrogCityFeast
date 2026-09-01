@@ -75,26 +75,32 @@ const ROADBLOCK_ANCHORS := [
 	{
 		"position": Vector2(0, -900),
 		"size": Vector2(360, 52),
+		"layout": PrototypeRoadblock.LAYOUT_STRAIGHT,
 	},
 	{
 		"position": Vector2(-1080, -650),
 		"size": Vector2(280, 52),
+		"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 	},
 	{
 		"position": Vector2(0, 430),
 		"size": Vector2(360, 52),
+		"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 	},
 	{
 		"position": Vector2(-1080, 430),
 		"size": Vector2(280, 52),
+		"layout": PrototypeRoadblock.LAYOUT_STRAIGHT,
 	},
 	{
 		"position": Vector2(0, 1080),
 		"size": Vector2(360, 52),
+		"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 	},
 	{
 		"position": Vector2(-1080, 1100),
 		"size": Vector2(280, 52),
+		"layout": PrototypeRoadblock.LAYOUT_STRAIGHT,
 	},
 ]
 const PURSUIT_TRAP_DEPLOY_DELAY := (
@@ -2715,6 +2721,16 @@ func performance_structure_snapshot() -> Dictionary:
 			else false
 		),
 		"roadblocks": 1 if is_instance_valid(_roadblock) else 0,
+		"roadblock_layout": (
+			_roadblock.layout_id
+			if is_instance_valid(_roadblock)
+			else ""
+		),
+		"roadblock_segments": (
+			_roadblock.collision_shape_count()
+			if is_instance_valid(_roadblock)
+			else 0
+		),
 		"pursuit_traps": 1 if is_instance_valid(_pursuit_trap) else 0,
 		"pursuit_trap_variant": (
 			_pursuit_trap.variant_id
@@ -3438,12 +3454,22 @@ func _spawn_roadblock() -> bool:
 		return false
 	var roadblock := ROADBLOCK_SCRIPT.new() as PrototypeRoadblock
 	roadblock.position = configuration["position"] as Vector2
-	roadblock.barrier_size = configuration["size"] as Vector2
+	roadblock.configure_layout(
+		str(
+			configuration.get(
+				"layout",
+				PrototypeRoadblock.LAYOUT_STRAIGHT
+			)
+		),
+		configuration["size"] as Vector2
+	)
 	roadblock.removed.connect(_on_roadblock_removed)
 	_world.add_child(roadblock)
 	_roadblock = roadblock
 	_invalidate_navigation()
-	_show_status("Animal Control blocked a nearby road!")
+	_show_status(
+		"Animal Control deployed a %s!" % roadblock.display_name()
+	)
 	return true
 
 
@@ -3469,39 +3495,93 @@ func _select_roadblock_anchor() -> Dictionary:
 func _roadblock_anchor_clear(configuration: Dictionary) -> bool:
 	var position := configuration["position"] as Vector2
 	var size := configuration["size"] as Vector2
-	var footprint := Rect2(position - size / 2.0, size)
-	if not _navigation_rect_for_position(position).encloses(
-		footprint.grow(24.0)
-	):
-		return false
-	var shape := RectangleShape2D.new()
-	shape.size = size
-	var query := PhysicsShapeQueryParameters2D.new()
-	query.shape = shape
-	query.transform = Transform2D(0.0, position)
-	query.collision_mask = 1
-	if not get_world_2d().direct_space_state.intersect_shape(query, 16).is_empty():
-		return false
-	for building in _buildings:
-		if (
-			is_instance_valid(building)
-			and not building.consumed
-			and footprint.grow(24.0).intersects(
-				building.footprint_rect()
-			)
+	var layout_id := str(
+		configuration.get(
+			"layout",
+			PrototypeRoadblock.LAYOUT_STRAIGHT
+		)
+	)
+	var local_rects := PrototypeRoadblock.local_rects_for_layout(
+		layout_id,
+		size
+	)
+	var required_clearance := PrototypeRoadblock.SAFE_EDGE_CLEARANCE
+	for local_rect in local_rects:
+		var footprint := Rect2(
+			position + local_rect.position,
+			local_rect.size
+		)
+		if not _navigation_rect_for_position(position).encloses(
+			footprint.grow(required_clearance)
 		):
 			return false
-	for target in _targets:
-		if (
-			is_instance_valid(target)
-			and target.kind != "building"
-			and _circle_overlaps_rect(
-				target.global_position,
-				target.pick_radius + 24.0,
-				footprint
-			)
-		):
+		var shape := RectangleShape2D.new()
+		shape.size = footprint.size
+		var query := PhysicsShapeQueryParameters2D.new()
+		query.shape = shape
+		query.transform = Transform2D(
+			0.0,
+			footprint.get_center()
+		)
+		query.collision_mask = 1
+		if not get_world_2d().direct_space_state.intersect_shape(
+			query,
+			16
+		).is_empty():
 			return false
+		for building in _buildings:
+			if (
+				is_instance_valid(building)
+				and not building.consumed
+				and footprint.grow(24.0).intersects(
+					building.footprint_rect()
+				)
+			):
+				return false
+			if (
+				is_instance_valid(building)
+				and not building.consumed
+				and not building.transition_room_id.is_empty()
+				and (
+					_circle_overlaps_rect(
+						building.transition_door_approach_position(),
+						required_clearance,
+						footprint
+					)
+					or _circle_overlaps_rect(
+						building.transition_door_world_position(),
+						required_clearance,
+						footprint
+					)
+				)
+			):
+				return false
+		for portal_value in CITY_EXPLORATION_PORTALS:
+			var portal := portal_value as Dictionary
+			if (
+				_circle_overlaps_rect(
+					portal["approach_position"] as Vector2,
+					required_clearance,
+					footprint
+				)
+				or _circle_overlaps_rect(
+					portal["marker_position"] as Vector2,
+					required_clearance,
+					footprint
+				)
+			):
+				return false
+		for target in _targets:
+			if (
+				is_instance_valid(target)
+				and target.kind != "building"
+				and _circle_overlaps_rect(
+					target.global_position,
+					target.pick_radius + 24.0,
+					footprint
+				)
+			):
+				return false
 	return true
 
 
@@ -4809,7 +4889,9 @@ func _refresh_navigation_geometry() -> void:
 			is_instance_valid(_roadblock)
 			and _roadblock.collision_layer != 0
 		):
-			obstacles.append(_roadblock.navigation_obstacle_rect())
+			obstacles.append_array(
+				_roadblock.navigation_obstacle_rects()
+			)
 	_navigation.update_geometry(bounds, obstacles)
 	_navigation_dirty = false
 

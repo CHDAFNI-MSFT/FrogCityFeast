@@ -50,7 +50,7 @@ func emit_damage(world_position: Vector2) -> void:
 		Color(1.0, 0.34, 0.28, 1.0),
 		0.34,
 		68.0,
-		9
+		8
 	)
 
 

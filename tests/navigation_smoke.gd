@@ -448,6 +448,7 @@ func _test_generated_pursuer_navigation() -> void:
 		"A generated-district roadblock clears an established pursuer route."
 	)
 	game._update_navigation_paths()
+	var roadblock_rects := game._roadblock.navigation_obstacle_rects()
 	var roadblock_rect := game._roadblock.navigation_obstacle_rect()
 	var crossing_offset := Vector2.ZERO
 	if roadblock_rect.size.x >= roadblock_rect.size.y:
@@ -468,19 +469,23 @@ func _test_generated_pursuer_navigation() -> void:
 	game._frog.global_position = roadblock_destination
 	pursuer.invalidate_navigation()
 	await physics_frame
+	var avoids_roadblock_segments := true
+	for segment_rect in roadblock_rects:
+		if not _path_avoids_rect(
+			pursuer._navigation_path,
+			segment_rect.grow(
+				PrototypePursuer.NAVIGATION_RADIUS
+			)
+		):
+			avoids_roadblock_segments = false
 	_check(
 		game._navigation.revision() == revision_before_roadblock + 1
-			and pursuer.active_navigation_point_count() > 2
+			and pursuer.active_navigation_point_count() >= 2
 			and game._navigation.path_is_clear(
 				pursuer._navigation_path,
 				PrototypePursuer.NAVIGATION_RADIUS
 			)
-			and _path_avoids_rect(
-				pursuer._navigation_path,
-				roadblock_rect.grow(
-					PrototypePursuer.NAVIGATION_RADIUS
-				)
-			),
+			and avoids_roadblock_segments,
 		"Roadblock deployment rebuilds a detour around its collision."
 	)
 

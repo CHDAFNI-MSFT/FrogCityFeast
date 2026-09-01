@@ -70,8 +70,40 @@ func _run() -> void:
 	_check(
 		first.buildings.size() == GENERATOR.BUILDINGS_PER_DISTRICT
 			and first.targets.size() == GENERATOR.LOOSE_TARGETS_PER_DISTRICT
-			and first.restock_positions.size() >= 4,
-		"Every generated district has bounded buildings, targets, and open restock areas."
+			and first.restock_positions.size() >= 4
+			and first.roadblock_anchors.size() == 4,
+		"Every generated district has bounded buildings, targets, roadblock anchors, and open restock areas."
+	)
+	var generated_roadblock_layouts := {}
+	var generated_roadblocks_safe := true
+	for anchor_value in first.roadblock_anchors:
+		var anchor := anchor_value as Dictionary
+		var layout_id := str(anchor["layout"])
+		var size := anchor["size"] as Vector2
+		generated_roadblock_layouts[layout_id] = true
+		var segments := PrototypeRoadblock.local_rects_for_layout(
+			layout_id,
+			size
+		)
+		if segments.size() > PrototypeRoadblock.MAX_SEGMENTS:
+			generated_roadblocks_safe = false
+		if (
+			layout_id == PrototypeRoadblock.LAYOUT_STAGGERED
+			and PrototypeRoadblock.central_opening_width(
+				layout_id,
+				size
+			) < PrototypeRoadblock.MIN_STAGGERED_OPENING
+		):
+			generated_roadblocks_safe = false
+	_check(
+		generated_roadblock_layouts.has(
+			PrototypeRoadblock.LAYOUT_STRAIGHT
+		)
+			and generated_roadblock_layouts.has(
+				PrototypeRoadblock.LAYOUT_STAGGERED
+			)
+			and generated_roadblocks_safe,
+		"Generated anchors include both capped layouts and a maximum-growth chicane opening."
 	)
 
 	var district := DISTRICT_SCENE.new() as GeneratedDistrict

@@ -25,6 +25,7 @@ const MAX_TOUCH_FEEDBACK := 3
 const MAX_CROWD_MEMBERS := 5
 const MAX_CITY_ACTORS := 20
 const MAX_ROADBLOCKS := 1
+const MAX_ROADBLOCK_SEGMENTS := PrototypeRoadblock.MAX_SEGMENTS
 const MAX_PURSUIT_TRAPS := 1
 const MAX_RAIN_STREAKS := 84
 const MAX_FESTIVAL_LANTERNS := 10
@@ -227,6 +228,14 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": MAX_PURSUERS,
 		"roadblocks": MAX_ROADBLOCKS,
 	},
+	"roadblock_staggered": {
+		"game_nodes": 374,
+		"collision_objects": 43,
+		"collision_shapes": 114,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"roadblocks": MAX_ROADBLOCKS,
+	},
 	"animal_control_snare": {
 		"game_nodes": 372,
 		"collision_objects": 42,
@@ -297,9 +306,9 @@ const STRUCTURAL_LIMITS := {
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"gameplay_peak": {
-		"game_nodes": 374,
+		"game_nodes": 375,
 		"collision_objects": 43,
-		"collision_shapes": 113,
+		"collision_shapes": 114,
 		"targets": MAX_TARGETS,
 		"buildings": MAX_BUILDINGS,
 		"pursuers": MAX_PURSUERS,
