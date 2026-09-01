@@ -79,10 +79,11 @@ profiling build on the device remains separate signed-device work.
 Deterministic structural budgets are enforced independently of hardware. The
 authored core permits 36 gameplay targets, 4 buildings, 10 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 profile-driven draw-only
-pursuit trap, 20 draw-only city actors, 84 draw-only rain streaks, 10 draw-only
-festival lanterns, 1 draw-only Animal Control net projectile, 24 capped world
-effects, 3 touch cues, and 6 fixed audio players including 4 reusable effect
-voices. Baseline and separate-room states permit up to 369 game-subtree nodes,
+pursuit trap, 20 draw-only city actors, 84 draw-only rain streaks, 40 batched
+draw-only wind ribbons, 10 draw-only festival lanterns, 1 draw-only Animal
+Control net projectile, 24 capped world effects, 3 touch cues, and 6 fixed
+audio players including 4 reusable effect voices. Baseline and separate-room
+states permit up to 369 game-subtree nodes,
 41 collision objects, and 111 collision shapes; ordinary pursuit and net attack
 permit 371 nodes, 42 collision objects, and 112 collision shapes; any
 pursuit-trap profile permits 372 nodes with the same physics structure; a
@@ -117,10 +118,10 @@ microseconds. Both states completed every request without fallback, failure, or
 budget rejection.
 
 Reproducible stress coverage includes the maximum generated-district ring, all
-ten connected exploration rooms, the night
-bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
-both roadblock layouts, the staggered-roadblock-and-snare peak, all three
-pursuer-and-trap profiles, a net in flight, maximum growth, a finite
+ten connected exploration rooms, the night bazaar, busy daytime city activity,
+peak rain, the wind squall alone and with each pursuer-and-trap profile,
+pursuit, active crowd cover, both roadblock layouts, the
+staggered-roadblock-and-snare peak, a net in flight, maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
 Guide, both accessibility settings, and a reachable gameplay peak. Desktop
 measurements are advisory; the target iPad release build is authoritative. The
@@ -375,7 +376,7 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements five small deterministic dynamic-city
+The fixed-city prototype now implements six small deterministic dynamic-city
 slices. The day and night cycle changes the visible pedestrian crowd, secondary
 traffic level, streetlight glow, and restrained synthesized ambience. Once per
 180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
@@ -385,6 +386,18 @@ pedestrians and 5 vehicles to 4 pedestrians and 3 vehicles. Reduce motion keeps
 the wet presentation and lower density but freezes the streaks with the other
 decorative movement. Rain adds no audio asset, physics, targeting, scoring,
 save data, random-number use, or Field Guide entry.
+
+Earlier in the daytime window, a separate 29-second wind squall fades in for
+7.2 seconds, holds for 14.4 seconds, and fades out for 7.2 seconds while the
+River Park meetup and all authored pedestrian and traffic routes remain active.
+Forty mathematically positioned directional ribbons are submitted as one
+batched draw-only mark set across the city, with a subtle cool-grey tint.
+Reduce motion freezes their translation while the deterministic schedule,
+intensity, direction, and fixed visible count remain readable. The squall adds
+no nodes, actors, collision, forces, targeting, damage, score, growth, Belly
+items, saves, discoveries, challenges, gameplay random-number use, or Field
+Guide entries. Connected-room travel and generated-district streaming retain
+the same single global presentation layer rather than duplicating weather.
 
 Earlier in the same cycle, five draw-only visitors gather for a 68-second River
 Park meetup, including a 50-second steady interval, then disperse before rain

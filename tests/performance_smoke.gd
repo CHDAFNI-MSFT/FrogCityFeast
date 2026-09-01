@@ -46,6 +46,10 @@ func _run() -> void:
 		"The rain-streak budget matches the draw-only presentation cap."
 	)
 	_check(
+		BUDGETS.MAX_WIND_RIBBONS == CityActivity.WIND_RIBBON_COUNT,
+		"The wind-ribbon budget matches the draw-only presentation cap."
+	)
+	_check(
 		BUDGETS.MAX_FESTIVAL_LANTERNS
 		== CityActivity.FESTIVAL_LANTERN_OFFSETS.size(),
 		"The night-bazaar budget matches the fixed lantern count."
@@ -226,6 +230,24 @@ func _run() -> void:
 		{
 			"name": "rainy_day",
 			"setup": _setup_rainy_day,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "wind_squall",
+			"setup": _setup_wind_squall,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "wind_security_peak",
+			"setup": _setup_wind_security_peak,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "wind_watchdog_peak",
+			"setup": _setup_wind_watchdog_peak,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -567,6 +589,23 @@ func _setup_rainy_day(game: FrogGame) -> void:
 	game._update_day_night(0.0)
 
 
+func _setup_wind_squall(game: FrogGame) -> void:
+	game._day_clock = 0.38
+	game._update_day_night(0.0)
+
+
+func _setup_wind_security_peak(game: FrogGame) -> void:
+	_setup_wind_squall(game)
+	_setup_security_motion_beacon(game)
+	_setup_presentation_peak(game)
+
+
+func _setup_wind_watchdog_peak(game: FrogGame) -> void:
+	_setup_wind_squall(game)
+	_setup_watchdog_sticky_patch(game)
+	_setup_presentation_peak(game)
+
+
 func _setup_pursuit(game: FrogGame) -> void:
 	game._spawn_pursuer()
 
@@ -698,7 +737,7 @@ func _setup_accessibility_options(game: FrogGame) -> void:
 
 
 func _setup_gameplay_peak(game: FrogGame) -> void:
-	_setup_busy_daytime(game)
+	_setup_wind_squall(game)
 	_setup_roadblock_staggered(game)
 	game._pursuit_trap_deploy_time = 0.0
 	game._update_pursuit_trap(0.1)
@@ -897,6 +936,45 @@ func _check_scenario_expectations(
 				and int(snapshot["active_vehicles"]) == 3,
 				"Peak rain uses bounded draw-only streaks and reduces ambient city activity."
 			)
+		"wind_squall":
+			_check(
+				is_equal_approx(float(snapshot["wind_intensity"]), 1.0)
+				and int(snapshot["wind_ribbons"])
+				== BUDGETS.MAX_WIND_RIBBONS
+				and int(snapshot["active_city_actors"])
+				== BUDGETS.MAX_CITY_ACTORS
+				and int(snapshot["active_crowd_members"])
+				== BUDGETS.MAX_CROWD_MEMBERS,
+				"Peak wind uses bounded draw-only ribbons over full daytime activity."
+			)
+		"wind_security_peak":
+			_check(
+				is_equal_approx(float(snapshot["wind_intensity"]), 1.0)
+				and int(snapshot["wind_ribbons"])
+				== BUDGETS.MAX_WIND_RIBBONS
+				and int(snapshot["active_city_actors"])
+				== BUDGETS.MAX_CITY_ACTORS
+				and str(snapshot["pursuer_archetype"])
+				== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+				and str(snapshot["pursuit_trap_variant"])
+				== PrototypePursuitTrap.VARIANT_MOTION_BEACON,
+				"Wind, daytime crowds, Security, and its beacon share one capped stress state."
+			)
+			_check_presentation_peak(snapshot)
+		"wind_watchdog_peak":
+			_check(
+				is_equal_approx(float(snapshot["wind_intensity"]), 1.0)
+				and int(snapshot["wind_ribbons"])
+				== BUDGETS.MAX_WIND_RIBBONS
+				and int(snapshot["active_city_actors"])
+				== BUDGETS.MAX_CITY_ACTORS
+				and str(snapshot["pursuer_archetype"])
+				== PrototypePursuer.ARCHETYPE_WATCHDOG
+				and str(snapshot["pursuit_trap_variant"])
+				== PrototypePursuitTrap.VARIANT_STICKY_PATCH,
+				"Wind, daytime crowds, Watchdog, and its sticky patch share one capped stress state."
+			)
+			_check_presentation_peak(snapshot)
 		"pursuit":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS,
@@ -1052,10 +1130,12 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_PURSUIT_TRAPS
 				and int(snapshot["active_city_actors"])
 				== BUDGETS.MAX_CITY_ACTORS
+				and int(snapshot["wind_ribbons"])
+				== BUDGETS.MAX_WIND_RIBBONS
 				and str(snapshot["roadblock_layout"])
 				== PrototypeRoadblock.LAYOUT_STAGGERED
 				and int(snapshot["roadblock_segments"]) == 2,
-				"Gameplay peak combines the largest safe roadblock, snare, pursuit, and daytime activity."
+				"Gameplay peak combines the wind squall, largest safe roadblock, snare, pursuit, and daytime activity."
 			)
 			_check_navigation_stress(snapshot, "Gameplay peak")
 			_check_presentation_peak(snapshot)
@@ -1114,7 +1194,12 @@ func _measure_scenario(
 		await process_frame
 
 	var frame_ms: Array[float] = []
-	if scenario_name in ["presentation_peak", "gameplay_peak"]:
+	if scenario_name in [
+		"presentation_peak",
+		"gameplay_peak",
+		"wind_security_peak",
+		"wind_watchdog_peak",
+	]:
 		_setup_presentation_peak(game)
 	elif scenario_name == "net_attack":
 		if game._net_escape_active:
@@ -1145,6 +1230,8 @@ func _measure_scenario(
 		if scenario_name in [
 			"presentation_peak",
 			"gameplay_peak",
+			"wind_security_peak",
+			"wind_watchdog_peak",
 			"net_attack",
 			"crowd_pursuit",
 		]
@@ -1163,7 +1250,12 @@ func _measure_scenario(
 	var frame_p50 := BUDGETS.percentile(frame_ms, 0.50)
 	var frame_p95 := BUDGETS.percentile(frame_ms, 0.95)
 	var frame_max := BUDGETS.percentile(frame_ms, 1.0)
-	if scenario_name in ["presentation_peak", "gameplay_peak"]:
+	if scenario_name in [
+		"presentation_peak",
+		"gameplay_peak",
+		"wind_security_peak",
+		"wind_watchdog_peak",
+	]:
 		_setup_presentation_peak(game)
 		await process_frame
 		await process_frame

@@ -28,6 +28,7 @@ const MAX_ROADBLOCKS := 1
 const MAX_ROADBLOCK_SEGMENTS := PrototypeRoadblock.MAX_SEGMENTS
 const MAX_PURSUIT_TRAPS := 1
 const MAX_RAIN_STREAKS := 84
+const MAX_WIND_RIBBONS := 40
 const MAX_FESTIVAL_LANTERNS := 10
 const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
@@ -168,6 +169,36 @@ const STRUCTURAL_LIMITS := {
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
 		"rain_streaks": MAX_RAIN_STREAKS,
+	},
+	"wind_squall": {
+		"game_nodes": 369,
+		"collision_objects": 41,
+		"collision_shapes": 111,
+		"targets": MAX_TARGETS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"wind_ribbons": MAX_WIND_RIBBONS,
+	},
+	"wind_security_peak": {
+		"game_nodes": 372,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"wind_ribbons": MAX_WIND_RIBBONS,
+		"active_effects": MAX_VISUAL_EFFECTS,
+	},
+	"wind_watchdog_peak": {
+		"game_nodes": 372,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"wind_ribbons": MAX_WIND_RIBBONS,
+		"active_effects": MAX_VISUAL_EFFECTS,
 	},
 	"pursuit": {
 		"game_nodes": 371,

@@ -56,6 +56,10 @@ const RAIN_START := 0.58
 const RAIN_FULL_START := 0.62
 const RAIN_FULL_END := 0.74
 const RAIN_END := 0.78
+const WIND_START := 0.30
+const WIND_FULL_START := 0.34
+const WIND_FULL_END := 0.42
+const WIND_END := 0.46
 const CROWD_START := 0.18
 const CROWD_FULL_START := 0.22
 const CROWD_FULL_END := 0.50
@@ -480,6 +484,7 @@ var _flight_time_left := 0.0
 var _day_clock := 0.23
 var _current_daylight := 0.0
 var _current_rain_intensity := 0.0
+var _current_wind_intensity := 0.0
 var _current_crowd_intensity := 0.0
 var _oddities_shop_scheduled_open := false
 var _crowd_hide_time := 0.0
@@ -2776,6 +2781,12 @@ func performance_structure_snapshot() -> Dictionary:
 			if is_instance_valid(_city_activity)
 			else 0
 		),
+		"wind_intensity": _current_wind_intensity,
+		"wind_ribbons": (
+			_city_activity.visible_wind_ribbon_count()
+			if is_instance_valid(_city_activity)
+			else 0
+		),
 		"festival_intensity": (
 			_city_activity.festival_intensity
 			if is_instance_valid(_city_activity)
@@ -4271,17 +4282,24 @@ func _update_day_night(delta: float) -> void:
 	var night_color := Color(0.44, 0.56, 0.78)
 	var clear_color := night_color.lerp(Color.WHITE, 0.38 + daylight * 0.62)
 	var rain_intensity := rain_intensity_for_clock(_day_clock)
+	var wind_intensity := wind_squall_intensity_for_clock(_day_clock)
 	var crowd_intensity := crowd_intensity_for_clock(_day_clock)
 	var festival_intensity := festival_intensity_for_clock(_day_clock)
 	_current_rain_intensity = rain_intensity
+	_current_wind_intensity = wind_intensity
 	_current_crowd_intensity = crowd_intensity
-	_world_tint.color = clear_color.lerp(
+	var weather_color := clear_color.lerp(
 		Color(0.68, 0.76, 0.84),
 		rain_intensity * 0.3
+	)
+	_world_tint.color = weather_color.lerp(
+		Color(0.82, 0.88, 0.9),
+		wind_intensity * 0.12
 	)
 	if is_instance_valid(_city_activity):
 		_city_activity.set_daylight(daylight)
 		_city_activity.set_rain_intensity(rain_intensity)
+		_city_activity.set_wind_intensity(wind_intensity)
 		_city_activity.set_crowd_intensity(crowd_intensity)
 		_city_activity.set_festival_intensity(festival_intensity)
 	_update_oddities_shop_schedule()
@@ -4299,6 +4317,17 @@ static func rain_intensity_for_clock(value: float) -> float:
 		return smoothstep(RAIN_START, RAIN_FULL_START, clock)
 	if clock > RAIN_FULL_END:
 		return 1.0 - smoothstep(RAIN_FULL_END, RAIN_END, clock)
+	return 1.0
+
+
+static func wind_squall_intensity_for_clock(value: float) -> float:
+	var clock := fposmod(value, 1.0)
+	if clock < WIND_START or clock > WIND_END:
+		return 0.0
+	if clock < WIND_FULL_START:
+		return smoothstep(WIND_START, WIND_FULL_START, clock)
+	if clock > WIND_FULL_END:
+		return 1.0 - smoothstep(WIND_FULL_END, WIND_END, clock)
 	return 1.0
 
 

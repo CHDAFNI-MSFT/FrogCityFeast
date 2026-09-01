@@ -129,6 +129,12 @@ The prototype includes:
 - peak rain that reduces ambient activity from 10 pedestrians and 5 secondary
   vehicles to 4 pedestrians and 3 vehicles without changing gameplay targets,
   collision, scoring, saves, the Field Guide, or the day/night audio;
+- one deterministic 29-second daytime wind squall per cycle, with 7.2-second
+  fades around a 14.4-second steady interval, a subtle tint, and 40 fixed
+  directional ribbons submitted as one batched draw-only mark set;
+- peak wind that overlaps all 20 daytime city actors without adding forces,
+  collision, targeting, damage, score, growth, Belly items, saves, discoveries,
+  challenges, Field Guide entries, or gameplay random-number use;
 - one deterministic 68-second daytime River Park meetup per cycle, with a
   50-second steady interval, five capped draw-only visitors, and no overlap
   with the rain shower;
@@ -350,8 +356,9 @@ traffic, deterministic city-activity levels and routes, Oddities Shop hours and
 safe deferred closure through connected-cellar travel, growth- and
 destruction-gated room transitions, the bounded night-bazaar schedule,
 frame-step-independent lantern motion, the bounded rain schedule and density
-change,
-frame-step-independent rain, static reduced-motion weather, pursuit, net windup
+change, the bounded wind-squall schedule and density, frame-step-independent
+weather marks, static reduced-motion weather, room and district weather-layer
+stability, pursuit, net windup
 and wall clearance, dodging, tongue interruption and deflection, Security
 Guard sight loss, valuables-only protection, flashlight dodging and damage,
 Watchdog scent, living-target protection, lunge wall stopping and dodging,
@@ -429,7 +436,7 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 369 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
+| Baseline, night shop, any separate room, busy daytime, peak wind, maximum growth, Field Guide, or options | 369 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
 | Ordinary Animal Control pursuit | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer |
 | Security Guard pursuit or flashlight warning | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the flashlight is draw-only |
 | Watchdog pursuit or lunge | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the lunge reuses that body |
@@ -446,6 +453,8 @@ The deterministic structural budgets are enforced in CI:
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
+| Peak wind squall | 10 pedestrians, 5 meetup visitors, 5 secondary vehicles, and 40 batched draw-only directional ribbons; structural counts remain at the baseline ceiling |
+| Wind with Security or Watchdog | One pursuer-specific draw-only trap, 20 city actors, 40 wind ribbons, and 24 presentation effects; 372 nodes, 42 collision objects, and 112 collision shapes |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
 | Populated Field Guide | 49 rows, matching the fixed authored and generated-type catalog |
@@ -463,16 +472,17 @@ River Park sewer and subway chain, the River Park pond boardwalk, the
 discovery-gated Hidden Sewer Maintenance Pocket, the
 growth-gated Construction Crane High Deck, the
 progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
-Shop cellar, busy daytime, ordinary and crowd-cover Animal Control pursuit,
+Shop cellar, busy daytime, peak rain, the wind squall alone and combined with
+Security's motion beacon and Watchdog's sticky patch, ordinary and crowd-cover Animal Control pursuit,
 Security Guard pursuit and flashlight warning, active tongue-deflection
 feedback, Watchdog pursuit and lunge, a temporary
 straight roadblock, a two-segment staggered roadblock, all three
 pursuer-specific draw-only traps, an Animal Control net in flight, maximum
 growth, a finite maximum presentation burst, a 64-item Belly, the populated
 Field Guide, both accessibility options, a maximum 3x3 generated-district ring,
-and a reachable gameplay peak
-combining daytime activity, pursuit, growth, the roadblock, the snare, and
-presentation effects. It prints median FPS, frame-time percentiles, memory, and
+and a reachable gameplay peak combining peak wind, daytime activity, pursuit,
+growth, the roadblock, the snare, and presentation effects. It prints median
+FPS, frame-time percentiles, memory, and
 a post-sample render snapshot. The command-driven Windows run can show isolated
 scheduling/window stalls, so p95 is more useful than its maximum or
 arithmetic-mean FPS.
@@ -487,13 +497,28 @@ the deterministic ceilings above. Its successful deliberate multi-corner
 navigation request used 61 active obstacle rectangles, 6,408 grid cells, 4
 smoothed points, and at most 2,986 microseconds across the repeated runs.
 
-The latest fixed-seed combined authored gameplay peak measured 8.86 ms
-frame-time p95, 48.1 MiB static memory, 21.6 MiB video memory, 443 draw calls,
-1,136 rendered objects, and 25,932 primitives. Its exact structural snapshot is
-375 nodes, 43 collision objects, and 114 collision shapes with the two-segment
-staggered roadblock and Animal Control snare active together. The simultaneous
-presentation-only peak uses capped eight-spoke damage bursts and remains at the
-450-draw-call ceiling.
+Repeated fixed-seed wind-squall measurements used all 20 daytime city actors
+and 40 directional ribbons submitted in one draw command. The standalone
+squall measured 8.50–8.55 ms frame-time p95, 46.6 MiB static memory, 19.3 MiB
+video memory, 180 draw calls, 928 rendered objects, and 10,462 primitives.
+Security plus its motion beacon and maximum presentation measured
+8.72–16.51 ms p95, 427–432 draws, 1,109–1,145 objects, and 25,514–25,806
+primitives. Watchdog plus its sticky patch and maximum presentation measured
+15.96 ms p95 in the unobstructed sample, 433 draws, 1,139 objects, and 25,876
+primitives. All three exact structural snapshots remained at their existing
+369-node baseline or 372-node pursuer-and-trap ceilings. One repeated Watchdog
+sample contained a 516.69 ms host scheduling/window stall and is not treated as
+a target-device result.
+
+The repeated fixed-seed combined authored gameplay peak now includes the wind
+squall and measured 13.16 ms frame-time p95 in the unobstructed sample,
+48.2 MiB static memory, 21.6 MiB video memory, 444 draw calls, 1,216 rendered
+objects, and 26,012 primitives. Its exact structural snapshot remains 375
+nodes, 43 collision objects, and 114 collision shapes with the two-segment
+staggered roadblock and Animal Control snare active together. One repeated
+sample reported 24.41 ms p95 alongside a 520.27 ms host scheduling/window
+stall. The simultaneous presentation-only peak uses capped eight-spoke damage
+bursts and remains at the 450-draw-call ceiling.
 
 The straight-roadblock snapshot measured 8.77 ms frame-time p95, 46.6 MiB
 static memory, 19.5 MiB video memory, 211 draw calls, 906 rendered objects, and
@@ -583,7 +608,7 @@ The following parts of the full design are not implemented yet:
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
-- additional storms, festivals, shop schedules, and random emergencies;
+- further festivals, shop schedules, random emergencies, and fantasy events;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
 - final art, authored animation, expanded audio content and target-device mix

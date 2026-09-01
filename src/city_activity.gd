@@ -9,6 +9,10 @@ const RAIN_STREAK_COUNT := 84
 const RAIN_LOOP_DURATION := 4.0
 const RAIN_FALL_SPEED := 745.0
 const RAIN_SLANT := Vector2(-10, 26)
+const WIND_RIBBON_COUNT := 40
+const WIND_LOOP_DURATION := 6.0
+const WIND_TRAVEL_SPEED := 520.0
+const WIND_RIBBON_VECTOR := Vector2(58, -9)
 const FESTIVAL_SWAY_DURATION := 4.0
 const CROWD_CENTER := Vector2(950, 430)
 const CROWD_COVER_RADIUS := 145.0
@@ -219,6 +223,7 @@ const STREETLIGHT_POSITIONS := [
 
 var daylight := 0.5
 var rain_intensity := 0.0
+var wind_intensity := 0.0
 var crowd_intensity := 0.0
 var festival_intensity := 0.0
 var crowd_hide_progress := 0.0
@@ -249,6 +254,14 @@ func set_rain_intensity(value: float) -> void:
 	if is_equal_approx(rain_intensity, next_intensity):
 		return
 	rain_intensity = next_intensity
+	queue_redraw()
+
+
+func set_wind_intensity(value: float) -> void:
+	var next_intensity := clampf(value, 0.0, 1.0)
+	if is_equal_approx(wind_intensity, next_intensity):
+		return
+	wind_intensity = next_intensity
 	queue_redraw()
 
 
@@ -406,6 +419,10 @@ func visible_rain_streak_count() -> int:
 	return RAIN_STREAK_COUNT if rain_intensity > 0.01 else 0
 
 
+func visible_wind_ribbon_count() -> int:
+	return WIND_RIBBON_COUNT if wind_intensity > 0.01 else 0
+
+
 func rain_streak_position_at(index: int, animation_time: float) -> Vector2:
 	if index < 0 or index >= RAIN_STREAK_COUNT:
 		return Vector2.INF
@@ -428,6 +445,39 @@ func rain_signature() -> PackedVector2Array:
 	var result := PackedVector2Array()
 	for index in RAIN_STREAK_COUNT:
 		result.append(rain_streak_position_at(index, _animation_time))
+	return result
+
+
+func wind_ribbon_position_at(
+	index: int,
+	animation_time: float
+) -> Vector2:
+	if index < 0 or index >= WIND_RIBBON_COUNT:
+		return Vector2.INF
+	var wind_time := fposmod(
+		snappedf(animation_time, 0.0001),
+		WIND_LOOP_DURATION
+	)
+	var x_offset := fposmod(
+		float(index * 197) + wind_time * WIND_TRAVEL_SPEED,
+		CityBackdrop.WORLD_RECT.size.x + 220.0
+	) - 110.0
+	var y_offset := fposmod(
+		float(index * 113),
+		CityBackdrop.WORLD_RECT.size.y + 160.0
+	) - 80.0
+	return CityBackdrop.WORLD_RECT.position + Vector2(
+		x_offset,
+		y_offset
+	)
+
+
+func wind_signature() -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for index in WIND_RIBBON_COUNT:
+		result.append(
+			wind_ribbon_position_at(index, _animation_time)
+		)
 	return result
 
 
@@ -460,6 +510,8 @@ func activity_signature() -> PackedVector2Array:
 	for index in CROWD_MEMBER_OFFSETS.size():
 		result.append(crowd_member_position(index))
 	for position in festival_signature():
+		result.append(position)
+	for position in wind_signature():
 		result.append(position)
 	return result
 
@@ -507,6 +559,7 @@ func _draw() -> void:
 			_draw_pedestrian(index, alpha)
 	_draw_park_meetup()
 	_draw_rain()
+	_draw_wind_squall()
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -716,6 +769,23 @@ func _draw_rain() -> void:
 	for index in RAIN_STREAK_COUNT:
 		var start := rain_streak_position_at(index, _animation_time)
 		draw_line(start, start + RAIN_SLANT, rain_color, 2.0)
+
+
+func _draw_wind_squall() -> void:
+	if wind_intensity <= 0.01:
+		return
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var segments := PackedVector2Array()
+	for index in WIND_RIBBON_COUNT:
+		var start := wind_ribbon_position_at(index, _animation_time)
+		var length_scale := 0.55 + float(index % 4) * 0.15
+		segments.append(start)
+		segments.append(start + WIND_RIBBON_VECTOR * length_scale)
+	draw_multiline(
+		segments,
+		Color(0.82, 0.9, 0.92, 0.5 * wind_intensity),
+		3.0
+	)
 
 
 func _pedestrian_direction(index: int) -> Vector2:

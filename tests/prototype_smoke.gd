@@ -1166,6 +1166,13 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	)
 	_check(
 		is_equal_approx(
+			activity.wind_intensity,
+			FrogGame.wind_squall_intensity_for_clock(game._day_clock)
+		),
+		"The game forwards the initial wind-squall intensity to city activity."
+	)
+	_check(
+		is_equal_approx(
 			activity.festival_intensity,
 			FrogGame.festival_intensity_for_clock(game._day_clock)
 		),
@@ -1193,6 +1200,38 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and is_zero_approx(FrogGame.rain_intensity_for_clock(0.78))
 		and is_zero_approx(FrogGame.rain_intensity_for_clock(1.57)),
 		"Rain follows one bounded deterministic shower with smooth fades per day-night cycle."
+	)
+	_check(
+		is_zero_approx(
+			FrogGame.wind_squall_intensity_for_clock(0.29)
+		)
+		and is_zero_approx(
+			FrogGame.wind_squall_intensity_for_clock(0.30)
+		)
+		and is_equal_approx(
+			FrogGame.wind_squall_intensity_for_clock(0.32),
+			0.5
+		)
+		and is_equal_approx(
+			FrogGame.wind_squall_intensity_for_clock(0.34),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.wind_squall_intensity_for_clock(0.42),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.wind_squall_intensity_for_clock(0.44),
+			0.5
+		)
+		and is_zero_approx(
+			FrogGame.wind_squall_intensity_for_clock(0.46)
+		)
+		and is_equal_approx(
+			FrogGame.wind_squall_intensity_for_clock(1.32),
+			0.5
+		),
+		"The wind squall follows one bounded deterministic daytime window with smooth fades."
 	)
 	_check(
 		is_zero_approx(FrogGame.crowd_intensity_for_clock(0.17))
@@ -1320,6 +1359,49 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and int(rainy_snapshot["collision_shapes"]) == 111,
 		"Rain does not add targets, buildings, or collision objects."
 	)
+	var score_before_wind := game._score
+	var growth_before_wind := game._growth_points
+	var belly_before_wind := game._belly.size()
+	var discoveries_before_wind := game._known_discovery_count()
+	var challenge_progress_before_wind := [
+		game._challenges.progress(SessionChallenges.SHARP_AIM),
+		game._challenges.progress(SessionChallenges.HOLD_ON),
+		game._challenges.progress(SessionChallenges.CITY_TOUR),
+		game._challenges.completed_count(),
+	]
+	game._day_clock = 0.38
+	game._update_day_night(0.0)
+	var wind_snapshot := game.performance_structure_snapshot()
+	_check(
+		is_equal_approx(activity.wind_intensity, 1.0)
+		and is_zero_approx(activity.rain_intensity)
+		and activity.active_pedestrian_count()
+		== CityActivity.PEDESTRIAN_ROUTES.size()
+		and activity.active_vehicle_count()
+		== CityActivity.VEHICLE_ROUTES.size()
+		and activity.active_crowd_member_count()
+		== CityActivity.CROWD_MEMBER_OFFSETS.size()
+		and activity.visible_wind_ribbon_count()
+		== CityActivity.WIND_RIBBON_COUNT
+		and int(wind_snapshot["targets"]) == 36
+		and int(wind_snapshot["buildings"]) == 4
+		and int(wind_snapshot["collision_objects"]) == 41
+		and int(wind_snapshot["collision_shapes"]) == 111,
+		"Peak wind overlaps full daytime activity with one bounded draw-only ribbon set."
+	)
+	_check(
+		game._score == score_before_wind
+		and game._growth_points == growth_before_wind
+		and game._belly.size() == belly_before_wind
+		and game._known_discovery_count() == discoveries_before_wind
+		and challenge_progress_before_wind == [
+			game._challenges.progress(SessionChallenges.SHARP_AIM),
+			game._challenges.progress(SessionChallenges.HOLD_ON),
+			game._challenges.progress(SessionChallenges.CITY_TOUR),
+			game._challenges.completed_count(),
+		],
+		"Wind event boundaries do not change score, growth, Belly, discoveries, or challenges."
+	)
 
 	var single_step := CityActivity.new()
 	var many_steps := CityActivity.new()
@@ -1327,6 +1409,8 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	many_steps.set_motion_scale(1.0)
 	single_step.set_rain_intensity(1.0)
 	many_steps.set_rain_intensity(1.0)
+	single_step.set_wind_intensity(1.0)
+	many_steps.set_wind_intensity(1.0)
 	single_step.set_festival_intensity(1.0)
 	many_steps.set_festival_intensity(1.0)
 	single_step._advance_animation(12.0)
@@ -1350,13 +1434,25 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		):
 			deterministic_positions = false
 			break
+	var single_wind_signature := single_step.wind_signature()
+	var many_wind_signature := many_steps.wind_signature()
+	for index in single_wind_signature.size():
+		if (
+			single_wind_signature[index].distance_to(
+				many_wind_signature[index]
+			)
+			> 0.001
+		):
+			deterministic_positions = false
+			break
 	_check(
 		deterministic_positions,
-		"City actors and rain depend on absolute deterministic time, not frame size."
+		"City actors, rain, and wind depend on absolute deterministic time, not frame size."
 	)
 
 	var frozen_position := single_step.pedestrian_position(0)
 	var frozen_rain := single_step.rain_signature()
+	var frozen_wind := single_step.wind_signature()
 	var frozen_festival := single_step.festival_signature()
 	single_step.set_crowd_intensity(1.0)
 	var frozen_crowd_member := single_step.crowd_member_position(0)
@@ -1366,30 +1462,35 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	_check(
 		single_step.pedestrian_position(0) == frozen_position
 		and single_step.rain_signature() == frozen_rain
+		and single_step.wind_signature() == frozen_wind
 		and single_step.festival_signature() == frozen_festival
 		and single_step.crowd_member_position(0) == frozen_crowd_member
 		and single_step.active_pedestrian_count() == 4
 		and single_step.active_vehicle_count() == 2
 		and single_step.visible_rain_streak_count()
 		== CityActivity.RAIN_STREAK_COUNT
+		and single_step.visible_wind_ribbon_count()
+		== CityActivity.WIND_RIBBON_COUNT
 		and single_step.visible_festival_lantern_count()
 		== CityActivity.FESTIVAL_LANTERN_OFFSETS.size()
 		and single_step.streetlight_intensity() > 0.99,
-		"Reduced motion freezes actors, rain, and lanterns while event timing and lighting still update."
+		"Reduced motion freezes actors, rain, wind, and lanterns while event timing and lighting still update."
 	)
 	seed(20260830)
 	var expected_random := randf()
 	seed(20260830)
 	single_step.set_rain_intensity(0.5)
+	single_step.set_wind_intensity(0.5)
 	single_step.set_crowd_intensity(0.5)
 	single_step.set_festival_intensity(0.5)
 	single_step.rain_signature()
+	single_step.wind_signature()
 	single_step.festival_signature()
 	single_step.activity_signature()
 	var actual_random := randf()
 	_check(
 		is_equal_approx(actual_random, expected_random),
-		"Rain and festival presentation do not consume the gameplay random-number stream."
+		"Weather and festival presentation do not consume the gameplay random-number stream."
 	)
 
 	var loop_is_seamless := true
@@ -1437,6 +1538,18 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 			> 0.001
 		):
 			loop_is_seamless = false
+	for index in CityActivity.WIND_RIBBON_COUNT:
+		if (
+			single_step.wind_ribbon_position_at(index, 17.25)
+			.distance_to(
+				single_step.wind_ribbon_position_at(
+					index,
+					17.25 + CityActivity.WIND_LOOP_DURATION
+				)
+			)
+			> 0.001
+		):
+			loop_is_seamless = false
 	for index in CityActivity.CROWD_MEMBER_OFFSETS.size():
 		if (
 			single_step.crowd_member_position(index)
@@ -1460,7 +1573,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 			loop_is_seamless = false
 	_check(
 		loop_is_seamless,
-		"Every authored activity route, rain streak, and lantern loops seamlessly."
+		"Every authored activity route, weather mark, and lantern loops seamlessly."
 	)
 
 	var forbidden_areas: Array[Rect2] = [
@@ -1510,6 +1623,38 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	_check(
 		routes_are_clear,
 		"Routes avoid structures and water; traffic avoids targets and restock points."
+	)
+	game.set_motion_scale(0.0)
+	game._day_clock = 0.38
+	game._update_day_night(0.0)
+	var city_activity_instance_id := activity.get_instance_id()
+	var cafe := (
+		game._building_by_id.get("leap_cafe") as PrototypeBuilding
+	)
+	game._frog.global_position = cafe.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.STOCKROOM_ID)
+	var wind_survived_room_entry := (
+		game._active_interior_id == FrogGame.STOCKROOM_ID
+		and game._city_activity.get_instance_id()
+		== city_activity_instance_id
+		and game._city_activity.visible_wind_ribbon_count()
+		== CityActivity.WIND_RIBBON_COUNT
+	)
+	game._begin_interior_transition("city")
+	game._frog.global_position = DistrictGenerator.bounds_for_coordinate(
+		Vector2i(2, 2)
+	).get_center()
+	game._update_district_streaming()
+	_check(
+		wind_survived_room_entry
+		and game._active_interior_id.is_empty()
+		and game._city_activity.get_instance_id()
+		== city_activity_instance_id
+		and game.find_children("*", "CityActivity", true, false).size()
+		== 1
+		and game._city_activity.visible_wind_ribbon_count()
+		== CityActivity.WIND_RIBBON_COUNT,
+		"Room travel and district streaming retain one global wind presentation without duplication."
 	)
 
 	single_step.free()
