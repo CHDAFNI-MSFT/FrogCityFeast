@@ -301,7 +301,7 @@ The prototype includes:
 - per-profile **Reduce motion** and **Larger text & controls** choices available
   before starting and from the in-game Options panel;
 - per-profile **Master**, **Music & ambience**, and **Effects** volume controls,
-  with 80%, 45%, and 80% defaults for older version 1 profiles;
+  with 80%, 45%, and 80% defaults for migrated version 1 profiles;
 - an original, reproducibly generated soft arcade-like audio slice with
   restrained menu and gameplay music, day and night city ambience, and
   semantic feedback for interface actions, tongue outcomes, struggles,
@@ -664,13 +664,14 @@ The following parts of the full design are not implemented yet:
   release.
 
 Each player can change **Reduce motion** and **Larger text & controls** from the
-main menu or the in-game **Options** panel. The same panels provide **Master**,
-**Music & ambience**, and **Effects** controls. These optional settings are
-stored in the existing version 1 profile save without changing score, tutorial,
-or Field Guide semantics. Older saves deterministically use accessibility off
-and audio levels of 80%, 45%, and 80%. The `frog_city/reduced_motion` Godot
-project setting remains a fallback for direct scene runs that are not
-configured through a player profile; it is not a mute control.
+main menu or the in-game **Options** panel. The same panels provide **Master**, **Music & ambience**, and **Effects**
+controls. Save version 2 adds empty, idempotent profile/device progression
+collections while preserving score, tutorial, Field Guide, accessibility, and
+audio semantics. Version 1 saves are backed up and migrated in place; missing
+optional data deterministically uses accessibility off and audio levels of
+80%, 45%, and 80%. The `frog_city/reduced_motion` Godot project setting remains
+a fallback for direct scene runs that are not configured through a player
+profile; it is not a mute control.
 
 The audio assets are generated entirely by
 [`scripts/generate-audio.ps1`](../scripts/generate-audio.ps1). Provenance,

@@ -249,8 +249,8 @@ func _test_profile_compatibility() -> void:
 			and reloaded.is_tutorial_complete(profile_id)
 			and reloaded.get_discoveries(profile_id)
 			== PackedStringArray(["street_donut"])
-			and ProfileStore.SAVE_VERSION == 1,
-		"Audio preferences persist without changing version 1 score, tutorial, or Guide data."
+			and ProfileStore.SAVE_VERSION == 2,
+		"Audio preferences persist through the version 2 progression save."
 	)
 	if FileAccess.file_exists(save_path):
 		DirAccess.remove_absolute(absolute_path)
@@ -269,6 +269,13 @@ func _test_profile_compatibility() -> void:
 			and legacy_store.get_profile_best("legacy") == 88,
 		"Legacy version 1 saves without audio fields load unchanged with defaults."
 	)
+	for file_name in DirAccess.get_files_at("user://"):
+		if str(file_name).begins_with(
+			"audio_smoke_legacy.cfg.migration-v1-to-v2-"
+		):
+			DirAccess.remove_absolute(
+				ProjectSettings.globalize_path("user://%s" % file_name)
+			)
 	if FileAccess.file_exists(legacy_path):
 		DirAccess.remove_absolute(absolute_legacy_path)
 

@@ -420,8 +420,8 @@ func _run() -> void:
 	)
 	_check(
 		reloaded_store.is_tutorial_complete(first_profile)
-		and ProfileStore.SAVE_VERSION == 1,
-		"Discovery persistence preserves tutorial state and save version 1."
+		and ProfileStore.SAVE_VERSION == 2,
+		"Discovery persistence preserves tutorial state in save version 2."
 	)
 	var menu_scene := load("res://scenes/menu.tscn") as PackedScene
 	var menu := menu_scene.instantiate() as MainMenu
@@ -522,6 +522,13 @@ func _run() -> void:
 		},
 		"Version 1 saves use deterministic defaults for missing or malformed optional data."
 	)
+	for file_name in DirAccess.get_files_at("user://"):
+		if str(file_name).begins_with(
+			"prototype_legacy_scores.cfg.migration-v1-to-v2-"
+		):
+			DirAccess.remove_absolute(
+				ProjectSettings.globalize_path("user://%s" % file_name)
+			)
 	if FileAccess.file_exists(legacy_path):
 		DirAccess.remove_absolute(absolute_legacy_path)
 

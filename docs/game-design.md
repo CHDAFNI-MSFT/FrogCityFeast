@@ -223,6 +223,41 @@ The game records:
 - the best score ever achieved on the iPad; and
 - a separate best score for each local player profile.
 
+### Save data ownership and migration
+
+Save version 2 uses one local `ConfigFile` and stores no account, advertising,
+analytics, social, contact, or other personal information. Every persistent
+field has one explicit ownership scope:
+
+| Section and key | Scope | Meaning and default |
+|---|---|---|
+| `meta.version` | Device | Save schema version; `2`. |
+| `profiles.<profile_id>` | Profile | Local display name, normalized to at most 24 characters. |
+| `scores.<profile_id>` | Profile | Best completed or in-progress score observed for that profile; `0`. |
+| `device.best_score` | Device | Highest score observed across local profiles; `0`. |
+| `tutorial.<profile_id>` | Profile | Whether the first-time tutorial was completed or skipped; `false`. |
+| `discoveries.<profile_id>` | Profile | Sorted unique known Field Guide target IDs; empty. |
+| `accessibility.<profile_id>` | Profile | Explicit Reduce Motion and Larger Text & Controls booleans; both `false`. |
+| `audio.<profile_id>` | Profile | Sanitized master, music/ambience, and effects levels; `0.80`, `0.45`, and `0.80`. |
+| `profile_achievements.<profile_id>` | Profile | Sorted unique known one-time achievement IDs; empty. |
+| `story_clues.<profile_id>` | Profile | Sorted unique known story-clue IDs; empty. |
+| `power_discoveries.<profile_id>` | Profile | Sorted unique temporary-power IDs encountered by that profile; empty. |
+| `secret_unlocks.<profile_id>` | Profile | Sorted unique stable secret-content unlock IDs; empty. |
+| `device_achievements.unlocked` | Device | Sorted unique known one-time device milestone IDs; empty. |
+
+Current score, current growth, Belly contents, location, current powers and
+their remaining time, session challenges, city clock, city seed, loaded
+districts, generated definitions, and generated-city deltas are session state
+and are never written by Start New Game.
+
+Loading a version 1 save first renames the untouched source file to a timestamped
+`migration-v1-to-v2` backup. The migration then preserves profiles, scores,
+device best, tutorial state, Field Guide discoveries, accessibility, and audio,
+sets `meta.version` to `2`, and leaves every new progression collection empty.
+Unknown future versions and unreadable files retain the existing preservation
+behavior. If the original file cannot be preserved, saving is disabled rather
+than overwriting it.
+
 ## Growth and powers
 
 Growth is a central form of progression within play.

@@ -2,7 +2,7 @@ class_name ProfileStore
 extends RefCounted
 
 const SAVE_PATH := "user://frog_city_scores.cfg"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const DEFAULT_PROFILE_NAME := "Player 1"
 
 var _config := ConfigFile.new()
@@ -63,6 +63,98 @@ func get_profile_best(profile_id: String) -> int:
 
 func get_device_best() -> int:
 	return int(_config.get_value("device", "best_score", 0))
+
+
+func get_profile_achievements(profile_id: String) -> PackedStringArray:
+	return _stored_ids(
+		"profile_achievements",
+		profile_id,
+		ProgressionCatalog.profile_achievement_ids()
+	)
+
+
+func get_device_achievements() -> PackedStringArray:
+	return _stored_ids(
+		"device_achievements",
+		"unlocked",
+		ProgressionCatalog.device_achievement_ids()
+	)
+
+
+func get_story_clues(profile_id: String) -> PackedStringArray:
+	return _stored_ids(
+		"story_clues",
+		profile_id,
+		ProgressionCatalog.story_clue_ids()
+	)
+
+
+func get_power_discoveries(profile_id: String) -> PackedStringArray:
+	return _stored_ids(
+		"power_discoveries",
+		profile_id,
+		ProgressionCatalog.power_ids()
+	)
+
+
+func get_secret_unlocks(profile_id: String) -> PackedStringArray:
+	return _stored_ids(
+		"secret_unlocks",
+		profile_id,
+		ProgressionCatalog.secret_unlock_ids()
+	)
+
+
+func mark_profile_achievement(
+	profile_id: String,
+	achievement_id: String
+) -> bool:
+	return _mark_profile_id(
+		"profile_achievements",
+		profile_id,
+		achievement_id,
+		ProgressionCatalog.profile_achievement_ids()
+	)
+
+
+func mark_device_achievement(achievement_id: String) -> bool:
+	return _mark_id(
+		"device_achievements",
+		"unlocked",
+		achievement_id,
+		ProgressionCatalog.device_achievement_ids()
+	)
+
+
+func mark_story_clue(profile_id: String, clue_id: String) -> bool:
+	return _mark_profile_id(
+		"story_clues",
+		profile_id,
+		clue_id,
+		ProgressionCatalog.story_clue_ids()
+	)
+
+
+func mark_power_discovered(profile_id: String, power_id: String) -> bool:
+	return _mark_profile_id(
+		"power_discoveries",
+		profile_id,
+		power_id,
+		ProgressionCatalog.power_ids()
+	)
+
+
+func mark_secret_unlocked(profile_id: String, secret_id: String) -> bool:
+	return _mark_profile_id(
+		"secret_unlocks",
+		profile_id,
+		secret_id,
+		ProgressionCatalog.secret_unlock_ids()
+	)
+
+
+func has_secret_unlocked(profile_id: String, secret_id: String) -> bool:
+	return get_secret_unlocks(profile_id).has(secret_id)
 
 
 func get_accessibility_preferences(profile_id: String) -> Dictionary:
@@ -185,8 +277,12 @@ func update_high_scores(profile_id: String, score: int) -> void:
 func _load() -> void:
 	var error := _config.load(_save_path)
 	if error == OK:
-		var version := int(_config.get_value("meta", "version", SAVE_VERSION))
+		var version := int(_config.get_value("meta", "version", 1))
 		if version == SAVE_VERSION:
+			return
+		if version > 0 and version < SAVE_VERSION:
+			if _migrate_to_current(version):
+				return
 			return
 		push_warning("Unsupported frog score save version; starting with fresh scores.")
 		_save_enabled = _backup_existing_save("unsupported")
@@ -194,6 +290,31 @@ func _load() -> void:
 		push_warning("Could not read frog score save; starting with fresh scores.")
 		_save_enabled = _backup_existing_save("unreadable")
 
+	_initialize_fresh_save()
+
+
+func _migrate_to_current(version: int) -> bool:
+	var next_version := version
+	while next_version < SAVE_VERSION:
+		match next_version:
+			1:
+				if not _backup_existing_save("migration-v1-to-v2"):
+					_save_enabled = false
+					return false
+				next_version = 2
+				_config.set_value("meta", "version", next_version)
+			_:
+				push_warning(
+					"Unsupported frog score save migration from version %d."
+					% next_version
+				)
+				_save_enabled = false
+				return false
+	_save()
+	return true
+
+
+func _initialize_fresh_save() -> void:
 	_config = ConfigFile.new()
 	_config.set_value("meta", "version", SAVE_VERSION)
 	_config.set_value("device", "best_score", 0)
@@ -242,6 +363,63 @@ func _backup_existing_save(reason: String) -> bool:
 		return false
 	push_warning("Preserved the previous frog score save at %s." % backup_path)
 	return true
+
+
+func _mark_profile_id(
+	section: String,
+	profile_id: String,
+	entry_id: String,
+	allowed_ids: PackedStringArray
+) -> bool:
+	if not _config.has_section_key("profiles", profile_id):
+		push_warning("Cannot save progression for an unknown profile.")
+		return false
+	return _mark_id(section, profile_id, entry_id, allowed_ids)
+
+
+func _mark_id(
+	section: String,
+	key: String,
+	entry_id: String,
+	allowed_ids: PackedStringArray
+) -> bool:
+	var normalized_id := entry_id.strip_edges()
+	if normalized_id.is_empty() or not allowed_ids.has(normalized_id):
+		return false
+	var stored := _stored_ids(section, key, allowed_ids)
+	if stored.has(normalized_id):
+		return false
+	stored.append(normalized_id)
+	stored.sort()
+	_config.set_value(section, key, stored)
+	_save()
+	return true
+
+
+func _stored_ids(
+	section: String,
+	key: String,
+	allowed_ids: PackedStringArray
+) -> PackedStringArray:
+	var stored: Variant = _config.get_value(
+		section,
+		key,
+		PackedStringArray()
+	)
+	var unique := {}
+	if stored is PackedStringArray or stored is Array:
+		for entry_id in stored:
+			var normalized_id := str(entry_id).strip_edges()
+			if (
+				not normalized_id.is_empty()
+				and allowed_ids.has(normalized_id)
+			):
+				unique[normalized_id] = true
+	var result := PackedStringArray()
+	for entry_id in unique:
+		result.append(str(entry_id))
+	result.sort()
+	return result
 
 
 func _sort_profiles(left: Dictionary, right: Dictionary) -> bool:
