@@ -119,7 +119,8 @@ microseconds. Both states completed every request without fallback, failure, or
 budget rejection.
 
 Reproducible stress coverage includes the maximum generated-district ring, all
-ten connected exploration rooms, the night bazaar, busy daytime city activity,
+ten connected exploration rooms, both scheduled shops, the night bazaar,
+busy daytime city activity,
 peak rain, the wind squall alone and with each pursuer-and-trap profile, the
 Canal Kite Festival alone and with every pursuer-and-trap profile, pursuit,
 active crowd cover, both roadblock layouts, the
@@ -378,7 +379,7 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements seven small deterministic dynamic-city
+The fixed-city prototype now implements eight small deterministic dynamic-city
 slices. The day and night cycle changes the visible pedestrian crowd, secondary
 traffic level, streetlight glow, and restrained synthesized ambience. Once per
 180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
@@ -419,6 +420,18 @@ being trapped or overlapped. Eating the shutter permanently opens the entrance
 for the rest of that city session. The schedule is deterministic, adds no
 nodes, targets, saves, audio, animation, or random-number use, and has
 identical timing with Reduce motion.
+
+Moonlight Market implements a separate daytime business schedule. Its intact
+removable door opens from clock 0.30 through the instant before 0.58, spanning
+50.4 seconds of each 180-second cycle and closing as the rain window begins.
+Closure waits while the frog or any pursuer occupies the market or doorway, or
+while the frog explores the connected rooftop, so the schedule cannot trap or
+overlap a character. Eating the door permanently opens the entrance for the
+rest of the city session, and consuming the building cannot re-enable its
+collision. The outdoor Moonlight Market night bazaar remains a separate event
+after the indoor market closes. The schedule uses no random numbers, new
+nodes, saves, score, growth, Belly changes, discoveries, challenges, audio, or
+Field Guide progress, and Reduce motion does not alter its timing.
 
 Moonlight Market hosts the first festival event. Ten fixed draw-only lanterns
 fade in around the market during the late-evening boundary, remain lit through

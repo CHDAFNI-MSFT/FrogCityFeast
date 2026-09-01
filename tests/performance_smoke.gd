@@ -227,6 +227,12 @@ func _run() -> void:
 			"discoveries": PackedStringArray(),
 		},
 		{
+			"name": "day_market",
+			"setup": _setup_day_market,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
 			"name": "busy_daytime",
 			"setup": _setup_busy_daytime,
 			"preferences": _default_preferences(),
@@ -608,6 +614,11 @@ func _setup_night_shop(game: FrogGame) -> void:
 	game._update_day_night(0.0)
 
 
+func _setup_day_market(game: FrogGame) -> void:
+	game._day_clock = 0.54
+	game._update_day_night(0.0)
+
+
 func _setup_busy_daytime(game: FrogGame) -> void:
 	game._day_clock = 0.5
 	game._update_day_night(0.0)
@@ -973,6 +984,14 @@ func _check_scenario_expectations(
 				and int(snapshot["festival_lanterns"])
 				== BUDGETS.MAX_FESTIVAL_LANTERNS,
 				"Night stress opens Oddities Shop and activates the bounded bazaar without adding structure."
+			)
+		"day_market":
+			_check(
+				bool(snapshot["moonlight_market_scheduled_open"])
+				and not bool(snapshot["oddities_shop_scheduled_open"])
+				and int(snapshot["targets"]) == BUDGETS.MAX_TARGETS
+				and int(snapshot["buildings"]) == BUDGETS.MAX_BUILDINGS,
+				"Day-market stress opens Moonlight Market without adding or removing gameplay structure."
 			)
 		"busy_daytime":
 			_check(

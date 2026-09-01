@@ -344,6 +344,7 @@ func _run() -> void:
 
 	await _test_oddities_shop_sequence(game_scene)
 	await _test_oddities_shop_hours(game_scene)
+	await _test_moonlight_market_hours(game_scene)
 	await _test_oddities_cellar(game_scene)
 	await _test_leap_cafe_sequence(game_scene)
 	await _test_canal_apartments_sequence(game_scene)
@@ -4410,6 +4411,157 @@ func _test_oddities_shop_hours(game_scene: PackedScene) -> void:
 			game._find_target_by_id("oddities_shop_door")
 		),
 		"Eating the shutter permanently overrides later opening and closing times."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
+func _test_moonlight_market_hours(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.configure("market_hours_test", "Market Hours Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var market := (
+		game._building_by_id.get("moonlight_market")
+		as PrototypeBuilding
+	)
+	var market_door := _find_target(game, "moonlight_market_door")
+	_check(
+		not FrogGame.moonlight_market_open_for_clock(0.2999)
+		and FrogGame.moonlight_market_open_for_clock(0.30)
+		and FrogGame.moonlight_market_open_for_clock(0.5799)
+		and not FrogGame.moonlight_market_open_for_clock(0.58)
+		and not FrogGame.moonlight_market_open_for_clock(0.9)
+		and FrogGame.moonlight_market_open_for_clock(1.30),
+		"Moonlight Market uses one deterministic daytime schedule with explicit boundaries."
+	)
+	_check(
+		is_instance_valid(market)
+		and is_instance_valid(market_door)
+		and not game._moonlight_market_scheduled_open
+		and not market.entrance_part_temporarily_open
+		and market._door_body.collision_layer == 1
+		and market_door.visible
+		and market_door.selectable,
+		"Moonlight Market starts closed before its authored daytime hours."
+	)
+
+	var closed_snapshot := game.performance_structure_snapshot()
+	var score_before := game._score
+	var growth_before := game._growth_points
+	var belly_before := game._belly.size()
+	var target_count_before := game._targets.size()
+	var discovery_count_before := game._known_discovery_count()
+	var challenge_progress_before := [
+		game._challenges.progress(SessionChallenges.SHARP_AIM),
+		game._challenges.progress(SessionChallenges.HOLD_ON),
+		game._challenges.progress(SessionChallenges.CITY_TOUR),
+		game._challenges.completed_count(),
+	]
+	seed(20260901)
+	var expected_random := randf()
+	seed(20260901)
+	game._day_clock = 0.57
+	game._update_day_night(0.0)
+	var actual_random := randf()
+	await physics_frame
+	var open_snapshot := game.performance_structure_snapshot()
+	_check(
+		game._moonlight_market_scheduled_open
+		and market.entrance_part_temporarily_open
+		and market._door_body.collision_layer == 0
+		and not market_door.visible
+		and not market_door.selectable
+		and market.weakness_count() == 0
+		and is_equal_approx(actual_random, expected_random),
+		"Moonlight Market opens during the day without weakening its removable door or consuming gameplay RNG."
+	)
+	_check(
+		int(open_snapshot["game_nodes"])
+		== int(closed_snapshot["game_nodes"])
+		and int(open_snapshot["collision_objects"])
+		== int(closed_snapshot["collision_objects"])
+		and int(open_snapshot["collision_shapes"])
+		== int(closed_snapshot["collision_shapes"])
+		and game._score == score_before
+		and game._growth_points == growth_before
+		and game._belly.size() == belly_before
+		and game._targets.size() == target_count_before
+		and game._known_discovery_count() == discovery_count_before
+		and challenge_progress_before == [
+			game._challenges.progress(SessionChallenges.SHARP_AIM),
+			game._challenges.progress(SessionChallenges.HOLD_ON),
+			game._challenges.progress(SessionChallenges.CITY_TOUR),
+			game._challenges.completed_count(),
+		],
+		"Daytime market hours change no structure, rewards, targets, Belly state, discoveries, or challenges."
+	)
+
+	game._frog.global_position = market.global_position
+	game._day_clock = 0.58
+	game._update_day_night(0.0)
+	_check(
+		game._moonlight_market_scheduled_open
+		and market._door_body.collision_layer == 0,
+		"Rain-boundary closure waits while the frog remains inside Moonlight Market."
+	)
+	game._frog.global_position = market.global_position + Vector2(0, 330)
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_WATCHDOG)
+	var watchdog := game._pursuer
+	if is_instance_valid(watchdog):
+		watchdog.set_physics_process(false)
+		watchdog.global_position = market.global_position
+	game._update_day_night(0.0)
+	_check(
+		is_instance_valid(watchdog)
+		and game._moonlight_market_scheduled_open
+		and market._door_body.collision_layer == 0,
+		"Rain-boundary closure waits while a Watchdog occupies the market."
+	)
+	if is_instance_valid(watchdog):
+		watchdog.global_position = market.global_position + Vector2(0, 380)
+	game._active_interior_id = FrogGame.MARKET_ROOFTOP_ID
+	game._update_day_night(0.0)
+	_check(
+		game._moonlight_market_scheduled_open
+		and market._door_body.collision_layer == 0,
+		"Market closure waits while the frog uses the connected rooftop."
+	)
+	game._active_interior_id = ""
+	game._update_day_night(0.0)
+	await physics_frame
+	_check(
+		not game._moonlight_market_scheduled_open
+		and not market.entrance_part_temporarily_open
+		and market._door_body.collision_layer == 1
+		and market_door.visible
+		and market_door.selectable,
+		"Moonlight Market closes once its hall, doorway, pursuer, and connected room are clear."
+	)
+	if is_instance_valid(watchdog):
+		watchdog._escape()
+		await process_frame
+
+	game._frog.global_position = market.global_position + Vector2(0, 330)
+	game._swallow_target(market_door, 1.0)
+	game._day_clock = 0.57
+	game._update_day_night(0.0)
+	game._day_clock = 0.7
+	game._update_day_night(0.0)
+	_check(
+		market.weakness_count() == 1
+		and market.is_part_removed(PrototypeBuilding.PART_DOOR)
+		and market._door_body.collision_layer == 0
+		and not game._moonlight_market_scheduled_open
+		and not is_instance_valid(
+			game._find_target_by_id("moonlight_market_door")
+		),
+		"Eating the market door permanently overrides all later opening and closing times."
 	)
 
 	game.queue_free()

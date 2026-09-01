@@ -157,6 +157,13 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 		"festival_lanterns": MAX_FESTIVAL_LANTERNS,
 	},
+	"day_market": {
+		"game_nodes": 369,
+		"collision_objects": 41,
+		"collision_shapes": 111,
+		"targets": MAX_TARGETS,
+		"buildings": MAX_BUILDINGS,
+	},
 	"busy_daytime": {
 		"game_nodes": 369,
 		"collision_objects": 41,

@@ -211,7 +211,9 @@ func set_entrance_part_temporarily_open(value: bool) -> void:
 	if destructible_parts and entrance_part_style == ENTRANCE_PART_DOOR:
 		_set_body_enabled(
 			_door_body,
-			not value and not is_part_removed(PART_DOOR)
+			not consumed
+			and not value
+			and not is_part_removed(PART_DOOR)
 		)
 		navigation_changed.emit()
 	queue_redraw()

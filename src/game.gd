@@ -75,6 +75,8 @@ const FESTIVAL_END := 0.16
 const CROWD_HIDE_DURATION := 1.75
 const ODDITIES_SHOP_OPEN_START := 0.78
 const ODDITIES_SHOP_OPEN_END := 0.18
+const MOONLIGHT_MARKET_OPEN_START := 0.30
+const MOONLIGHT_MARKET_OPEN_END := 0.58
 const SHOP_DOORWAY_CLEARANCE := 8.0
 const ROADBLOCK_DEPLOY_DELAY := 3.0
 const ROADBLOCK_MIN_DISTANCE := 260.0
@@ -492,6 +494,7 @@ var _current_wind_intensity := 0.0
 var _current_crowd_intensity := 0.0
 var _current_kite_festival_intensity := 0.0
 var _oddities_shop_scheduled_open := false
+var _moonlight_market_scheduled_open := false
 var _crowd_hide_time := 0.0
 var _roadblock_deploy_time := 0.0
 var _roadblock_deployed := false
@@ -2719,6 +2722,9 @@ func performance_structure_snapshot() -> Dictionary:
 		"interior_rooms": _interior_rooms.size(),
 		"active_interior": _active_interior_id,
 		"oddities_shop_scheduled_open": _oddities_shop_scheduled_open,
+		"moonlight_market_scheduled_open": (
+			_moonlight_market_scheduled_open
+		),
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
 		"pursuer_archetype": (
 			_pursuer.archetype_id
@@ -4321,6 +4327,7 @@ func _update_day_night(delta: float) -> void:
 			kite_festival_intensity
 		)
 	_update_oddities_shop_schedule()
+	_update_moonlight_market_schedule()
 	AudioDirector.set_game_ambience(
 		self,
 		daylight < NIGHT_AUDIO_THRESHOLD
@@ -4408,26 +4415,69 @@ static func oddities_shop_open_for_clock(value: float) -> bool:
 	)
 
 
+static func moonlight_market_open_for_clock(value: float) -> bool:
+	var clock := fposmod(value, 1.0)
+	return (
+		clock >= MOONLIGHT_MARKET_OPEN_START
+		and clock < MOONLIGHT_MARKET_OPEN_END
+	)
+
+
 func _update_oddities_shop_schedule() -> void:
 	var shop := (
 		_building_by_id.get("oddities_shop") as PrototypeBuilding
 	)
 	if not is_instance_valid(shop):
 		return
+	if shop.consumed:
+		_oddities_shop_scheduled_open = false
+		return
 	if shop.is_part_removed(PrototypeBuilding.PART_DOOR):
 		shop.set_entrance_part_temporarily_open(false)
 		_oddities_shop_scheduled_open = false
 		return
 	var should_open := oddities_shop_open_for_clock(_day_clock)
-	if not should_open and _oddities_shop_doorway_occupied(shop):
+	if (
+		not should_open
+		and _scheduled_shop_doorway_occupied(
+			shop,
+			ODDITIES_CELLAR_ID
+		)
+	):
 		should_open = true
 	_set_oddities_shop_scheduled_open(shop, should_open)
 
 
-func _oddities_shop_doorway_occupied(
-	shop: PrototypeBuilding
+func _update_moonlight_market_schedule() -> void:
+	var market := (
+		_building_by_id.get("moonlight_market") as PrototypeBuilding
+	)
+	if not is_instance_valid(market):
+		return
+	if market.consumed:
+		_moonlight_market_scheduled_open = false
+		return
+	if market.is_part_removed(PrototypeBuilding.PART_DOOR):
+		market.set_entrance_part_temporarily_open(false)
+		_moonlight_market_scheduled_open = false
+		return
+	var should_open := moonlight_market_open_for_clock(_day_clock)
+	if (
+		not should_open
+		and _scheduled_shop_doorway_occupied(
+			market,
+			MARKET_ROOFTOP_ID
+		)
+	):
+		should_open = true
+	_set_moonlight_market_scheduled_open(market, should_open)
+
+
+func _scheduled_shop_doorway_occupied(
+	shop: PrototypeBuilding,
+	connected_room_id: String
 ) -> bool:
-	if _active_interior_id == ODDITIES_CELLAR_ID:
+	if _active_interior_id == connected_room_id:
 		return true
 	var doorway := shop.entrance_part_world_rect().grow(
 		SHOP_DOORWAY_CLEARANCE
@@ -4463,16 +4513,47 @@ func _set_oddities_shop_scheduled_open(
 	):
 		return
 	_oddities_shop_scheduled_open = value
-	shop.set_entrance_part_temporarily_open(value)
-	var shutter := _find_target_by_id("oddities_shop_door")
-	if is_instance_valid(shutter):
-		shutter.visible = not value
-		shutter.selectable = not value
-	_show_status(
-		"Oddities Shop opened for the night."
-		if value
-		else "Oddities Shop closed for the day."
+	_set_scheduled_shop_entrance(
+		shop,
+		"oddities_shop_door",
+		value,
+		"Oddities Shop opened for the night.",
+		"Oddities Shop closed for the day."
 	)
+
+
+func _set_moonlight_market_scheduled_open(
+	market: PrototypeBuilding,
+	value: bool
+) -> void:
+	if (
+		_moonlight_market_scheduled_open == value
+		and market.entrance_part_temporarily_open == value
+	):
+		return
+	_moonlight_market_scheduled_open = value
+	_set_scheduled_shop_entrance(
+		market,
+		"moonlight_market_door",
+		value,
+		"Moonlight Market opened for the day.",
+		"Moonlight Market closed as the rain arrived."
+	)
+
+
+func _set_scheduled_shop_entrance(
+	shop: PrototypeBuilding,
+	entrance_target_id: String,
+	value: bool,
+	open_message: String,
+	closed_message: String
+) -> void:
+	shop.set_entrance_part_temporarily_open(value)
+	var entrance_target := _find_target_by_id(entrance_target_id)
+	if is_instance_valid(entrance_target):
+		entrance_target.visible = not value
+		entrance_target.selectable = not value
+	_show_status(open_message if value else closed_message)
 
 
 func _update_crowd_hiding(delta: float) -> void:
@@ -5410,6 +5491,8 @@ func _build_prototype_city() -> void:
 		"moonlight_market",
 		true
 	)
+	market.entrance_schedule_open_label = "DAY MARKET OPEN"
+	market.entrance_schedule_closed_label = "OPENS AFTER DAWN"
 	market.transition_door_position = Vector2(-160, -125)
 	market.transition_door_approach_offset = Vector2(90, 65)
 	market.transition_door_label = "ROOFTOP LADDER"

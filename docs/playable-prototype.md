@@ -120,6 +120,10 @@ The prototype includes:
   from late evening through early morning, defer daytime closure while the shop
   or doorway is occupied, and preserve permanent access after the shutter is
   eaten;
+- deterministic daytime Moonlight Market hours that open its intact removable
+  door from clock 0.30 to 0.58, defer rain-boundary closure while the hall,
+  doorway, any pursuer, or connected rooftop is occupied, and preserve
+  permanent access after the door is eaten;
 - a deterministic Moonlight Market night bazaar with ten fixed draw-only
   lanterns that fade in during late evening, remain active through midnight,
   fade out before the daytime meetup, and freeze their sway with Reduce motion;
@@ -358,7 +362,8 @@ bash scripts/check-project.sh
 The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
 traffic, deterministic city-activity levels and routes, Oddities Shop hours and
 safe deferred closure through connected-cellar travel, growth- and
-destruction-gated room transitions, the bounded night-bazaar schedule,
+destruction-gated room transitions, Moonlight Market daytime hours and safe
+deferred closure through connected-rooftop travel, the bounded night-bazaar schedule,
 the bounded kite-festival schedule and fixed decoration count,
 frame-step-independent festival motion, the bounded rain schedule and density
 change, the bounded wind-squall schedule and density,
@@ -442,6 +447,7 @@ The deterministic structural budgets are enforced in CI:
 | Reachable state | Structural ceiling |
 |---|---|
 | Baseline, night shop, any separate room, busy daytime, peak wind, maximum growth, Field Guide, or options | 369 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
+| Day-open Moonlight Market | Structural counts remain at the 369-node baseline ceiling; one existing removable door collision is disabled and navigation uses one fewer obstacle |
 | Ordinary Animal Control pursuit | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer |
 | Security Guard pursuit or flashlight warning | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the flashlight is draw-only |
 | Watchdog pursuit or lunge | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the lunge reuses that body |
@@ -474,7 +480,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\measure-performanc
 ```
 
 The harness uses fixed random seeds and covers baseline play, the night-open
-Oddities Shop and Moonlight Market bazaar, the active Leap Café stockroom, the
+Oddities Shop, the day-open Moonlight Market, the Moonlight Market bazaar, the
+active Leap Café stockroom, the
 active Canal Apartments upper hall and connected fire escape, the two-section
 River Park sewer and subway chain, the River Park pond boardwalk, the
 discovery-gated Hidden Sewer Maintenance Pocket, the
@@ -527,8 +534,8 @@ objects, and 26,012 primitives. Its exact structural snapshot remains 375
 nodes, 43 collision objects, and 114 collision shapes with the two-segment
 staggered roadblock and Animal Control snare active together. One repeated
 sample reported 24.41 ms p95 alongside a 520.27 ms host scheduling/window
-stall. The simultaneous presentation-only peak uses capped eight-spoke damage
-bursts and remains at the 450-draw-call ceiling.
+stall. The simultaneous presentation-only peak uses capped seven-spoke damage
+bursts and measured 444 draw calls, below the 450-draw-call reference ceiling.
 
 Repeated fixed-seed Canal Kite Festival measurements held the exact 8-kite
 draw-only cap. The standalone festival measured 8.53–8.66 ms frame-time p95,
@@ -543,6 +550,13 @@ draw calls, 1,249 objects, and 26,062 primitives. Its structural snapshot
 remains 375 nodes, 43 collision objects, and 114 collision shapes. Other
 repeated Security and Watchdog samples contained host scheduling/window stalls
 and are not treated as target-device results.
+
+The fixed-seed day-open Moonlight Market state measured 8.70 ms frame-time p95,
+46.8 MiB static memory, 19.3 MiB video memory, 159 draw calls, 816 rendered
+objects, and 9,380 primitives. Its exact structural snapshot remains 369
+nodes, 41 collision objects, and 111 collision shapes with all 36 targets and
+4 buildings retained; opening disables one existing door collision and reduces
+the active navigation obstacle count from 30 to 29.
 
 The straight-roadblock snapshot measured 8.77 ms frame-time p95, 46.6 MiB
 static memory, 19.5 MiB video memory, 211 draw calls, 906 rendered objects, and
@@ -632,7 +646,7 @@ The following parts of the full design are not implemented yet:
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
-- further shop schedules, random emergencies, and fantasy events;
+- random emergencies and fantasy events;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
 - final art, authored animation, expanded audio content and target-device mix
