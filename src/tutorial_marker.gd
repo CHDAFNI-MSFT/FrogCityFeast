@@ -45,3 +45,6 @@ func _draw() -> void:
 		Color(0.35, 1.0, 0.55, 0.95),
 		7.0
 	)
+	var glyph_color := Color(1.0, 0.95, 0.68, 1.0)
+	draw_line(Vector2(-9, 0), Vector2(9, 0), glyph_color, 5.0, true)
+	draw_line(Vector2(0, -9), Vector2(0, 9), glyph_color, 5.0, true)

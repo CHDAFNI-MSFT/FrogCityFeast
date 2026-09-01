@@ -1,7 +1,11 @@
 class_name MainMenu
 extends Control
 
-signal start_requested(profile_id: String, display_name: String)
+signal start_requested(
+	profile_id: String,
+	display_name: String,
+	force_tutorial: bool
+)
 
 @onready var _profile_select: OptionButton = %ProfileSelect
 @onready var _new_name: LineEdit = %NewName
@@ -10,8 +14,15 @@ signal start_requested(profile_id: String, display_name: String)
 @onready var _device_best_label: Label = %DeviceBestLabel
 @onready var _last_score_label: Label = %LastScoreLabel
 @onready var _start_button: Button = %StartButton
+@onready var _replay_tutorial_button: Button = %ReplayTutorialButton
 @onready var _reduce_motion_toggle: CheckButton = %ReduceMotionToggle
 @onready var _larger_ui_toggle: CheckButton = %LargerUiToggle
+@onready var _input_assist_option: OptionButton = %InputAssistOption
+@onready var _camera_sensitivity_label: Label = %CameraSensitivityLabel
+@onready var _camera_sensitivity_slider: HSlider = %CameraSensitivitySlider
+@onready var _camera_auto_align_toggle: CheckButton = %CameraAutoAlignToggle
+@onready var _haptics_toggle: CheckButton = %HapticsToggle
+@onready var _left_handed_toggle: CheckButton = %LeftHandedToggle
 @onready var _master_volume_label: Label = %MasterVolumeLabel
 @onready var _master_volume_slider: HSlider = %MasterVolumeSlider
 @onready var _music_volume_label: Label = %MusicVolumeLabel
@@ -23,10 +34,7 @@ signal start_requested(profile_id: String, display_name: String)
 
 var _profile_store: ProfileStore
 var _preview_profile_id := ""
-var _new_profile_preferences := {
-	"reduce_motion": false,
-	"larger_text_controls": false,
-}
+var _new_profile_preferences := AccessibilityPresentation.defaults()
 var _new_profile_audio_preferences := AudioPreferences.defaults()
 var _refreshing_preferences := false
 var _refreshing_audio_controls := false
@@ -35,11 +43,22 @@ var _clearing_name_for_selection := false
 
 
 func _ready() -> void:
+	_populate_input_assist_options()
 	_profile_select.item_selected.connect(_on_profile_selected)
 	_new_name.text_changed.connect(_on_new_name_changed)
 	_start_button.pressed.connect(_on_start_pressed)
+	_replay_tutorial_button.pressed.connect(_on_replay_tutorial_pressed)
 	_reduce_motion_toggle.toggled.connect(_on_accessibility_toggled)
 	_larger_ui_toggle.toggled.connect(_on_accessibility_toggled)
+	_camera_auto_align_toggle.toggled.connect(_on_accessibility_toggled)
+	_haptics_toggle.toggled.connect(_on_accessibility_toggled)
+	_left_handed_toggle.toggled.connect(_on_accessibility_toggled)
+	_input_assist_option.item_selected.connect(
+		_on_accessibility_option_selected
+	)
+	_camera_sensitivity_slider.value_changed.connect(
+		_on_camera_sensitivity_changed
+	)
 	for slider in _audio_sliders():
 		slider.value_changed.connect(_on_audio_value_changed)
 		slider.drag_started.connect(_on_audio_drag_started)
@@ -88,6 +107,9 @@ func _show_profile_preview(profile_id: String) -> void:
 		if _profile_store.is_tutorial_complete(profile_id)
 		else "Start Tutorial"
 	)
+	_replay_tutorial_button.visible = (
+		_profile_store.is_tutorial_complete(profile_id)
+	)
 	_show_accessibility_preferences(
 		_profile_store.get_accessibility_preferences(profile_id)
 	)
@@ -112,6 +134,7 @@ func _on_new_name_changed(new_text: String) -> void:
 	_preview_profile_id = ""
 	_best_label.text = "Player best: 0"
 	_start_button.text = "Start Tutorial"
+	_replay_tutorial_button.visible = false
 	_guide_label.text = (
 		"Field Guide: 0 / %d\n"
 		+ "Profile: 0 / %d achievements | 0 / %d clues\n"
@@ -166,31 +189,51 @@ func _on_start_pressed() -> void:
 			profile_id = str(_profile_select.get_item_metadata(selected_index))
 	_profile_store.set_accessibility_preferences(
 		profile_id,
-		_reduce_motion_toggle.button_pressed,
-		_larger_ui_toggle.button_pressed
+		_accessibility_preferences_from_controls()
 	)
 	_profile_store.set_audio_preferences(
 		profile_id,
 		_audio_preferences_from_controls()
 	)
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
-	start_requested.emit(profile_id, _profile_store.get_profile_name(profile_id))
+	_play_haptic(20)
+	start_requested.emit(
+		profile_id,
+		_profile_store.get_profile_name(profile_id),
+		false
+	)
+
+
+func _on_replay_tutorial_pressed() -> void:
+	if _profile_store == null or _preview_profile_id.is_empty():
+		return
+	_profile_store.set_accessibility_preferences(
+		_preview_profile_id,
+		_accessibility_preferences_from_controls()
+	)
+	_profile_store.set_audio_preferences(
+		_preview_profile_id,
+		_audio_preferences_from_controls()
+	)
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+	_play_haptic(20)
+	start_requested.emit(
+		_preview_profile_id,
+		_profile_store.get_profile_name(_preview_profile_id),
+		true
+	)
 
 
 func _on_accessibility_toggled(_pressed: bool) -> void:
 	if _refreshing_preferences or _profile_store == null:
 		return
-	var preferences := {
-		"reduce_motion": _reduce_motion_toggle.button_pressed,
-		"larger_text_controls": _larger_ui_toggle.button_pressed,
-	}
+	var preferences := _accessibility_preferences_from_controls()
 	if _preview_profile_id.is_empty():
 		_new_profile_preferences = preferences
 	else:
 		_profile_store.set_accessibility_preferences(
 			_preview_profile_id,
-			bool(preferences["reduce_motion"]),
-			bool(preferences["larger_text_controls"])
+			preferences
 		)
 	_update_accessibility_labels()
 	AccessibilityPresentation.apply(
@@ -201,6 +244,15 @@ func _on_accessibility_toggled(_pressed: bool) -> void:
 		0.0 if _reduce_motion_toggle.button_pressed else 1.0
 	)
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+	_play_haptic(16)
+
+
+func _on_accessibility_option_selected(_index: int) -> void:
+	_on_accessibility_toggled(false)
+
+
+func _on_camera_sensitivity_changed(_value: float) -> void:
+	_on_accessibility_toggled(false)
 
 
 func _show_accessibility_preferences(preferences: Dictionary) -> void:
@@ -209,6 +261,17 @@ func _show_accessibility_preferences(preferences: Dictionary) -> void:
 	_reduce_motion_toggle.button_pressed = bool(sanitized["reduce_motion"])
 	_larger_ui_toggle.button_pressed = bool(
 		sanitized["larger_text_controls"]
+	)
+	_select_input_assist_mode(str(sanitized["input_assist_mode"]))
+	_camera_sensitivity_slider.value = (
+		float(sanitized["camera_sensitivity"]) * 100.0
+	)
+	_camera_auto_align_toggle.button_pressed = bool(
+		sanitized["camera_auto_align"]
+	)
+	_haptics_toggle.button_pressed = bool(sanitized["haptics_enabled"])
+	_left_handed_toggle.button_pressed = bool(
+		sanitized["left_handed_hud"]
 	)
 	_refreshing_preferences = false
 	_update_accessibility_labels()
@@ -227,6 +290,61 @@ func _update_accessibility_labels() -> void:
 	)
 	_larger_ui_toggle.text = "Larger text & controls: %s" % (
 		"On" if _larger_ui_toggle.button_pressed else "Off"
+	)
+	_camera_sensitivity_label.text = "Camera sensitivity: %d%%" % roundi(
+		_camera_sensitivity_slider.value
+	)
+	_camera_auto_align_toggle.text = "Camera auto-align: %s" % (
+		"On" if _camera_auto_align_toggle.button_pressed else "Off"
+	)
+	_haptics_toggle.text = "Haptics: %s" % (
+		"On" if _haptics_toggle.button_pressed else "Off"
+	)
+	_left_handed_toggle.text = "Left-handed HUD: %s" % (
+		"On" if _left_handed_toggle.button_pressed else "Off"
+	)
+
+
+func _populate_input_assist_options() -> void:
+	_input_assist_option.clear()
+	for mode in AccessibilityPresentation.INPUT_ASSIST_MODES:
+		_input_assist_option.add_item(
+			AccessibilityPresentation.input_assist_label(mode)
+		)
+		_input_assist_option.set_item_metadata(
+			_input_assist_option.item_count - 1,
+			mode
+		)
+
+
+func _select_input_assist_mode(mode: String) -> void:
+	for index in _input_assist_option.item_count:
+		if str(_input_assist_option.get_item_metadata(index)) == mode:
+			_input_assist_option.select(index)
+			return
+	_input_assist_option.select(0)
+
+
+func _accessibility_preferences_from_controls() -> Dictionary:
+	return AccessibilityPresentation.sanitize_preferences({
+		"reduce_motion": _reduce_motion_toggle.button_pressed,
+		"larger_text_controls": _larger_ui_toggle.button_pressed,
+		"input_assist_mode": str(
+			_input_assist_option.get_item_metadata(
+				_input_assist_option.selected
+			)
+		),
+		"camera_sensitivity": _camera_sensitivity_slider.value / 100.0,
+		"camera_auto_align": _camera_auto_align_toggle.button_pressed,
+		"haptics_enabled": _haptics_toggle.button_pressed,
+		"left_handed_hud": _left_handed_toggle.button_pressed,
+	})
+
+
+func _play_haptic(duration_msec: int) -> void:
+	AccessibilityPresentation.play_haptic(
+		_haptics_toggle.button_pressed,
+		duration_msec
 	)
 
 

@@ -35,9 +35,23 @@ Accessibility choices are stored independently for each local player profile:
 - **Larger text & controls** modestly increases interface text and raises touch
   actions to at least 64 pixels without changing world scale, collision,
   targeting, or score behavior.
+- **Input timing** offers Standard, Relaxed, and Hold Assist modes. Relaxed
+  mode accepts a wider double-tap window and reduces repeated-tap demand; Hold
+  Assist lets a player hold a target to use the tongue and hold during escape
+  struggles for bounded repeat input.
+- **Camera assistance** provides 50%-150% manual sensitivity, optional
+  movement auto-alignment after a 1.8-second manual-input grace period, and an
+  explicit camera reset.
+- **Haptics** are independently optional, safely no-op outside iOS and Android,
+  and do not depend on audio or Reduce Motion.
+- **Left-handed HUD** mirrors the action-first top bar and bottom instruction
+  card while preserving the same safe-area and touch-target requirements.
 
-Both controls are available from player selection and during play. Older
-version 1 saves that do not contain accessibility data use both choices as off.
+All controls are available from player selection and during play. Tutorial
+targets, rare targets, resistant targets, and dangerous targets use shape or
+glyph cues in addition to color. Completed profiles can replay the tutorial
+without clearing the saved completion flag, score, Field Guide, achievements,
+clues, powers, or secret unlocks. Older saves use behavior-safe defaults.
 
 Each profile also stores three audio controls:
 
@@ -84,24 +98,24 @@ batched draw-only rain streaks, 40 batched draw-only wind ribbons, 10 draw-only
 night-bazaar lanterns, 8 draw-only
 kite-festival decorations, 1 draw-only Animal Control net projectile, 24 capped
 world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
-effect voices. Baseline and separate-room states permit up to 369 game-subtree
+effect voices. Baseline and separate-room states permit up to 376 game-subtree
 nodes,
 41 collision objects, and 111 collision shapes; ordinary pursuit and net attack
-permit 371 nodes, 42 collision objects, and 112 collision shapes; any
-pursuit-trap profile permits 372 nodes with the same physics structure; a
-straight-roadblock pursuit permits 373 nodes, 43 collision objects, and 113
-collision shapes; a staggered-roadblock pursuit permits 374 nodes, 43 collision
+permit 378 nodes, 42 collision objects, and 112 collision shapes; any
+pursuit-trap profile permits 379 nodes with the same physics structure; a
+straight-roadblock pursuit permits 380 nodes, 43 collision objects, and 113
+collision shapes; a staggered-roadblock pursuit permits 381 nodes, 43 collision
 objects, and 114 collision shapes; the reachable staggered-roadblock-and-snare
-gameplay peak permits 375 nodes with the same 43 collision objects and 114
-shapes. The scheduled city detour permits 371 nodes, 42 collision objects, and
-112 shapes by itself, or 374 nodes, 43 collision objects, and 113 shapes with
+gameplay peak permits 382 nodes with the same 43 collision objects and 114
+shapes. The scheduled city detour permits 378 nodes, 42 collision objects, and
+112 shapes by itself, or 381 nodes, 43 collision objects, and 113 shapes with
 one pursuer and profile trap. The performance Belly scenario renders 64
-item rows within 625 nodes without changing the belly's unlimited gameplay
+item rows within 632 nodes without changing the belly's unlimited gameplay
 semantics. The populated Field Guide contains exactly 49 rows.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 579 game-subtree nodes, 100 collision objects, and 172
+structural ceiling is 586 game-subtree nodes, 100 collision objects, and 172
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
@@ -225,19 +239,19 @@ The game records:
 
 ### Save data ownership and migration
 
-Save version 2 uses one local `ConfigFile` and stores no account, advertising,
+Save version 3 uses one local `ConfigFile` and stores no account, advertising,
 analytics, social, contact, or other personal information. Every persistent
 field has one explicit ownership scope:
 
 | Section and key | Scope | Meaning and default |
 |---|---|---|
-| `meta.version` | Device | Save schema version; `2`. |
+| `meta.version` | Device | Save schema version; `3`. |
 | `profiles.<profile_id>` | Profile | Local display name, normalized to at most 24 characters. |
 | `scores.<profile_id>` | Profile | Best completed or in-progress score observed for that profile; `0`. |
 | `device.best_score` | Device | Highest score observed across local profiles; `0`. |
 | `tutorial.<profile_id>` | Profile | Whether the first-time tutorial was completed or skipped; `false`. |
 | `discoveries.<profile_id>` | Profile | Sorted unique known Field Guide target IDs; empty. |
-| `accessibility.<profile_id>` | Profile | Explicit Reduce Motion and Larger Text & Controls booleans; both `false`. |
+| `accessibility.<profile_id>` | Profile | Reduce Motion and Larger Text & Controls (`false`); input assistance (`standard`); camera sensitivity (`1.0`); camera auto-align, haptics, and left-handed HUD (`false`). |
 | `audio.<profile_id>` | Profile | Sanitized master, music/ambience, and effects levels; `0.80`, `0.45`, and `0.80`. |
 | `profile_achievements.<profile_id>` | Profile | Sorted unique known one-time achievement IDs; empty. |
 | `story_clues.<profile_id>` | Profile | Sorted unique known story-clue IDs; empty. |
@@ -251,14 +265,15 @@ districts, generated definitions, and generated-city deltas are session state
 and are never written by Start New Game.
 
 Loading a version 1 save first renames the untouched source file to a timestamped
-`migration-v1-to-v2` backup. The migration then preserves profiles, scores,
-device best, tutorial state, Field Guide discoveries, accessibility, and audio,
-sets `meta.version` to `2`, and leaves every new progression collection empty.
-Unknown future versions and unreadable files retain the existing preservation
-behavior. If the original file cannot be preserved, saving is disabled rather
-than overwriting it.
+`migration-v1-to-v2` backup before migrating through version 3. Loading a
+version 2 save creates a `migration-v2-to-v3` backup. Both paths preserve all
+existing profile and device fields, seed the new accessibility values with
+behavior-safe defaults, and set `meta.version` to `3`. Unknown future versions
+and unreadable files retain the existing preservation behavior. If the
+original file cannot be preserved, saving is disabled rather than overwriting
+it.
 
-Every version 2 load also performs an idempotent derived-progress repair before
+Every version 3 load also performs an idempotent derived-progress repair before
 the menu is shown. It backfills achievements implied by device best score,
 unique Field Guide discoveries, whole-building discoveries, all power
 discoveries, or all event goals;

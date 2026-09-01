@@ -45,9 +45,9 @@ func _run() -> void:
 
 	var store := ProfileStore.new(save_path)
 	_check(
-		ProfileStore.SAVE_VERSION == 2
-		and int(store._config.get_value("meta", "version", 0)) == 2,
-		"Version 1 saves migrate to version 2."
+		ProfileStore.SAVE_VERSION == 3
+		and int(store._config.get_value("meta", "version", 0)) == 3,
+		"Version 1 saves migrate through version 3."
 	)
 	_check(
 		store.get_profile_best("frog_one") == 777
@@ -59,6 +59,11 @@ func _run() -> void:
 		and store.get_accessibility_preferences("frog_one") == {
 			"reduce_motion": true,
 			"larger_text_controls": false,
+			"input_assist_mode": "standard",
+			"camera_sensitivity": 1.0,
+			"camera_auto_align": false,
+			"haptics_enabled": false,
+			"left_handed_hud": false,
 		}
 		and store.get_audio_preferences("frog_one") == {
 			"master": 0.7,
@@ -73,7 +78,7 @@ func _run() -> void:
 		and store.get_story_clues("frog_one").is_empty()
 		and store.get_power_discoveries("frog_one").is_empty()
 		and store.get_secret_unlocks("frog_one").is_empty(),
-		"New version 2 progression fields default to empty."
+		"New progression fields default safely during migration."
 	)
 	_check(
 		_find_backup(save_path, "migration-v1-to-v2"),
@@ -145,8 +150,41 @@ func _run() -> void:
 			== PackedStringArray([
 				ProgressionCatalog.SECRET_FANTASY_DISTRICT,
 			]),
-		"Version 2 progression survives reload with profile and device scope intact."
+		"Version 3 progression survives reload with profile and device scope intact."
 	)
+
+	var version_two_path := "user://progression_smoke_v2.cfg"
+	_remove_save_and_backups(version_two_path)
+	var version_two := ConfigFile.new()
+	version_two.set_value("meta", "version", 2)
+	version_two.set_value("profiles", "frog_three", "Frog Three")
+	version_two.set_value("scores", "frog_three", 456)
+	version_two.set_value(
+		"accessibility",
+		"frog_three",
+		{
+			"reduce_motion": false,
+			"larger_text_controls": true,
+		}
+	)
+	_check(version_two.save(version_two_path) == OK, "Version 2 fixture saves.")
+	var version_two_store := ProfileStore.new(version_two_path)
+	_check(
+		int(version_two_store._config.get_value("meta", "version", 0)) == 3
+		and version_two_store.get_profile_best("frog_three") == 456
+		and version_two_store.get_accessibility_preferences("frog_three") == {
+			"reduce_motion": false,
+			"larger_text_controls": true,
+			"input_assist_mode": "standard",
+			"camera_sensitivity": 1.0,
+			"camera_auto_align": false,
+			"haptics_enabled": false,
+			"left_handed_hud": false,
+		}
+		and _find_backup(version_two_path, "migration-v2-to-v3"),
+		"Version 2 migration preserves progress and seeds safe accessibility defaults."
+	)
+	_remove_save_and_backups(version_two_path)
 
 	var reconciled_discoveries := PackedStringArray()
 	for discovery_id in ProgressionCatalog.generated_archetype_discovery_ids():

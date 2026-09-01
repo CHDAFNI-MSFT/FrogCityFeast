@@ -18,10 +18,7 @@ signal profile_achievement_unlocked(
 signal device_achievement_unlocked(achievement_id: String)
 signal story_clue_found(clue_id: String)
 signal secret_unlocked(secret_id: String)
-signal accessibility_changed(
-	reduce_motion: bool,
-	larger_text_controls: bool
-)
+signal accessibility_changed(preferences: Dictionary)
 signal audio_changed(preferences: Dictionary)
 
 const EDIBLE_SCRIPT := preload("res://src/edible.gd")
@@ -160,6 +157,8 @@ const NET_ESCAPE_DURATION := 3.0
 const NET_ESCAPE_TAPS := 6
 const TARGET_STRUGGLE_TITLE := "It is trying to escape!"
 const TARGET_STRUGGLE_HINT := "Tap rapidly anywhere!"
+const CAMERA_AUTO_ALIGN_DELAY := 1.8
+const CAMERA_AUTO_ALIGN_SPEED := 2.0
 const STOCKROOM_ID := "leap_cafe_stockroom"
 const INTERIOR_SPACE_ORIGIN := Vector2(0, 10000000)
 const STOCKROOM_POSITION := INTERIOR_SPACE_ORIGIN
@@ -425,6 +424,8 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _world_tint: CanvasModulate = $World/WorldTint
 @onready var _top_background: ColorRect = $HUD/Root/TopBackground
 @onready var _top_margin: MarginContainer = %TopMargin
+@onready var _top_bar: HBoxContainer = $HUD/Root/TopMargin/TopBar
+@onready var _profile_slot: Control = $HUD/Root/TopMargin/TopBar/ProfileSlot
 @onready var _profile_label: Label = %ProfileLabel
 @onready var _score_label: Label = %ScoreLabel
 @onready var _growth_label: Label = %GrowthLabel
@@ -433,6 +434,7 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _belly_button: Button = %BellyButton
 @onready var _options_button: Button = %OptionsButton
 @onready var _end_button: Button = %EndButton
+@onready var _top_bar_spacer: Control = $HUD/Root/TopMargin/TopBar/Spacer
 @onready var _status_panel: PanelContainer = $HUD/Root/StatusPanel
 @onready var _status_label: Label = %StatusLabel
 @onready var _control_legend: PanelContainer = $HUD/Root/ControlLegendBackground
@@ -469,6 +471,13 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _options_center: CenterContainer = $HUD/Root/OptionsOverlay/Center
 @onready var _reduce_motion_toggle: CheckButton = %ReduceMotionToggle
 @onready var _larger_ui_toggle: CheckButton = %LargerUiToggle
+@onready var _input_assist_option: OptionButton = %InputAssistOption
+@onready var _camera_sensitivity_label: Label = %CameraSensitivityLabel
+@onready var _camera_sensitivity_slider: HSlider = %CameraSensitivitySlider
+@onready var _camera_auto_align_toggle: CheckButton = %CameraAutoAlignToggle
+@onready var _haptics_toggle: CheckButton = %HapticsToggle
+@onready var _left_handed_toggle: CheckButton = %LeftHandedToggle
+@onready var _reset_camera_button: Button = %ResetCameraButton
 @onready var _master_volume_label: Label = %MasterVolumeLabel
 @onready var _master_volume_slider: HSlider = %MasterVolumeSlider
 @onready var _music_volume_label: Label = %MusicVolumeLabel
@@ -551,6 +560,7 @@ var _struggle_time_left := 0.0
 var _struggle_hit_offset := Vector2.ZERO
 var _net_escape_active := false
 var _net_escape_taps := 0
+var _net_escape_required_taps := NET_ESCAPE_TAPS
 var _net_escape_time_left := 0.0
 var _net_source_position := Vector2.ZERO
 var _active_interior_id := ""
@@ -575,6 +585,13 @@ var _camera_gesture := false
 var _camera_driver_id := -1
 var _mouse_rotating := false
 var _ignore_mouse_until_msec := 0
+var _last_assisted_tap_msec := -1000
+var _last_assisted_tap_position := Vector2.INF
+var _hold_tongue_started_msec := 0
+var _hold_tongue_position := Vector2.INF
+var _assist_hold_active := false
+var _assist_hold_elapsed := 0.0
+var _assist_hold_pointer_id := -2
 var _tutorial: TutorialController
 var _tutorial_original_target_states: Dictionary = {}
 var _discoveries: Dictionary = {}
@@ -592,6 +609,12 @@ var _discovery_banner_time := 0.0
 var _challenge_pulse_times: Dictionary = {}
 var _reduce_motion_enabled := false
 var _larger_text_controls_enabled := false
+var _input_assist_mode := AccessibilityPresentation.INPUT_ASSIST_STANDARD
+var _camera_sensitivity := 1.0
+var _camera_auto_align_enabled := false
+var _camera_manual_override_time := 0.0
+var _haptics_enabled := false
+var _left_handed_hud_enabled := false
 var _accessibility_configured := false
 var _refreshing_accessibility_controls := false
 var _audio_preferences := AudioPreferences.defaults()
@@ -614,8 +637,19 @@ func _ready() -> void:
 	_close_belly_button.pressed.connect(_close_belly)
 	_end_game_guide_button.pressed.connect(_end_game)
 	_close_guide_button.pressed.connect(_close_guide)
+	_populate_input_assist_options()
 	_reduce_motion_toggle.toggled.connect(_on_accessibility_toggled)
 	_larger_ui_toggle.toggled.connect(_on_accessibility_toggled)
+	_camera_auto_align_toggle.toggled.connect(_on_accessibility_toggled)
+	_haptics_toggle.toggled.connect(_on_accessibility_toggled)
+	_left_handed_toggle.toggled.connect(_on_accessibility_toggled)
+	_input_assist_option.item_selected.connect(
+		_on_accessibility_option_selected
+	)
+	_camera_sensitivity_slider.value_changed.connect(
+		_on_camera_sensitivity_changed
+	)
+	_reset_camera_button.pressed.connect(_reset_camera_orientation)
 	for slider in _audio_sliders():
 		slider.value_changed.connect(_on_audio_value_changed)
 		slider.drag_started.connect(_on_audio_drag_started)
@@ -652,6 +686,7 @@ func _ready() -> void:
 	_update_audio_controls()
 	_last_safe_ground_position = _frog.global_position
 	_profile_label.text = _display_name
+	_status_label.text = _default_status_text()
 	_evaluate_persisted_progression()
 	_rebuild_guide()
 	if _tutorial_required:
@@ -702,6 +737,11 @@ func configure(
 		_larger_text_controls_enabled = bool(
 			sanitized["larger_text_controls"]
 		)
+		_input_assist_mode = str(sanitized["input_assist_mode"])
+		_camera_sensitivity = float(sanitized["camera_sensitivity"])
+		_camera_auto_align_enabled = bool(sanitized["camera_auto_align"])
+		_haptics_enabled = bool(sanitized["haptics_enabled"])
+		_left_handed_hud_enabled = bool(sanitized["left_handed_hud"])
 		_accessibility_configured = true
 	if not audio_preferences.is_empty():
 		_audio_preferences = AudioPreferences.sanitize_preferences(
@@ -1245,7 +1285,7 @@ func _process(delta: float) -> void:
 	if _status_time > 0.0:
 		_status_time -= delta
 		if _status_time <= 0.0:
-			_status_label.text = "Tap the ground to move. Double-tap a target to eat it."
+			_status_label.text = _default_status_text()
 
 	if _interior_transition_phase != InteriorTransitionPhase.NONE:
 		_update_interior_transition(delta)
@@ -1270,6 +1310,7 @@ func _process(delta: float) -> void:
 			_fail_struggle()
 	if _net_escape_active:
 		_update_net_escape(delta)
+	_update_input_assistance(delta)
 	_update_crowd_hiding(delta)
 	_update_city_detour(delta)
 	_update_pursuit_roadblock(delta)
@@ -1291,6 +1332,7 @@ func _process(delta: float) -> void:
 			_cancel_frog_navigation()
 			_frog.move_to(pull_end)
 
+	_update_camera_assistance(delta)
 	_update_camera()
 	_update_camera_feedback(delta)
 	_update_tongue_visual(delta)
@@ -1336,16 +1378,25 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 			return
 		if _net_escape_active:
 			_register_net_escape_tap()
+			_begin_assisted_hold(event.index)
 			_active_touches[event.index] = {"blocked": true}
 			return
 		if is_instance_valid(_struggle_target):
 			_register_struggle_tap()
+			_begin_assisted_hold(event.index)
 			_active_touches[event.index] = {"blocked": true}
 			return
 
 		_active_touches[event.index] = {
 			"position": event.position,
+			"start_position": event.position,
 			"blocked": false,
+			"pressed_msec": Time.get_ticks_msec(),
+			"hold_tongue": (
+				_input_assist_mode
+				== AccessibilityPresentation.INPUT_ASSIST_HOLD
+				and _screen_position_has_target(event.position)
+			),
 		}
 		if _active_touches.size() >= 2:
 			_camera_gesture = true
@@ -1358,8 +1409,35 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 		return
 
 	var touch_data: Dictionary = _active_touches.get(event.index, {})
-	if not touch_data.is_empty() and not bool(touch_data.get("blocked", true)) and not event.canceled:
-		_handle_world_tap(event.position)
+	if event.index == _assist_hold_pointer_id:
+		_end_assisted_hold()
+	if (
+		not touch_data.is_empty()
+		and not bool(touch_data.get("blocked", true))
+		and not event.canceled
+	):
+		var held_for_msec := (
+			Time.get_ticks_msec()
+			- int(touch_data.get("pressed_msec", Time.get_ticks_msec()))
+		)
+		var touch_start := touch_data.get(
+			"start_position",
+			event.position
+		) as Vector2
+		if (
+			bool(touch_data.get("hold_tongue", false))
+			and held_for_msec
+			>= AccessibilityPresentation.HOLD_TONGUE_DELAY_MSEC
+			and event.position.distance_to(touch_start) <= 40.0
+		):
+			_try_tongue_at_screen(touch_start)
+		elif _is_relaxed_double_tap(event.position):
+			_try_tongue_at_screen(event.position)
+			_last_assisted_tap_msec = -1000
+			_last_assisted_tap_position = Vector2.INF
+		else:
+			_record_assisted_tap(event.position)
+			_handle_world_tap(event.position)
 	_active_touches.erase(event.index)
 	if _active_touches.size() < 2:
 		_camera_gesture = false
@@ -1379,17 +1457,124 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if event.button_index == MOUSE_BUTTON_RIGHT:
 		_mouse_rotating = event.pressed
 		return
-	if event.button_index != MOUSE_BUTTON_LEFT or not event.pressed:
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if not event.pressed:
+		if _assist_hold_pointer_id == -1:
+			_end_assisted_hold()
+		if (
+			_input_assist_mode
+			== AccessibilityPresentation.INPUT_ASSIST_HOLD
+			and _hold_tongue_position != Vector2.INF
+		):
+			var hold_position := _hold_tongue_position
+			var held_long_enough := (
+				Time.get_ticks_msec() - _hold_tongue_started_msec
+				>= AccessibilityPresentation.HOLD_TONGUE_DELAY_MSEC
+			)
+			_hold_tongue_position = Vector2.INF
+			if (
+				held_long_enough
+				and event.position.distance_to(hold_position) <= 40.0
+			):
+				_try_tongue_at_screen(hold_position)
+			else:
+				_handle_world_tap(event.position)
 		return
 
 	if _net_escape_active:
 		_register_net_escape_tap()
+		_begin_assisted_hold(-1)
 	elif is_instance_valid(_struggle_target):
 		_register_struggle_tap()
-	elif event.double_click:
+		_begin_assisted_hold(-1)
+	elif event.double_click or _is_relaxed_double_tap(event.position):
+		_last_assisted_tap_msec = -1000
+		_last_assisted_tap_position = Vector2.INF
 		_try_tongue_at_screen(event.position)
+	elif (
+		_input_assist_mode == AccessibilityPresentation.INPUT_ASSIST_HOLD
+		and _screen_position_has_target(event.position)
+	):
+		_hold_tongue_started_msec = Time.get_ticks_msec()
+		_hold_tongue_position = event.position
 	else:
+		_record_assisted_tap(event.position)
 		_handle_world_tap(event.position)
+
+
+func _screen_position_has_target(screen_position: Vector2) -> bool:
+	var world_position := _screen_to_world(screen_position)
+	return (
+		_find_target_at(world_position) != null
+		or (
+			is_instance_valid(_pursuer)
+			and _pursuer.hit_test(world_position)
+		)
+	)
+
+
+func _is_relaxed_double_tap(screen_position: Vector2) -> bool:
+	if (
+		_input_assist_mode
+		!= AccessibilityPresentation.INPUT_ASSIST_RELAXED
+		or not _screen_position_has_target(screen_position)
+	):
+		return false
+	return (
+		Time.get_ticks_msec() - _last_assisted_tap_msec
+		<= AccessibilityPresentation.RELAXED_DOUBLE_TAP_WINDOW_MSEC
+		and screen_position.distance_to(_last_assisted_tap_position) <= 72.0
+	)
+
+
+func _record_assisted_tap(screen_position: Vector2) -> void:
+	if (
+		_input_assist_mode
+		!= AccessibilityPresentation.INPUT_ASSIST_RELAXED
+		or not _screen_position_has_target(screen_position)
+	):
+		return
+	_last_assisted_tap_msec = Time.get_ticks_msec()
+	_last_assisted_tap_position = screen_position
+
+
+func _begin_assisted_hold(pointer_id: int) -> void:
+	if _input_assist_mode != AccessibilityPresentation.INPUT_ASSIST_HOLD:
+		return
+	if _assist_hold_active:
+		return
+	_assist_hold_active = true
+	_assist_hold_elapsed = 0.0
+	_assist_hold_pointer_id = pointer_id
+
+
+func _end_assisted_hold() -> void:
+	_assist_hold_active = false
+	_assist_hold_elapsed = 0.0
+	_assist_hold_pointer_id = -2
+
+
+func _update_input_assistance(delta: float) -> void:
+	if (
+		not _assist_hold_active
+		or _input_assist_mode
+		!= AccessibilityPresentation.INPUT_ASSIST_HOLD
+	):
+		return
+	_assist_hold_elapsed += delta
+	while (
+		_assist_hold_elapsed
+		>= AccessibilityPresentation.HOLD_REPEAT_INTERVAL
+	):
+		_assist_hold_elapsed -= AccessibilityPresentation.HOLD_REPEAT_INTERVAL
+		if _net_escape_active:
+			_register_net_escape_tap()
+		elif is_instance_valid(_struggle_target):
+			_register_struggle_tap()
+		else:
+			_end_assisted_hold()
+			break
 
 
 func _handle_world_tap(screen_position: Vector2) -> void:
@@ -1405,7 +1590,14 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 	_pending_interior_transition = ""
 	_pending_interior_portal_id = ""
 	if _find_target_at(world_position) != null:
-		_show_status("Double-tap that target to shoot your tongue.")
+		_show_status(
+			"Hold that target to shoot your tongue."
+			if (
+				_input_assist_mode
+				== AccessibilityPresentation.INPUT_ASSIST_HOLD
+			)
+			else "Double-tap that target to shoot your tongue."
+		)
 		return
 	if (
 		_tutorial != null
@@ -1996,6 +2188,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 		)
 		return
 	AudioDirector.play_effect(FrogAudioDirector.TONGUE_LAUNCH)
+	_play_haptic(8)
 	var shot_offset := world_position - _frog.global_position
 	if shot_offset.length() > _frog.tongue_range():
 		var limited_end := (
@@ -2097,16 +2290,19 @@ func _begin_struggle(target: EdibleTarget, accuracy: float, hit_offset: Vector2)
 	_struggle_taps = 0
 	_struggle_time_left = STRUGGLE_DURATION
 	_struggle_required_taps = (
-		GAMEPLAY_TUNING_SCRIPT.struggle_taps_required(
-			target.taps_required,
-			target.size_tier,
-			_growth_tier
+		AccessibilityPresentation.assisted_struggle_taps(
+			GAMEPLAY_TUNING_SCRIPT.struggle_taps_required(
+				target.taps_required,
+				target.size_tier,
+				_growth_tier
+			),
+			_input_assist_mode
 		)
 	)
 	_struggle_progress.max_value = _struggle_required_taps
 	_struggle_progress.value = 0
 	_struggle_title.text = TARGET_STRUGGLE_TITLE
-	_struggle_hint.text = TARGET_STRUGGLE_HINT
+	_struggle_hint.text = _struggle_input_hint()
 	_struggle_panel.visible = true
 	_cancel_frog_navigation()
 	_frog.movement_enabled = false
@@ -2119,17 +2315,24 @@ func _register_struggle_tap() -> void:
 	if not is_instance_valid(_struggle_target):
 		return
 	AudioDirector.play_effect(FrogAudioDirector.STRUGGLE_TAP)
+	_play_haptic(12)
 	_struggle_taps += 1
 	_struggle_kick = 1.0
 	_struggle_target.pulse_feedback(_motion_scale)
 	_struggle_progress.value = _struggle_taps
 	if _struggle_taps >= _struggle_required_taps:
-		var captured_target := _struggle_target
-		var captured_accuracy := _struggle_accuracy
-		_challenges.record_struggle_win()
-		_update_challenge_hud()
-		_clear_struggle()
-		_swallow_target(captured_target, captured_accuracy)
+		_complete_struggle()
+
+
+func _complete_struggle() -> void:
+	if not is_instance_valid(_struggle_target):
+		return
+	var captured_target := _struggle_target
+	var captured_accuracy := _struggle_accuracy
+	_challenges.record_struggle_win()
+	_update_challenge_hud()
+	_clear_struggle()
+	_swallow_target(captured_target, captured_accuracy)
 
 
 func _fail_struggle() -> void:
@@ -2208,6 +2411,7 @@ func _clear_struggle() -> void:
 		_struggle_target.set_latched(false)
 	_struggle_target = null
 	_struggle_required_taps = 0
+	_end_assisted_hold()
 	_struggle_panel.visible = false
 	_frog.movement_enabled = true
 	_start_tongue_retract()
@@ -2244,6 +2448,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	_targets.erase(target)
 	target.queue_free()
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
+	_play_haptic(24)
 	_frog.celebrate_swallow()
 	_effects.emit_swallow(effect_position, effect_color, swallowed_building)
 	if swallowed_building or swallowed_building_part:
@@ -2399,6 +2604,8 @@ func _reset_touch_input_state() -> void:
 	_camera_gesture = false
 	_camera_driver_id = -1
 	_mouse_rotating = false
+	_hold_tongue_position = Vector2.INF
+	_end_assisted_hold()
 
 
 func _clear_camera_shake() -> void:
@@ -2983,6 +3190,7 @@ func _digest_item(index: int) -> void:
 	)
 	_belly.remove_at(index)
 	AudioDirector.play_effect(FrogAudioDirector.DIGEST)
+	_play_haptic(32)
 	var points := item.score_value()
 	_score += points
 	var growth_gain := _growth_value_for_item(item)
@@ -3876,7 +4084,7 @@ func _rotate_camera(
 		and not _tutorial.allows_camera_rotation()
 	):
 		return
-	var radians := screen_delta_x * 0.006
+	var radians := screen_delta_x * 0.006 * _camera_sensitivity
 	if is_zero_approx(radians):
 		return
 	_camera.rotation -= radians
@@ -3893,12 +4101,55 @@ func _rotate_camera(
 				-active_room.camera_rotation_limit,
 				active_room.camera_rotation_limit
 			)
+	else:
+		_city_camera_rotation = _camera.rotation
+	_camera_manual_override_time = CAMERA_AUTO_ALIGN_DELAY
 	manual_camera_rotated.emit(absf(radians))
 	_touch_feedback.show_camera(
 		get_viewport_rect().size / 2.0
 		if screen_position == Vector2.INF
 		else screen_position
 	)
+
+
+func _update_camera_assistance(delta: float) -> void:
+	_camera_manual_override_time = maxf(
+		0.0,
+		_camera_manual_override_time - delta
+	)
+	if (
+		not _camera_auto_align_enabled
+		or _camera_manual_override_time > 0.0
+		or not _active_interior_id.is_empty()
+		or _frog.velocity.length_squared() < 2500.0
+		or (
+			_tutorial != null
+			and _tutorial.active
+			and not _tutorial.allows_camera_rotation()
+		)
+	):
+		return
+	var target_rotation := wrapf(
+		_frog.velocity.angle() + PI * 0.5,
+		-PI,
+		PI
+	)
+	_camera.rotation = lerp_angle(
+		_camera.rotation,
+		target_rotation,
+		clampf(delta * CAMERA_AUTO_ALIGN_SPEED, 0.0, 1.0)
+	)
+	_city_camera_rotation = _camera.rotation
+
+
+func _reset_camera_orientation() -> void:
+	_camera.rotation = 0.0
+	_city_camera_rotation = 0.0
+	_camera_manual_override_time = CAMERA_AUTO_ALIGN_DELAY
+	_touch_feedback.show_camera(get_viewport_rect().size * 0.5)
+	_show_status("Camera reset to the city map.")
+	_play_haptic(20)
+	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _update_camera() -> void:
@@ -4047,6 +4298,7 @@ func _apply_damage(
 	_effects.emit_damage(_frog.global_position)
 	_trigger_camera_shake(8.0, 0.24)
 	AudioDirector.play_effect(FrogAudioDirector.DAMAGE)
+	_play_haptic(70)
 	score_changed.emit(_score)
 	_update_hud()
 	_show_status(message)
@@ -4724,12 +4976,18 @@ func _on_pursuer_netted(source_position: Vector2) -> void:
 		_cancel_pull()
 	_net_escape_active = true
 	_net_escape_taps = 0
+	_net_escape_required_taps = (
+		AccessibilityPresentation.assisted_struggle_taps(
+			NET_ESCAPE_TAPS,
+			_input_assist_mode
+		)
+	)
 	_net_escape_time_left = NET_ESCAPE_DURATION
 	_net_source_position = source_position
-	_struggle_progress.max_value = NET_ESCAPE_TAPS
+	_struggle_progress.max_value = _net_escape_required_taps
 	_struggle_progress.value = 0
 	_struggle_title.text = "Caught in Animal Control's net!"
-	_struggle_hint.text = "Tap rapidly anywhere to break free!"
+	_struggle_hint.text = _struggle_input_hint()
 	_struggle_panel.visible = true
 	_cancel_frog_navigation()
 	_frog.movement_enabled = false
@@ -4749,13 +5007,20 @@ func _register_net_escape_tap() -> void:
 	if not _net_escape_active:
 		return
 	AudioDirector.play_effect(FrogAudioDirector.STRUGGLE_TAP)
+	_play_haptic(12)
 	_net_escape_taps += 1
 	_struggle_progress.value = _net_escape_taps
 	if is_instance_valid(_pursuer):
 		_pursuer.pulse_net()
-	if _net_escape_taps >= NET_ESCAPE_TAPS:
-		_clear_net_escape()
-		_show_status("You tore through Animal Control's net!")
+	if _net_escape_taps >= _net_escape_required_taps:
+		_complete_net_escape()
+
+
+func _complete_net_escape() -> void:
+	if not _net_escape_active:
+		return
+	_clear_net_escape()
+	_show_status("You tore through Animal Control's net!")
 
 
 func _fail_net_escape() -> void:
@@ -4776,7 +5041,9 @@ func _fail_net_escape() -> void:
 func _clear_net_escape() -> void:
 	_net_escape_active = false
 	_net_escape_taps = 0
+	_net_escape_required_taps = NET_ESCAPE_TAPS
 	_net_escape_time_left = 0.0
+	_end_assisted_hold()
 	_net_source_position = Vector2.ZERO
 	_struggle_panel.visible = false
 	_struggle_title.text = TARGET_STRUGGLE_TITLE
@@ -4850,6 +5117,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	_clear_roadblock()
 	_clear_pursuit_trap()
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
+	_play_haptic(36)
 	_frog.celebrate_swallow()
 	_effects.emit_swallow(effect_position, item.target_color)
 	_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
@@ -5488,29 +5756,147 @@ func _touch_over_hud_action(screen_position: Vector2) -> bool:
 func _on_accessibility_toggled(_pressed: bool) -> void:
 	if _refreshing_accessibility_controls:
 		return
-	_reduce_motion_enabled = _reduce_motion_toggle.button_pressed
-	_larger_text_controls_enabled = _larger_ui_toggle.button_pressed
+	var preferences := _accessibility_preferences_from_controls()
+	var previous_input_assist_mode := _input_assist_mode
+	_reduce_motion_enabled = bool(preferences["reduce_motion"])
+	_larger_text_controls_enabled = bool(
+		preferences["larger_text_controls"]
+	)
+	_input_assist_mode = str(preferences["input_assist_mode"])
+	_camera_sensitivity = float(preferences["camera_sensitivity"])
+	_camera_auto_align_enabled = bool(preferences["camera_auto_align"])
+	_haptics_enabled = bool(preferences["haptics_enabled"])
+	_left_handed_hud_enabled = bool(preferences["left_handed_hud"])
+	if _input_assist_mode != previous_input_assist_mode:
+		_refresh_active_input_assistance()
 	_apply_motion_scale(0.0 if _reduce_motion_enabled else 1.0)
 	_apply_accessibility_presentation()
+	_apply_safe_area()
 	_update_accessibility_controls()
-	accessibility_changed.emit(
-		_reduce_motion_enabled,
-		_larger_text_controls_enabled
-	)
+	accessibility_changed.emit(preferences)
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
+	_play_haptic(16)
+
+
+func _on_accessibility_option_selected(_index: int) -> void:
+	_on_accessibility_toggled(false)
+
+
+func _on_camera_sensitivity_changed(_value: float) -> void:
+	_on_accessibility_toggled(false)
+
+
+func _refresh_active_input_assistance() -> void:
+	_end_assisted_hold()
+	_struggle_hint.text = _struggle_input_hint()
+	if is_instance_valid(_struggle_target):
+		_struggle_required_taps = (
+			AccessibilityPresentation.assisted_struggle_taps(
+				GAMEPLAY_TUNING_SCRIPT.struggle_taps_required(
+					_struggle_target.taps_required,
+					_struggle_target.size_tier,
+					_growth_tier
+				),
+				_input_assist_mode
+			)
+		)
+		_struggle_progress.max_value = _struggle_required_taps
+		_struggle_progress.value = _struggle_taps
+		if _struggle_taps >= _struggle_required_taps:
+			_complete_struggle()
+	elif _net_escape_active:
+		_net_escape_required_taps = (
+			AccessibilityPresentation.assisted_struggle_taps(
+				NET_ESCAPE_TAPS,
+				_input_assist_mode
+			)
+		)
+		_struggle_progress.max_value = _net_escape_required_taps
+		_struggle_progress.value = _net_escape_taps
+		if _net_escape_taps >= _net_escape_required_taps:
+			_complete_net_escape()
 
 
 func _update_accessibility_controls() -> void:
 	_refreshing_accessibility_controls = true
 	_reduce_motion_toggle.button_pressed = _reduce_motion_enabled
 	_larger_ui_toggle.button_pressed = _larger_text_controls_enabled
+	_select_input_assist_mode(_input_assist_mode)
+	_camera_sensitivity_slider.value = _camera_sensitivity * 100.0
+	_camera_auto_align_toggle.button_pressed = _camera_auto_align_enabled
+	_haptics_toggle.button_pressed = _haptics_enabled
+	_left_handed_toggle.button_pressed = _left_handed_hud_enabled
 	_reduce_motion_toggle.text = "Reduce motion: %s" % (
 		"On" if _reduce_motion_enabled else "Off"
 	)
 	_larger_ui_toggle.text = "Larger text & controls: %s" % (
 		"On" if _larger_text_controls_enabled else "Off"
 	)
+	_camera_sensitivity_label.text = "Camera sensitivity: %d%%" % roundi(
+		_camera_sensitivity * 100.0
+	)
+	_camera_auto_align_toggle.text = "Camera auto-align: %s" % (
+		"On" if _camera_auto_align_enabled else "Off"
+	)
+	_haptics_toggle.text = "Haptics: %s" % (
+		"On" if _haptics_enabled else "Off"
+	)
+	_left_handed_toggle.text = "Left-handed HUD: %s" % (
+		"On" if _left_handed_hud_enabled else "Off"
+	)
+	match _input_assist_mode:
+		AccessibilityPresentation.INPUT_ASSIST_RELAXED:
+			_instructions_label.text = (
+				"Tap to move. Double-tap targets with extra time. "
+				+ "Turn with two fingers. Tap to struggle."
+			)
+		AccessibilityPresentation.INPUT_ASSIST_HOLD:
+			_instructions_label.text = (
+				"Tap to move. Hold a target for tongue. "
+				+ "Turn with two fingers. Hold to struggle."
+			)
+		_:
+			_instructions_label.text = (
+				"Tap to move. Double-tap a target to eat. "
+				+ "Turn with two fingers."
+			)
 	_refreshing_accessibility_controls = false
+
+
+func _populate_input_assist_options() -> void:
+	_input_assist_option.clear()
+	for mode in AccessibilityPresentation.INPUT_ASSIST_MODES:
+		_input_assist_option.add_item(
+			AccessibilityPresentation.input_assist_label(mode)
+		)
+		_input_assist_option.set_item_metadata(
+			_input_assist_option.item_count - 1,
+			mode
+		)
+
+
+func _select_input_assist_mode(mode: String) -> void:
+	for index in _input_assist_option.item_count:
+		if str(_input_assist_option.get_item_metadata(index)) == mode:
+			_input_assist_option.select(index)
+			return
+	_input_assist_option.select(0)
+
+
+func _accessibility_preferences_from_controls() -> Dictionary:
+	return AccessibilityPresentation.sanitize_preferences({
+		"reduce_motion": _reduce_motion_toggle.button_pressed,
+		"larger_text_controls": _larger_ui_toggle.button_pressed,
+		"input_assist_mode": str(
+			_input_assist_option.get_item_metadata(
+				_input_assist_option.selected
+			)
+		),
+		"camera_sensitivity": _camera_sensitivity_slider.value / 100.0,
+		"camera_auto_align": _camera_auto_align_toggle.button_pressed,
+		"haptics_enabled": _haptics_toggle.button_pressed,
+		"left_handed_hud": _left_handed_toggle.button_pressed,
+	})
 
 
 func _on_audio_drag_started() -> void:
@@ -5592,6 +5978,65 @@ func _apply_accessibility_presentation() -> void:
 		$HUD/Root,
 		_larger_text_controls_enabled
 	)
+	_apply_hud_handedness()
+
+
+func _apply_hud_handedness() -> void:
+	var ordered_nodes: Array[Control]
+	if _left_handed_hud_enabled:
+		ordered_nodes = [
+			_guide_button,
+			_belly_button,
+			_options_button,
+			_end_button,
+			_top_bar_spacer,
+			_profile_slot,
+			_score_label,
+			_growth_label,
+			_power_label,
+		]
+	else:
+		ordered_nodes = [
+			_profile_slot,
+			_score_label,
+			_growth_label,
+			_power_label,
+			_top_bar_spacer,
+			_guide_button,
+			_belly_button,
+			_options_button,
+			_end_button,
+		]
+	for index in ordered_nodes.size():
+		_top_bar.move_child(ordered_nodes[index], index)
+
+
+func _play_haptic(duration_msec: int) -> void:
+	AccessibilityPresentation.play_haptic(
+		_haptics_enabled,
+		duration_msec
+	)
+
+
+func _default_status_text() -> String:
+	match _input_assist_mode:
+		AccessibilityPresentation.INPUT_ASSIST_RELAXED:
+			return "Tap to move. Double-tap targets with extra time to eat."
+		AccessibilityPresentation.INPUT_ASSIST_HOLD:
+			return "Tap to move. Press and hold a target to eat."
+		_:
+			return "Tap the ground to move. Double-tap a target to eat it."
+
+
+func _struggle_input_hint() -> String:
+	return (
+		"Press and hold anywhere!"
+		if (
+			_input_assist_mode
+			== AccessibilityPresentation.INPUT_ASSIST_HOLD
+		)
+		else TARGET_STRUGGLE_HINT
+	)
 
 
 func _apply_safe_area() -> void:
@@ -5632,18 +6077,40 @@ func apply_safe_area_insets(insets: Vector4) -> void:
 	_discovery_banner.offset_top = 162.0 + top
 	_discovery_banner.offset_bottom = 222.0 + top
 
-	_control_legend.offset_left = -500.0 - right
-	_control_legend.offset_top = -104.0 - bottom
-	_control_legend.offset_right = -22.0 - right
-	_control_legend.offset_bottom = -18.0 - bottom
-	_instructions_label.offset_left = -488.0 - right
-	_instructions_label.offset_top = -96.0 - bottom
-	_instructions_label.offset_right = -34.0 - right
-	_instructions_label.offset_bottom = -26.0 - bottom
-	_tutorial_panel.offset_left = -610.0 - right
-	_tutorial_panel.offset_top = -258.0 - bottom
-	_tutorial_panel.offset_right = -24.0 - right
-	_tutorial_panel.offset_bottom = -24.0 - bottom
+	if _left_handed_hud_enabled:
+		_control_legend.anchor_left = 0.0
+		_control_legend.anchor_right = 0.0
+		_control_legend.offset_left = 22.0 + left
+		_control_legend.offset_top = -104.0 - bottom
+		_control_legend.offset_right = 500.0 + left
+		_control_legend.offset_bottom = -18.0 - bottom
+		_instructions_label.offset_left = 34.0 + left
+		_instructions_label.offset_top = -96.0 - bottom
+		_instructions_label.offset_right = 488.0 + left
+		_instructions_label.offset_bottom = -26.0 - bottom
+		_tutorial_panel.anchor_left = 0.0
+		_tutorial_panel.anchor_right = 0.0
+		_tutorial_panel.offset_left = 24.0 + left
+		_tutorial_panel.offset_top = -258.0 - bottom
+		_tutorial_panel.offset_right = 610.0 + left
+		_tutorial_panel.offset_bottom = -24.0 - bottom
+	else:
+		_control_legend.anchor_left = 1.0
+		_control_legend.anchor_right = 1.0
+		_control_legend.offset_left = -500.0 - right
+		_control_legend.offset_top = -104.0 - bottom
+		_control_legend.offset_right = -22.0 - right
+		_control_legend.offset_bottom = -18.0 - bottom
+		_instructions_label.offset_left = -488.0 - right
+		_instructions_label.offset_top = -96.0 - bottom
+		_instructions_label.offset_right = -34.0 - right
+		_instructions_label.offset_bottom = -26.0 - bottom
+		_tutorial_panel.anchor_left = 1.0
+		_tutorial_panel.anchor_right = 1.0
+		_tutorial_panel.offset_left = -610.0 - right
+		_tutorial_panel.offset_top = -258.0 - bottom
+		_tutorial_panel.offset_right = -24.0 - right
+		_tutorial_panel.offset_bottom = -24.0 - bottom
 
 	var safe_centers: Array[CenterContainer] = [
 		_belly_center,
@@ -6072,7 +6539,7 @@ func _on_tutorial_step_changed(
 	target_id: String,
 	show_marker: bool
 ) -> void:
-	_tutorial_panel.visible = true
+	_tutorial_panel.visible = not _options_overlay.visible
 	_tutorial_progress.text = "Tutorial %d / %d" % [step_index + 1, step_count]
 	_tutorial_title.text = title
 	_tutorial_instruction.text = instruction

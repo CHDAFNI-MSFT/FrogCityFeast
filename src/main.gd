@@ -23,12 +23,16 @@ func _show_menu() -> void:
 	menu.activate_audio_context()
 
 
-func _start_game(profile_id: String, display_name: String) -> void:
+func _start_game(
+	profile_id: String,
+	display_name: String,
+	force_tutorial: bool = false
+) -> void:
 	var game := GAME_SCENE.instantiate() as FrogGame
 	game.configure(
 		profile_id,
 		display_name,
-		not _profile_store.is_tutorial_complete(profile_id),
+		force_tutorial or not _profile_store.is_tutorial_complete(profile_id),
 		_profile_store.get_discoveries(profile_id),
 		_profile_store.get_accessibility_preferences(profile_id),
 		_profile_store.get_audio_preferences(profile_id),
@@ -79,14 +83,12 @@ func _on_target_discovered(target_id: String, profile_id: String) -> void:
 
 
 func _on_accessibility_changed(
-	reduce_motion: bool,
-	larger_text_controls: bool,
+	preferences: Dictionary,
 	profile_id: String
 ) -> void:
 	_profile_store.set_accessibility_preferences(
 		profile_id,
-		reduce_motion,
-		larger_text_controls
+		preferences
 	)
 
 

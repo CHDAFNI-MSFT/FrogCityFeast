@@ -5,16 +5,38 @@ const NORMAL_TOUCH_HEIGHT := 56.0
 const LARGE_TOUCH_HEIGHT := 64.0
 const LARGE_FONT_SCALE := 1.14
 const MIN_SAFE_CONTENT_SIZE := Vector2(640, 480)
+const INPUT_ASSIST_STANDARD := "standard"
+const INPUT_ASSIST_RELAXED := "relaxed"
+const INPUT_ASSIST_HOLD := "hold"
+const INPUT_ASSIST_MODES := [
+	INPUT_ASSIST_STANDARD,
+	INPUT_ASSIST_RELAXED,
+	INPUT_ASSIST_HOLD,
+]
+const CAMERA_SENSITIVITY_MIN := 0.5
+const CAMERA_SENSITIVITY_MAX := 1.5
+const RELAXED_DOUBLE_TAP_WINDOW_MSEC := 520
+const HOLD_TONGUE_DELAY_MSEC := 420
+const HOLD_REPEAT_INTERVAL := 0.22
 
 const META_BASE_FONT_SIZE := "accessibility_base_font_size"
 const META_BASE_MINIMUM_SIZE := "accessibility_base_minimum_size"
 
 
-static func sanitize_preferences(value: Variant) -> Dictionary:
-	var preferences := {
+static func defaults() -> Dictionary:
+	return {
 		"reduce_motion": false,
 		"larger_text_controls": false,
+		"input_assist_mode": INPUT_ASSIST_STANDARD,
+		"camera_sensitivity": 1.0,
+		"camera_auto_align": false,
+		"haptics_enabled": false,
+		"left_handed_hud": false,
 	}
+
+
+static func sanitize_preferences(value: Variant) -> Dictionary:
+	var preferences := defaults()
 	if value is not Dictionary:
 		return preferences
 	var stored := value as Dictionary
@@ -22,7 +44,52 @@ static func sanitize_preferences(value: Variant) -> Dictionary:
 		preferences["reduce_motion"] = stored["reduce_motion"]
 	if stored.get("larger_text_controls") is bool:
 		preferences["larger_text_controls"] = stored["larger_text_controls"]
+	var input_assist_mode := str(
+		stored.get("input_assist_mode", INPUT_ASSIST_STANDARD)
+	)
+	if INPUT_ASSIST_MODES.has(input_assist_mode):
+		preferences["input_assist_mode"] = input_assist_mode
+	var camera_sensitivity: Variant = stored.get("camera_sensitivity", 1.0)
+	if camera_sensitivity is float or camera_sensitivity is int:
+		preferences["camera_sensitivity"] = clampf(
+			float(camera_sensitivity),
+			CAMERA_SENSITIVITY_MIN,
+			CAMERA_SENSITIVITY_MAX
+		)
+	for key in [
+		"camera_auto_align",
+		"haptics_enabled",
+		"left_handed_hud",
+	]:
+		if stored.get(key) is bool:
+			preferences[key] = stored[key]
 	return preferences
+
+
+static func input_assist_label(mode: String) -> String:
+	match mode:
+		INPUT_ASSIST_RELAXED:
+			return "Input timing: Relaxed"
+		INPUT_ASSIST_HOLD:
+			return "Input timing: Hold assist"
+		_:
+			return "Input timing: Standard"
+
+
+static func assisted_struggle_taps(required_taps: int, mode: String) -> int:
+	match mode:
+		INPUT_ASSIST_RELAXED:
+			return maxi(1, ceili(float(required_taps) * 0.8))
+		INPUT_ASSIST_HOLD:
+			return maxi(1, ceili(float(required_taps) * 0.75))
+		_:
+			return maxi(1, required_taps)
+
+
+static func play_haptic(enabled: bool, duration_msec: int) -> void:
+	if not enabled or OS.get_name() not in ["Android", "iOS"]:
+		return
+	Input.vibrate_handheld(maxi(1, duration_msec))
 
 
 static func safe_area_insets(

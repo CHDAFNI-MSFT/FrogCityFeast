@@ -627,7 +627,7 @@ grow_vertical = 2
 mouse_filter = 1
 
 [node name="Panel" type="PanelContainer" parent="HUD/Root/OptionsOverlay/Center"]
-custom_minimum_size = Vector2(960, 650)
+custom_minimum_size = Vector2(1160, 650)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBox_modal")
 
@@ -657,10 +657,10 @@ horizontal_alignment = 1
 
 [node name="Columns" type="HBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 18
 
 [node name="AccessibilityColumn" type="VBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns"]
-custom_minimum_size = Vector2(420, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
@@ -699,11 +699,72 @@ theme_override_font_sizes/font_size = 18
 text = "Increases interface text and touch-target height without changing the game world."
 autowrap_mode = 2
 
+[node name="HapticsToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Haptics: Off"
+
+[node name="LeftHandedToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AccessibilityColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Left-handed HUD: Off"
+
 [node name="ColumnSeparator" type="VSeparator" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns"]
 layout_mode = 2
 
+[node name="AssistanceColumn" type="VBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns"]
+custom_minimum_size = Vector2(330, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="AssistanceHeading" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AssistanceColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Control assistance"
+
+[node name="InputAssistOption" type="OptionButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AssistanceColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+
+[node name="CameraSensitivityLabel" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AssistanceColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Camera sensitivity: 100%"
+
+[node name="CameraSensitivitySlider" type="HSlider" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AssistanceColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+min_value = 50.0
+max_value = 150.0
+step = 5.0
+value = 100.0
+
+[node name="CameraAutoAlignToggle" type="CheckButton" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AssistanceColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Camera auto-align: Off"
+
+[node name="ResetCameraButton" type="Button" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AssistanceColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Reset camera now"
+
 [node name="AudioColumn" type="VBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns"]
-custom_minimum_size = Vector2(420, 0)
+custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
@@ -763,20 +824,11 @@ theme_override_font_sizes/font_size = 17
 text = "Music also controls the gentle day and night city ambience."
 autowrap_mode = 2
 
-[node name="Separator" type="HSeparator" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
+[node name="Controls" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Columns/AssistanceColumn"]
 layout_mode = 2
-
-[node name="ControlsTitle" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.65, 1, 0.7, 1)
-theme_override_font_sizes/font_size = 22
-text = "Touch controls"
-
-[node name="Controls" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 19
-text = "MOVE: tap open ground    TONGUE: double-tap a target\nCAMERA: hold one finger and drag a second    STRUGGLE: tap rapidly"
-horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.77, 0.86, 0.84, 1)
+theme_override_font_sizes/font_size = 17
+text = "Move: tap open ground\nTongue: double-tap or hold a target\nCamera: drag a second finger\nStruggle: tap or hold anywhere"
 autowrap_mode = 2
 
 [node name="Spacer" type="Control" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]

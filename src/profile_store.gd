@@ -2,7 +2,7 @@ class_name ProfileStore
 extends RefCounted
 
 const SAVE_PATH := "user://frog_city_scores.cfg"
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const DEFAULT_PROFILE_NAME := "Player 1"
 
 var _config := ConfigFile.new()
@@ -50,6 +50,11 @@ func ensure_profile(requested_name: String) -> String:
 
 	_config.set_value("profiles", profile_id, display_name)
 	_config.set_value("scores", profile_id, 0)
+	_config.set_value(
+		"accessibility",
+		profile_id,
+		AccessibilityPresentation.defaults()
+	)
 	_save()
 	return profile_id
 
@@ -194,19 +199,15 @@ func get_audio_preferences(profile_id: String) -> Dictionary:
 
 func set_accessibility_preferences(
 	profile_id: String,
-	reduce_motion: bool,
-	larger_text_controls: bool
+	preferences: Dictionary
 ) -> void:
 	if not _config.has_section_key("profiles", profile_id):
 		push_warning("Cannot save accessibility preferences for an unknown profile.")
 		return
-	var preferences := {
-		"reduce_motion": reduce_motion,
-		"larger_text_controls": larger_text_controls,
-	}
-	if get_accessibility_preferences(profile_id) == preferences:
+	var sanitized := AccessibilityPresentation.sanitize_preferences(preferences)
+	if get_accessibility_preferences(profile_id) == sanitized:
 		return
-	_config.set_value("accessibility", profile_id, preferences)
+	_config.set_value("accessibility", profile_id, sanitized)
 	_save()
 
 
@@ -317,14 +318,34 @@ func _load() -> void:
 
 
 func _migrate_to_current(version: int) -> bool:
+	var backup_reason := (
+		"migration-v1-to-v2"
+		if version == 1
+		else "migration-v2-to-v3"
+	)
+	if not _backup_existing_save(backup_reason):
+		_save_enabled = false
+		return false
 	var next_version := version
 	while next_version < SAVE_VERSION:
 		match next_version:
 			1:
-				if not _backup_existing_save("migration-v1-to-v2"):
-					_save_enabled = false
-					return false
 				next_version = 2
+				_config.set_value("meta", "version", next_version)
+			2:
+				for profile_id in _config.get_section_keys("profiles"):
+					_config.set_value(
+						"accessibility",
+						profile_id,
+						AccessibilityPresentation.sanitize_preferences(
+							_config.get_value(
+								"accessibility",
+								profile_id,
+								{}
+							)
+						)
+					)
+				next_version = 3
 				_config.set_value("meta", "version", next_version)
 			_:
 				push_warning(

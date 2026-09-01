@@ -384,8 +384,14 @@ func _run() -> void:
 	var second_profile := store.ensure_profile("Frog Two")
 	store.update_high_scores(first_profile, 120)
 	store.update_high_scores(second_profile, 80)
-	store.set_accessibility_preferences(first_profile, true, false)
-	store.set_accessibility_preferences(second_profile, false, true)
+	store.set_accessibility_preferences(first_profile, {
+		"reduce_motion": true,
+		"larger_text_controls": false,
+	})
+	store.set_accessibility_preferences(second_profile, {
+		"reduce_motion": false,
+		"larger_text_controls": true,
+	})
 	_check(
 		store.mark_discovered(first_profile, "street_donut"),
 		"A new discovery is persisted once."
@@ -414,17 +420,27 @@ func _run() -> void:
 		reloaded_store.get_accessibility_preferences(first_profile) == {
 			"reduce_motion": true,
 			"larger_text_controls": false,
+			"input_assist_mode": "standard",
+			"camera_sensitivity": 1.0,
+			"camera_auto_align": false,
+			"haptics_enabled": false,
+			"left_handed_hud": false,
 		}
 		and reloaded_store.get_accessibility_preferences(second_profile) == {
 			"reduce_motion": false,
 			"larger_text_controls": true,
+			"input_assist_mode": "standard",
+			"camera_sensitivity": 1.0,
+			"camera_auto_align": false,
+			"haptics_enabled": false,
+			"left_handed_hud": false,
 		},
 		"Accessibility preferences survive reload and remain profile-specific."
 	)
 	_check(
 		reloaded_store.is_tutorial_complete(first_profile)
-		and ProfileStore.SAVE_VERSION == 2,
-		"Discovery persistence preserves tutorial state in save version 2."
+		and ProfileStore.SAVE_VERSION == 3,
+		"Discovery persistence preserves tutorial state in save version 3."
 	)
 	var menu_scene := load("res://scenes/menu.tscn") as PackedScene
 	var menu := menu_scene.instantiate() as MainMenu
@@ -474,7 +490,11 @@ func _run() -> void:
 		"Changing a new player's accessibility draft does not create a profile."
 	)
 	var started_profile := {"id": ""}
-	menu.start_requested.connect(func(profile_id: String, _name: String) -> void:
+	menu.start_requested.connect(func(
+		profile_id: String,
+		_name: String,
+		_force_tutorial: bool
+	) -> void:
 		started_profile["id"] = profile_id
 	)
 	menu._on_start_pressed()
@@ -485,6 +505,11 @@ func _run() -> void:
 		) == {
 			"reduce_motion": true,
 			"larger_text_controls": true,
+			"input_assist_mode": "standard",
+			"camera_sensitivity": 1.0,
+			"camera_auto_align": false,
+			"haptics_enabled": false,
+			"left_handed_hud": false,
 		},
 		"New-player accessibility choices are saved before gameplay starts."
 	)
@@ -530,6 +555,11 @@ func _run() -> void:
 		and legacy_store.get_accessibility_preferences("legacy_player") == {
 			"reduce_motion": false,
 			"larger_text_controls": false,
+			"input_assist_mode": "standard",
+			"camera_sensitivity": 1.0,
+			"camera_auto_align": false,
+			"haptics_enabled": false,
+			"left_handed_hud": false,
 		},
 		"Version 1 saves use deterministic defaults for missing or malformed optional data."
 	)
@@ -625,8 +655,35 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		}) == {
 			"reduce_motion": false,
 			"larger_text_controls": false,
+			"input_assist_mode": "standard",
+			"camera_sensitivity": 1.0,
+			"camera_auto_align": false,
+			"haptics_enabled": false,
+			"left_handed_hud": false,
 		},
-		"Accessibility settings accept only explicit boolean save values."
+		"Accessibility settings reject malformed values and use safe defaults."
+	)
+	_check(
+		AccessibilityPresentation.sanitize_preferences({
+			"input_assist_mode": "hold",
+			"camera_sensitivity": 2.0,
+			"camera_auto_align": true,
+			"haptics_enabled": true,
+			"left_handed_hud": true,
+		}) == {
+			"reduce_motion": false,
+			"larger_text_controls": false,
+			"input_assist_mode": "hold",
+			"camera_sensitivity": 1.5,
+			"camera_auto_align": true,
+			"haptics_enabled": true,
+			"left_handed_hud": true,
+		}
+		and AccessibilityPresentation.assisted_struggle_taps(10, "relaxed")
+		== 8
+		and AccessibilityPresentation.assisted_struggle_taps(10, "hold")
+		== 8,
+		"Input, camera, haptic, and handedness settings sanitize deterministically."
 	)
 	var safe_insets := AccessibilityPresentation.safe_area_insets(
 		Rect2(124, 88, 1232, 920),
@@ -707,15 +764,17 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	game._update_camera_feedback(0.016)
 	var accessibility_events: Array[Dictionary] = []
 	game.accessibility_changed.connect(
-		func(reduce_motion: bool, larger_text_controls: bool) -> void:
-			accessibility_events.append({
-				"reduce_motion": reduce_motion,
-				"larger_text_controls": larger_text_controls,
-			})
+		func(preferences: Dictionary) -> void:
+			accessibility_events.append(preferences)
 	)
 	game._refreshing_accessibility_controls = true
 	game._reduce_motion_toggle.button_pressed = true
 	game._larger_ui_toggle.button_pressed = true
+	game._select_input_assist_mode("hold")
+	game._camera_sensitivity_slider.value = 135.0
+	game._camera_auto_align_toggle.button_pressed = true
+	game._haptics_toggle.button_pressed = true
+	game._left_handed_toggle.button_pressed = true
 	game._refreshing_accessibility_controls = false
 	game._on_accessibility_toggled(true)
 	var large_score_font := game._score_label.get_theme_font_size("font_size")
@@ -748,8 +807,29 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		and accessibility_events == [{
 			"reduce_motion": true,
 			"larger_text_controls": true,
+			"input_assist_mode": "hold",
+			"camera_sensitivity": 1.35,
+			"camera_auto_align": true,
+			"haptics_enabled": true,
+			"left_handed_hud": true,
 		}],
-		"Accessibility changes retain static touch information and emit one exact save event."
+		"Accessibility changes apply together and emit one exact save event."
+	)
+	var rotation_before_sensitivity := game._camera.rotation
+	game._rotate_camera(10.0)
+	var high_sensitivity_delta := absf(
+		game._camera.rotation - rotation_before_sensitivity
+	)
+	game._camera.rotation = 1.0
+	game._city_camera_rotation = 1.0
+	game._camera_manual_override_time = 0.0
+	game._frog.velocity = Vector2.UP * 100.0
+	game._update_camera_assistance(0.25)
+	_check(
+		is_equal_approx(high_sensitivity_delta, 0.081)
+		and game._camera.rotation < 1.0
+		and game._top_bar.get_child(0) == game._guide_button,
+		"Camera sensitivity, delayed auto-align, and left-handed HUD apply immediately."
 	)
 	game._struggle_kick = 1.0
 	game._apply_tongue_visual()
@@ -792,12 +872,68 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	_check(
 		not _controls_overlap(top_bar_controls)
 		and safe_rect.encloses(game._control_legend.get_global_rect())
+		and game._control_legend.get_global_rect().position.x
+		< safe_rect.get_center().x
 		and game._profile_label.get_global_rect().position.x >= safe_rect.position.x
 		and game._end_button.get_global_rect().end.x <= safe_rect.end.x,
-		"Large worst-case top-bar and control legend fit the inset 1280x960 safe area."
+		"Large left-handed top bar and control legend fit the inset safe area."
 	)
 
+	var pulsing_target_screen := (
+		game.get_viewport().get_canvas_transform()
+		* pulsing_target.global_position
+	)
+	game._input_assist_mode = AccessibilityPresentation.INPUT_ASSIST_RELAXED
+	var relaxed_target := _find_target(game, "market_apple")
+	var relaxed_target_screen := (
+		game.get_viewport().get_canvas_transform()
+		* relaxed_target.global_position
+	)
+	var relaxed_click := InputEventMouseButton.new()
+	relaxed_click.button_index = MOUSE_BUTTON_LEFT
+	relaxed_click.pressed = true
+	relaxed_click.position = relaxed_target_screen
+	game._ignore_mouse_until_msec = 0
+	game._tongue_recovery = 0.0
+	game._handle_mouse_button(relaxed_click)
+	var relaxed_second_click := InputEventMouseButton.new()
+	relaxed_second_click.button_index = MOUSE_BUTTON_LEFT
+	relaxed_second_click.pressed = true
+	relaxed_second_click.position = relaxed_target_screen
+	game._handle_mouse_button(relaxed_second_click)
+	_check(
+		game._last_assisted_tap_msec == -1000
+		and game._last_assisted_tap_position == Vector2.INF,
+		"Relaxed timing uses its wider activation window for mouse controls."
+	)
+	game._input_assist_mode = AccessibilityPresentation.INPUT_ASSIST_HOLD
 	game._begin_struggle(pulsing_target, 0.8, Vector2.ZERO)
+	var expected_assisted_taps := (
+		AccessibilityPresentation.assisted_struggle_taps(
+			GameplayTuning.struggle_taps_required(
+				pulsing_target.taps_required,
+				pulsing_target.size_tier,
+				game._growth_tier
+			),
+			AccessibilityPresentation.INPUT_ASSIST_HOLD
+		)
+	)
+	var struggle_taps_before_hold := game._struggle_taps
+	game._begin_assisted_hold(11)
+	var unrelated_release := InputEventScreenTouch.new()
+	unrelated_release.index = 12
+	unrelated_release.pressed = false
+	unrelated_release.position = pulsing_target_screen
+	game._handle_screen_touch(unrelated_release)
+	game._update_input_assistance(
+		AccessibilityPresentation.HOLD_REPEAT_INTERVAL
+	)
+	_check(
+		game._struggle_required_taps == expected_assisted_taps
+		and game._struggle_taps == struggle_taps_before_hold + 1
+		and game._assist_hold_pointer_id == 11,
+		"Hold assistance keeps its owner through unrelated touch releases."
+	)
 	var struggle_time := game._struggle_time_left
 	game._open_options()
 	var options_panel := game.get_node(
@@ -817,6 +953,20 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		safe_rect.encloses(options_panel.get_global_rect()),
 		"Accessibility options remain inside the inset 4:3 safe area."
 	)
+	game._select_input_assist_mode(
+		AccessibilityPresentation.INPUT_ASSIST_STANDARD
+	)
+	game._on_accessibility_option_selected(0)
+	_check(
+		game._struggle_required_taps
+		== GameplayTuning.struggle_taps_required(
+			pulsing_target.taps_required,
+			pulsing_target.size_tier,
+			game._growth_tier
+		)
+		and game._struggle_hint.text == FrogGame.TARGET_STRUGGLE_HINT,
+		"Changing timing mode during a struggle refreshes its demand and hint."
+	)
 	game._close_options()
 	_check(
 		not paused
@@ -835,7 +985,15 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		DirAccess.remove_absolute(absolute_menu_save_path)
 	var menu_store := ProfileStore.new(menu_save_path)
 	var menu_profile := menu_store.ensure_profile("Accessible Frog")
-	menu_store.set_accessibility_preferences(menu_profile, true, true)
+	menu_store.set_accessibility_preferences(menu_profile, {
+		"reduce_motion": true,
+		"larger_text_controls": true,
+		"input_assist_mode": "relaxed",
+		"camera_sensitivity": 0.75,
+		"camera_auto_align": true,
+		"haptics_enabled": true,
+		"left_handed_hud": true,
+	})
 	var menu := (
 		load("res://scenes/menu.tscn") as PackedScene
 	).instantiate() as MainMenu
@@ -847,8 +1005,17 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	var menu_panel := menu.get_node("Center/Panel") as Control
 	_check(
 		menu._reduce_motion_toggle.button_pressed
-		and menu._larger_ui_toggle.button_pressed,
-		"Menu loads both saved accessibility choices."
+		and menu._larger_ui_toggle.button_pressed
+		and str(
+			menu._input_assist_option.get_item_metadata(
+				menu._input_assist_option.selected
+			)
+		) == "relaxed"
+		and is_equal_approx(menu._camera_sensitivity_slider.value, 75.0)
+		and menu._camera_auto_align_toggle.button_pressed
+		and menu._haptics_toggle.button_pressed
+		and menu._left_handed_toggle.button_pressed,
+		"Menu loads every saved accessibility choice."
 	)
 	_check(
 		_all_interactive_controls_at_least(
@@ -859,7 +1026,22 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	)
 	_check(
 		safe_rect.encloses(menu_panel.get_global_rect()),
-		"Menu large mode fits the inset 1280x960 safe area."
+		(
+			"Menu large mode fits the inset 1280x960 safe area: %s in %s; "
+			+ "profile %s, accessibility %s, audio %s."
+		) % [
+			menu_panel.get_global_rect(),
+			safe_rect,
+			(menu.get_node(
+				"Center/Panel/Margin/Content/Columns/ProfileColumn"
+			) as Control).size,
+			(menu.get_node(
+				"Center/Panel/Margin/Content/Columns/AccessibilityColumn"
+			) as Control).size,
+			(menu.get_node(
+				"Center/Panel/Margin/Content/Columns/AudioColumn"
+			) as Control).size,
+		]
 	)
 	var profile_count_before_selection := menu_store.list_profiles().size()
 	menu._new_name.text = "Uncreated Draft Frog"
@@ -878,7 +1060,11 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	menu._on_accessibility_toggled(false)
 	var selected_start := {"id": ""}
 	menu.start_requested.connect(
-		func(profile_id: String, _name: String) -> void:
+		func(
+			profile_id: String,
+			_name: String,
+			_force_tutorial: bool
+		) -> void:
 			selected_start["id"] = profile_id
 	)
 	menu._on_start_pressed()
@@ -889,6 +1075,11 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		and menu_store.get_accessibility_preferences(menu_profile) == {
 			"reduce_motion": false,
 			"larger_text_controls": true,
+			"input_assist_mode": "relaxed",
+			"camera_sensitivity": 0.75,
+			"camera_auto_align": true,
+			"haptics_enabled": true,
+			"left_handed_hud": true,
 		},
 		"Choosing a dropdown profile clears a typed draft and keeps Start and settings on that profile."
 	)
@@ -2023,7 +2214,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 371
+		and int(net_snapshot["game_nodes"])
+		== PerformanceBudgets.BASE_GAME_NODES + 2
 		and int(net_snapshot["collision_objects"]) == 42,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
@@ -3189,7 +3381,8 @@ func _test_city_detour(game_scene: PackedScene) -> void:
 	)
 	var route_points := route["points"] as PackedVector2Array
 	_check(
-		int(detour_snapshot["game_nodes"]) == 371
+		int(detour_snapshot["game_nodes"])
+		== PerformanceBudgets.BASE_GAME_NODES + 2
 		and int(detour_snapshot["collision_objects"]) == 42
 		and int(detour_snapshot["collision_shapes"]) == 112
 		and int(detour_snapshot["city_detours"]) == 1

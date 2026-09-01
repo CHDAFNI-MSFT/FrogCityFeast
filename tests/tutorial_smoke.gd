@@ -10,6 +10,7 @@ func _init() -> void:
 func _run() -> void:
 	_test_controller_sequence()
 	_test_profile_persistence()
+	await _test_replay_entry()
 	await _test_game_integration()
 	await _test_skip_and_early_end()
 	await _finish()
@@ -77,6 +78,52 @@ func _test_profile_persistence() -> void:
 		and reloaded.get_discoveries(second_profile).is_empty(),
 		"Tutorial and discovery progress remain profile-specific together."
 	)
+	if FileAccess.file_exists(save_path):
+		DirAccess.remove_absolute(absolute_path)
+
+
+func _test_replay_entry() -> void:
+	var save_path := "user://tutorial_replay_smoke.cfg"
+	var absolute_path := ProjectSettings.globalize_path(save_path)
+	if FileAccess.file_exists(save_path):
+		DirAccess.remove_absolute(absolute_path)
+	var store := ProfileStore.new(save_path)
+	var profile_id := store.ensure_profile("Replay Frog")
+	store.update_high_scores(profile_id, 245)
+	store.mark_discovered(profile_id, "street_donut")
+	store.mark_tutorial_complete(profile_id)
+	var menu := (
+		load("res://scenes/menu.tscn") as PackedScene
+	).instantiate() as MainMenu
+	root.add_child(menu)
+	await process_frame
+	menu.configure(store, 0)
+	menu._on_new_name_changed("Replay Frog")
+	var replay_request := {
+		"profile_id": "",
+		"force_tutorial": false,
+	}
+	menu.start_requested.connect(func(
+		requested_profile_id: String,
+		_display_name: String,
+		force_tutorial: bool
+	) -> void:
+		replay_request["profile_id"] = requested_profile_id
+		replay_request["force_tutorial"] = force_tutorial
+	)
+	menu._on_replay_tutorial_pressed()
+	_check(
+		menu._replay_tutorial_button.visible
+		and str(replay_request["profile_id"]) == profile_id
+		and bool(replay_request["force_tutorial"])
+		and store.is_tutorial_complete(profile_id)
+		and store.get_profile_best(profile_id) == 245
+		and store.get_discoveries(profile_id)
+		== PackedStringArray(["street_donut"]),
+		"Replay Tutorial starts guided play without clearing completion or progress."
+	)
+	menu.queue_free()
+	await process_frame
 	if FileAccess.file_exists(save_path):
 		DirAccess.remove_absolute(absolute_path)
 
@@ -229,9 +276,31 @@ func _test_game_integration() -> void:
 		game._struggle_taps == struggle_taps_before_card_touch,
 		"An iPad touch on tutorial text cannot count as a hidden struggle tap."
 	)
-	for tap in hotdog.taps_required:
+	var hold_required_taps := (
+		AccessibilityPresentation.assisted_struggle_taps(
+			game._struggle_required_taps,
+			AccessibilityPresentation.INPUT_ASSIST_HOLD
+		)
+	)
+	for tap in hold_required_taps:
 		game._register_struggle_tap()
-	_check(game._tutorial.step == TutorialController.Step.DIGEST_HOTDOG, "Winning the struggle advances to digestion.")
+	game._open_options()
+	game._select_input_assist_mode(
+		AccessibilityPresentation.INPUT_ASSIST_HOLD
+	)
+	game._on_accessibility_option_selected(0)
+	_check(
+		game._tutorial.step == TutorialController.Step.DIGEST_HOTDOG
+		and game._options_overlay.visible
+		and not game._tutorial_panel.visible,
+		"Assisted tutorial completion keeps the Options overlay unobstructed."
+	)
+	game._close_options()
+	_check(
+		game._tutorial_panel.visible
+		and game._tutorial_title.text == "Digest the hot dog",
+		"Closing Options reveals the updated tutorial step."
+	)
 	_check(
 		game._challenges.completed_count() == 0,
 		"Tutorial struggle wins do not pre-complete session challenges."
