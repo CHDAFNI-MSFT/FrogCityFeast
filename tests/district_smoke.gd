@@ -524,27 +524,31 @@ func _test_transition_regressions(seed_value: int) -> void:
 		game._interior_rooms.get(FrogGame.RIVER_SEWER_JUNCTION_ID)
 		as PrototypeInteriorRoom
 	)
-	var tunnel_portal := junction.portal_by_id("service_tunnel")
+	game._record_discovery("river_sewer_valve")
+	var hidden_portal := junction.portal_by_id(
+		"hidden_maintenance_hatch"
+	)
 	game._frog.global_position = junction.portal_approach_position(
-		tunnel_portal
+		hidden_portal
 	)
 	game._begin_interior_transition(
-		FrogGame.RIVER_SUBWAY_TUNNEL_ID,
-		"service_tunnel"
+		FrogGame.RIVER_HIDDEN_MAINTENANCE_ID,
+		"hidden_maintenance_hatch"
 	)
 	var loaded_before_chain := game._loaded_districts.size()
 	game._update_district_streaming()
 	_check(
-		game._active_interior_id == FrogGame.RIVER_SUBWAY_TUNNEL_ID
+		game._active_interior_id
+			== FrogGame.RIVER_HIDDEN_MAINTENANCE_ID
 			and game._current_district_coordinate == Vector2i.ZERO
 			and game._loaded_districts.size() == loaded_before_chain,
-		"Multi-stage authored exploration pauses generated-district unloading."
+		"Hidden multi-stage exploration pauses generated-district unloading."
 	)
-	var tunnel := (
-		game._interior_rooms.get(FrogGame.RIVER_SUBWAY_TUNNEL_ID)
+	var hidden_room := (
+		game._interior_rooms.get(FrogGame.RIVER_HIDDEN_MAINTENANCE_ID)
 		as PrototypeInteriorRoom
 	)
-	game._frog.global_position = tunnel.exit_approach_position()
+	game._frog.global_position = hidden_room.exit_approach_position()
 	game._begin_interior_transition(
 		FrogGame.RIVER_SEWER_JUNCTION_ID,
 		"return"
@@ -556,7 +560,7 @@ func _test_transition_regressions(seed_value: int) -> void:
 			and game._frog.global_position.is_equal_approx(
 				sewer_portal["approach_position"] as Vector2
 			),
-		"Returning from the sewer chain restores a loaded River Park."
+		"Returning from the hidden sewer branch restores a loaded River Park."
 	)
 
 	game.queue_free()

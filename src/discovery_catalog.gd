@@ -73,6 +73,11 @@ const ENTRIES := [
 		"hint": "Grow once and ride the construction lift in the northwest.",
 	},
 	{
+		"id": "river_hidden_pump_handle",
+		"name": "Maintenance Pump Handle",
+		"hint": "Inspect the Sewer Valve Wheel and search for a hidden hatch.",
+	},
+	{
 		"id": "golden_cake",
 		"name": "Flying Golden Cake",
 		"hint": "Search the northern city for a rare moving treat.",

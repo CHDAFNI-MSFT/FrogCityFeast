@@ -77,24 +77,24 @@ Godot-to-Xcode export and generic-device compile are verified; installing a
 profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
-authored core permits 35 gameplay targets, 4 buildings, 9 separate exploration
+authored core permits 36 gameplay targets, 4 buildings, 10 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 10 draw-only festival
 lanterns, 1 draw-only Animal Control net projectile, 24 capped world effects,
 3 touch cues, and 6 fixed audio players including 4 reusable effect voices.
-Baseline and separate-room states permit up to 355 game-subtree nodes, 40
-collision objects, and 103 collision shapes; ordinary pursuit and net attack
-permit 357 nodes, 41 collision objects, and 104 collision shapes; a snare
-pursuit permits 358 nodes with the same physics structure; a roadblock pursuit
-permits 359 nodes, 42 collision objects, and 105 collision shapes; the
-reachable roadblock-and-snare gameplay peak permits 360 nodes with the same 42
-collision objects and 105 shapes. The performance Belly scenario renders 64
-item rows within 611 nodes without changing the belly's unlimited gameplay
-semantics. The populated Field Guide contains exactly 46 rows.
+Baseline and separate-room states permit up to 367 game-subtree nodes, 41
+collision objects, and 111 collision shapes; ordinary pursuit and net attack
+permit 369 nodes, 42 collision objects, and 112 collision shapes; a snare
+pursuit permits 370 nodes with the same physics structure; a roadblock pursuit
+permits 371 nodes, 43 collision objects, and 113 collision shapes; the
+reachable roadblock-and-snare gameplay peak permits 372 nodes with the same 43
+collision objects and 113 shapes. The performance Belly scenario renders 64
+item rows within 623 nodes without changing the belly's unlimited gameplay
+semantics. The populated Field Guide contains exactly 47 rows.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 565 game-subtree nodes, 99 collision objects, and 164
+structural ceiling is 577 game-subtree nodes, 100 collision objects, and 172
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
@@ -115,7 +115,7 @@ microseconds. Both states completed every request without fallback, failure, or
 budget rejection.
 
 Reproducible stress coverage includes the maximum generated-district ring, all
-nine connected exploration rooms, the night
+ten connected exploration rooms, the night
 bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
 roadblock and snare pursuit, a net in flight, maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
@@ -321,6 +321,15 @@ things to eat.
   the chain ends pursuit, blocks remote pursuit spawning, pauses generated
   district streaming, and restores the River Park position and city camera on
   exit. Reduce motion converts every leg to an immediate cut.
+- Discovering the existing Sewer Valve Wheel reveals an otherwise invisible
+  maintenance hatch in the Sewer Junction. The hatch branches into a compact
+  Hidden Sewer Maintenance Pocket without adding a new story dependency. Its
+  fixed camera, paired safe landings, and central floor support maximum growth;
+  its dangerous, resistant Maintenance Pump Handle remains scoped to the
+  pocket for Belly returns and restocking. The persistent Field Guide
+  discovery keeps the hatch revealed, direct transition calls cannot bypass
+  the hidden gate, remote pursuit remains blocked, district unloading stays
+  paused throughout the branch, and Reduce motion uses immediate cuts.
 - The River Park pond now has a marked boardwalk entrance leading to a larger
   Lily Pond Boardwalk with a bounded follow camera, authored safe arrival and
   return positions, open maximum-growth navigation space, and a room-scoped

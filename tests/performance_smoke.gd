@@ -63,7 +63,7 @@ func _run() -> void:
 		"The Animal Control snare budget remains capped at one."
 	)
 	_check(
-		BUDGETS.MAX_INTERIOR_ROOMS == 9,
+		BUDGETS.MAX_INTERIOR_ROOMS == 10,
 		"The authored separate-room budget matches all connected rooms."
 	)
 	_check(
@@ -167,6 +167,15 @@ func _run() -> void:
 				"larger_text_controls": false,
 			},
 			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "hidden_maintenance",
+			"setup": _setup_hidden_maintenance,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": false,
+			},
+			"discoveries": PackedStringArray(["river_sewer_valve"]),
 		},
 		{
 			"name": "market_rooftop",
@@ -441,6 +450,27 @@ func _setup_crane_deck(game: FrogGame) -> void:
 	)
 
 
+func _setup_hidden_maintenance(game: FrogGame) -> void:
+	var city_portal := game._city_portal_by_id("river_sewer_hatch")
+	game._frog.global_position = (
+		city_portal["approach_position"] as Vector2
+	)
+	game._begin_interior_transition(
+		FrogGame.RIVER_SEWER_JUNCTION_ID,
+		"river_sewer_hatch"
+	)
+	var junction := (
+		game._interior_rooms.get(FrogGame.RIVER_SEWER_JUNCTION_ID)
+		as PrototypeInteriorRoom
+	)
+	var portal := junction.portal_by_id("hidden_maintenance_hatch")
+	game._frog.global_position = junction.portal_approach_position(portal)
+	game._begin_interior_transition(
+		FrogGame.RIVER_HIDDEN_MAINTENANCE_ID,
+		"hidden_maintenance_hatch"
+	)
+
+
 func _setup_market_rooftop(game: FrogGame) -> void:
 	var market := (
 		game._building_by_id.get("moonlight_market")
@@ -711,6 +741,15 @@ func _check_scenario_expectations(
 				and int(snapshot["growth_tier"]) == 1
 				and int(snapshot["pursuers"]) == 0,
 				"Crane stress activates the growth-gated elevated deck."
+			)
+		"hidden_maintenance":
+			_check(
+				str(snapshot["active_interior"])
+				== FrogGame.RIVER_HIDDEN_MAINTENANCE_ID
+				and int(snapshot["interior_rooms"])
+				== BUDGETS.MAX_INTERIOR_ROOMS
+				and int(snapshot["pursuers"]) == 0,
+				"Hidden-space stress activates the discovered maintenance pocket."
 			)
 		"market_rooftop":
 			_check(

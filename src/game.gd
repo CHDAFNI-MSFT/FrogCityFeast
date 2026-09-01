@@ -143,6 +143,10 @@ const CONSTRUCTION_CRANE_ID := "construction_crane_deck"
 const CONSTRUCTION_CRANE_POSITION := (
 	INTERIOR_SPACE_ORIGIN + Vector2(0, 10600)
 )
+const RIVER_HIDDEN_MAINTENANCE_ID := "river_sewer_hidden_maintenance"
+const RIVER_HIDDEN_MAINTENANCE_POSITION := (
+	INTERIOR_SPACE_ORIGIN + Vector2(0, 12200)
+)
 const CITY_EXPLORATION_PORTALS := [
 	{
 		"id": "construction_crane_lift",
@@ -562,6 +566,7 @@ func _ready() -> void:
 	_challenges.challenge_completed.connect(_on_challenge_completed)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	_build_prototype_city()
+	_sync_progression_portals()
 	_current_district_coordinate = DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
 	_update_district_streaming(true)
 	_refresh_navigation_geometry()
@@ -2280,6 +2285,7 @@ func _record_discovery(
 	if entry.is_empty():
 		return
 	_discoveries[target_id] = true
+	_sync_progression_portals()
 	AudioDirector.play_effect(FrogAudioDirector.DISCOVERY)
 	_rebuild_guide()
 	_update_hud()
@@ -2521,6 +2527,18 @@ func _belly_item_retains_danger(item: BellyItem) -> bool:
 		item.intrinsic_dangerous_location
 		and _interior_rooms.has(item.building_id)
 	)
+
+
+func _sync_progression_portals() -> void:
+	var sewer_junction := (
+		_interior_rooms.get(RIVER_SEWER_JUNCTION_ID)
+		as PrototypeInteriorRoom
+	)
+	if is_instance_valid(sewer_junction):
+		sewer_junction.set_portal_visible(
+			"hidden_maintenance_hatch",
+			_discoveries.has("river_sewer_valve")
+		)
 
 
 func _belly_item_space_label(item: BellyItem) -> String:
@@ -5234,6 +5252,7 @@ func _build_prototype_city() -> void:
 	sewer_junction.camera_rotation_limit = 0.2
 	sewer_junction.set_entry("from_city", Vector2(0, 390))
 	sewer_junction.set_entry("from_tunnel", Vector2(500, -250))
+	sewer_junction.set_entry("from_maintenance", Vector2(-540, -220))
 	sewer_junction.add_portal(
 		"service_tunnel",
 		"SERVICE TUNNEL",
@@ -5241,6 +5260,17 @@ func _build_prototype_city() -> void:
 		Vector2(540, -260),
 		RIVER_SUBWAY_TUNNEL_ID,
 		"from_junction"
+	)
+	sewer_junction.add_portal(
+		"hidden_maintenance_hatch",
+		"MAINTENANCE HATCH",
+		Vector2(-690, -220),
+		Vector2(-540, -220),
+		RIVER_HIDDEN_MAINTENANCE_ID,
+		"from_junction",
+		0,
+		"Inspect the Sewer Valve Wheel to reveal this service hatch.",
+		"river_sewer_valve"
 	)
 	var subway_tunnel := _spawn_interior_room(
 		RIVER_SUBWAY_TUNNEL_ID,
@@ -5309,6 +5339,30 @@ func _build_prototype_city() -> void:
 	crane_deck.camera_follow_distance = 130.0
 	crane_deck.camera_rotation_limit = 0.25
 	crane_deck.set_entry("from_lift", Vector2(-760, 250))
+	var hidden_maintenance := _spawn_interior_room(
+		RIVER_HIDDEN_MAINTENANCE_ID,
+		"Hidden Sewer Maintenance Pocket",
+		RIVER_HIDDEN_MAINTENANCE_POSITION,
+		Vector2(1300, 900),
+		Color("445956"),
+		[
+			Rect2(-530, -330, 260, 82),
+			Rect2(270, -330, 260, 82),
+			Rect2(-540, 160, 190, 120),
+			Rect2(350, 150, 170, 130),
+		],
+		"",
+		"RETURN TO SEWER JUNCTION",
+		RIVER_SEWER_JUNCTION_ID,
+		"from_maintenance"
+	)
+	hidden_maintenance.camera_zoom = Vector2(1.25, 1.25)
+	hidden_maintenance.set_entry("from_junction", Vector2(450, 80))
+	hidden_maintenance.set_portal_geometry(
+		"return",
+		Vector2(400, 80),
+		Vector2(300, 80)
+	)
 	var market_rooftop := _spawn_interior_room(
 		MARKET_ROOFTOP_ID,
 		"Moonlight Market Rooftop Garden",
@@ -5590,6 +5644,23 @@ func _build_prototype_city() -> void:
 		"building_id": CONSTRUCTION_CRANE_ID,
 		"dangerous": true,
 		"color": Color("d7a34b"),
+	})
+	_spawn_target({
+		"id": "river_hidden_pump_handle",
+		"name": "Maintenance Pump Handle",
+		"position": (
+			hidden_maintenance.global_position + Vector2(220, -120)
+		),
+		"value": 72,
+		"tier": 1,
+		"kind": "object",
+		"radius": 36.0,
+		"resistant": true,
+		"taps": 6,
+		"bounds": hidden_maintenance.interior_rect(),
+		"building_id": RIVER_HIDDEN_MAINTENANCE_ID,
+		"dangerous": true,
+		"color": Color("a9c8b4"),
 	})
 
 

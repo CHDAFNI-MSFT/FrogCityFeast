@@ -31,7 +31,7 @@ func _run() -> void:
 	await physics_frame
 
 	_check(
-		game._targets.size() == 35,
+		game._targets.size() == 36,
 		"Prototype targets, connected spaces, and all four destruction sequences are created."
 	)
 	_check(game._score == 0, "A new game starts at zero points.")
@@ -352,6 +352,7 @@ func _run() -> void:
 	await _test_canal_upper_hall(game_scene)
 	await _test_canal_fire_escape(game_scene)
 	await _test_river_sewer_chain(game_scene)
+	await _test_hidden_sewer_maintenance(game_scene)
 	await _test_river_pond_boardwalk(game_scene)
 	await _test_construction_crane(game_scene)
 	await _test_cafe_stockroom(game_scene)
@@ -1142,9 +1143,9 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"City activity, the park meetup, rain, and the night bazaar share one draw-only layer."
 	)
 	_check(
-		game._targets.size() == 35
+		game._targets.size() == 36
 			and DiscoveryCatalog.count()
-			== 36 + DistrictGenerator.discovery_ids().size(),
+			== 37 + DistrictGenerator.discovery_ids().size(),
 		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
@@ -1311,10 +1312,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
 	)
 	_check(
-		int(rainy_snapshot["targets"]) == 35
+		int(rainy_snapshot["targets"]) == 36
 		and int(rainy_snapshot["buildings"]) == 4
-		and int(rainy_snapshot["collision_objects"]) == 40
-		and int(rainy_snapshot["collision_shapes"]) == 103,
+		and int(rainy_snapshot["collision_objects"]) == 41
+		and int(rainy_snapshot["collision_shapes"]) == 111,
 		"Rain does not add targets, buildings, or collision objects."
 	)
 
@@ -1711,8 +1712,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 357
-		and int(net_snapshot["collision_objects"]) == 41,
+		and int(net_snapshot["game_nodes"]) == 369
+		and int(net_snapshot["collision_objects"]) == 42,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
 
@@ -3916,7 +3917,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		is_instance_valid(cafe)
 		and is_instance_valid(stockroom)
 		and is_instance_valid(coffee_tin)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
@@ -4176,7 +4177,7 @@ func _test_oddities_cellar(game_scene: PackedScene) -> void:
 		and is_instance_valid(cellar)
 		and is_instance_valid(shelf)
 		and is_instance_valid(music_box)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and shop.transition_room_id == FrogGame.ODDITIES_CELLAR_ID
 		and shop.transition_required_removed_part
 		== PrototypeBuilding.PART_COUNTER
@@ -4384,7 +4385,7 @@ func _test_market_rooftop(game_scene: PackedScene) -> void:
 		is_instance_valid(market)
 		and is_instance_valid(rooftop)
 		and is_instance_valid(beehive)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and market.transition_room_id == FrogGame.MARKET_ROOFTOP_ID
 		and market.transition_min_growth_tier == 1
 		and rooftop.return_label == "RETURN TO MARKET"
@@ -4564,7 +4565,7 @@ func _test_canal_upper_hall(game_scene: PackedScene) -> void:
 		is_instance_valid(apartments)
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(vacuum)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and apartments.transition_room_id
 		== FrogGame.CANAL_UPPER_HALL_ID
 		and upper_hall.return_label == "RETURN TO LOBBY"
@@ -4732,7 +4733,7 @@ func _test_canal_fire_escape(game_scene: PackedScene) -> void:
 		and is_instance_valid(upper_hall)
 		and is_instance_valid(fire_escape)
 		and is_instance_valid(laundry)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and str(outward_portal["destination"])
 		== FrogGame.CANAL_FIRE_ESCAPE_ID
 		and str(return_portal["destination"])
@@ -4983,7 +4984,7 @@ func _test_river_sewer_chain(game_scene: PackedScene) -> void:
 		and is_instance_valid(tunnel)
 		and is_instance_valid(valve)
 		and is_instance_valid(signal_lamp)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and str(tunnel_portal["destination"])
 		== FrogGame.RIVER_SUBWAY_TUNNEL_ID
 		and str(tunnel_return["destination"])
@@ -5200,6 +5201,284 @@ func _test_river_sewer_chain(game_scene: PackedScene) -> void:
 	await process_frame
 
 
+func _test_hidden_sewer_maintenance(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("hidden_sewer_test", "Hidden Sewer Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	var city_portal := game._city_portal_by_id("river_sewer_hatch")
+	var junction := (
+		game._interior_rooms.get(FrogGame.RIVER_SEWER_JUNCTION_ID)
+		as PrototypeInteriorRoom
+	)
+	var hidden_room := (
+		game._interior_rooms.get(
+			FrogGame.RIVER_HIDDEN_MAINTENANCE_ID
+		)
+		as PrototypeInteriorRoom
+	)
+	var hidden_portal := junction.portal_by_id(
+		"hidden_maintenance_hatch"
+	)
+	var return_portal := hidden_room.portal_by_id("return")
+	var valve := _find_target(game, "river_sewer_valve")
+	var pump_handle := _find_target(game, "river_hidden_pump_handle")
+	var hidden_camera_half_view := (
+		game.get_viewport().get_visible_rect().size
+		/ (hidden_room.camera_zoom * 2.0)
+	)
+	var hidden_camera_rect := Rect2(
+		hidden_room.global_position - hidden_camera_half_view,
+		hidden_camera_half_view * 2.0
+	)
+	_check(
+		is_instance_valid(junction)
+		and is_instance_valid(hidden_room)
+		and is_instance_valid(valve)
+		and is_instance_valid(pump_handle)
+		and game._interior_rooms.size() == 10
+		and str(hidden_portal["destination"])
+		== FrogGame.RIVER_HIDDEN_MAINTENANCE_ID
+		and str(return_portal["destination"])
+		== FrogGame.RIVER_SEWER_JUNCTION_ID
+		and not bool(hidden_portal["visible"])
+		and not hidden_room.camera_follows_frog()
+		and hidden_room.room_size == Vector2(1300, 900)
+		and hidden_room._collision_body.get_child_count() == 8
+		and pump_handle.size_tier == 1
+		and pump_handle.resistant
+		and pump_handle.dangerous_location
+		and pump_handle.building_id
+		== FrogGame.RIVER_HIDDEN_MAINTENANCE_ID
+		and pump_handle.move_bounds == hidden_room.interior_rect(),
+		"The undiscovered sewer pocket starts hidden with one scoped maintenance target."
+	)
+	_check(
+		game._circle_position_clear(
+			junction.entry_position("from_maintenance"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			junction.portal_approach_position(hidden_portal),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			hidden_room.entry_position("from_junction"),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			hidden_room.portal_approach_position(return_portal),
+			44.0,
+			true
+		)
+		and game._circle_position_clear(
+			hidden_room.global_position,
+			44.0,
+			true
+		)
+		and hidden_camera_rect.has_point(
+			hidden_room.portal_marker_position(return_portal)
+		),
+		"The hidden hatch, both safe landings, center, and fixed-camera return marker remain usable."
+	)
+
+	var city_camera_rotation := 0.23
+	game._camera.rotation = city_camera_rotation
+	game._growth_tier = 1
+	game._frog.set_growth_tier(1)
+	game._frog.global_position = city_portal["approach_position"] as Vector2
+	game._spawn_pursuer()
+	var pursuit_started := is_instance_valid(game._pursuer)
+	if pursuit_started:
+		game._pursuer.set_physics_process(false)
+	game._begin_interior_transition(
+		FrogGame.RIVER_SEWER_JUNCTION_ID,
+		"river_sewer_hatch"
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		pursuit_started
+		and not is_instance_valid(game._pursuer)
+		and game._active_interior_id
+		== FrogGame.RIVER_SEWER_JUNCTION_ID,
+		"Entering the sewer chain clears pursuit before hidden exploration."
+	)
+
+	game._frog.global_position = junction.portal_approach_position(
+		hidden_portal
+	)
+	var hidden_tap_before_discovery := (
+		game._try_handle_interior_transition_tap(
+			junction.portal_marker_position(hidden_portal)
+		)
+	)
+	game._begin_interior_transition(
+		FrogGame.RIVER_HIDDEN_MAINTENANCE_ID,
+		"hidden_maintenance_hatch"
+	)
+	_check(
+		not hidden_tap_before_discovery
+		and game._active_interior_id
+		== FrogGame.RIVER_SEWER_JUNCTION_ID
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE
+		and game._status_label.text.contains("not accessible"),
+		"An invisible maintenance hatch cannot be tapped or entered by a direct bypass."
+	)
+
+	game._frog.global_position = valve.global_position + Vector2(0, 100)
+	game._swallow_target(valve, 1.0)
+	_check(
+		game._discoveries.has("river_sewer_valve")
+		and bool(hidden_portal["visible"])
+		and game._belly.size() == 1,
+		"Discovering the Sewer Valve Wheel reveals the maintenance hatch."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.is_empty()
+		and bool(hidden_portal["visible"]),
+		"The revealed hatch remains available after returning the Valve Wheel."
+	)
+
+	game._frog.global_position = junction.portal_approach_position(
+		hidden_portal
+	)
+	var handled_hidden_entry := (
+		game._try_handle_interior_transition_tap(
+			junction.portal_marker_position(hidden_portal)
+		)
+	)
+	_check(
+		handled_hidden_entry
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.FADE_OUT,
+		"The revealed hatch starts the forward transition from the junction."
+	)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
+	_check(
+		game._active_interior_id
+		== FrogGame.RIVER_HIDDEN_MAINTENANCE_ID
+		and game._frog.global_position
+		== hidden_room.entry_position("from_junction")
+		and game._camera.global_position == hidden_room.global_position
+		and game._camera.zoom == hidden_room.camera_zoom
+		and is_zero_approx(game._camera.rotation)
+		and game._active_navigation_rect()
+		== hidden_room.interior_rect(),
+		"The hidden pocket uses its fixed camera, safe landing, and navigation bounds."
+	)
+	game._spawn_pursuer()
+	_check(
+		not is_instance_valid(game._pursuer)
+		and game._status_label.text.contains("cannot find"),
+		"Animal Control cannot spawn remotely in the hidden maintenance pocket."
+	)
+
+	game._pending_growth_tier = 2
+	game._frog.global_position = hidden_room.global_position
+	game._last_safe_ground_position = hidden_room.global_position
+	game._retry_pending_growth()
+	_check(
+		game._growth_tier == 2
+		and game._pending_growth_tier == -1
+		and game._find_safe_frog_position(44.0) != Vector2.INF,
+		"The hidden maintenance pocket supports maximum-size growth and navigation."
+	)
+
+	game._frog.global_position = (
+		pump_handle.global_position + Vector2(0, 110)
+	)
+	game._swallow_target(pump_handle, 1.0)
+	_check(
+		game._belly.size() == 1
+		and game._belly[0].target_id == "river_hidden_pump_handle"
+		and game._belly[0].movement_bounds
+		== hidden_room.interior_rect(),
+		"Swallowing the Pump Handle preserves hidden-room restock bounds."
+	)
+	game._spit_item(0)
+	var spat_handle := _find_target(game, "river_hidden_pump_handle")
+	_check(
+		game._belly.is_empty()
+		and is_instance_valid(spat_handle)
+		and spat_handle.dangerous_location
+		and hidden_room.interior_rect().has_point(
+			spat_handle.global_position
+		),
+		"Spitting the Pump Handle keeps it in the dangerous hidden pocket."
+	)
+	game._swallow_target(spat_handle, 1.0)
+
+	game.set_motion_scale(0.0)
+	game._frog.global_position = hidden_room.portal_approach_position(
+		return_portal
+	)
+	var handled_hidden_return := (
+		game._try_handle_interior_transition_tap(
+			hidden_room.portal_marker_position(return_portal)
+		)
+	)
+	_check(
+		handled_hidden_return
+		and game._active_interior_id
+		== FrogGame.RIVER_SEWER_JUNCTION_ID
+		and game._frog.global_position
+		== junction.entry_position("from_maintenance")
+		and game._interior_transition_phase
+		== FrogGame.InteriorTransitionPhase.NONE,
+		"Reduce motion returns immediately from the hidden pocket to the junction."
+	)
+	game._spit_item(0)
+	_check(
+		game._belly.size() == 1
+		and game._status_label.text.contains(
+			"hidden sewer maintenance pocket"
+		),
+		"A hidden-room target cannot be spat into the sewer junction."
+	)
+	game._digest_item(0)
+
+	game._frog.global_position = junction.exit_approach_position()
+	game._begin_interior_transition("city", "return")
+	_check(
+		game._active_interior_id.is_empty()
+		and game._frog.global_position
+		== (city_portal["approach_position"] as Vector2)
+		and is_equal_approx(game._camera.rotation, city_camera_rotation)
+		and game._camera.position_smoothing_enabled,
+		"Leaving the hidden branch restores the River Park position and city camera."
+	)
+
+	await create_timer(9.2, false).timeout
+	var restocked_handle := _find_target(
+		game,
+		"river_hidden_pump_handle"
+	)
+	_check(
+		is_instance_valid(restocked_handle)
+		and restocked_handle.dangerous_location
+		and hidden_room.interior_rect().has_point(
+			restocked_handle.global_position
+		),
+		"Digesting the Pump Handle restocks it inside the hidden pocket."
+	)
+
+	paused = false
+	game.queue_free()
+	await process_frame
+
+
 func _test_river_pond_boardwalk(game_scene: PackedScene) -> void:
 	var game := game_scene.instantiate() as FrogGame
 	game.set_motion_scale(1.0)
@@ -5220,7 +5499,7 @@ func _test_river_pond_boardwalk(game_scene: PackedScene) -> void:
 		not city_portal.is_empty()
 		and is_instance_valid(boardwalk)
 		and is_instance_valid(planter)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and boardwalk.camera_follows_frog()
 		and boardwalk.room_size == Vector2(1900, 1200)
 		and planter.building_id == FrogGame.RIVER_POND_BOARDWALK_ID
@@ -5361,7 +5640,7 @@ func _test_construction_crane(game_scene: PackedScene) -> void:
 		not city_portal.is_empty()
 		and is_instance_valid(crane)
 		and is_instance_valid(toolbox)
-		and game._interior_rooms.size() == 9
+		and game._interior_rooms.size() == 10
 		and crane.camera_follows_frog()
 		and crane.room_size == Vector2(2100, 1300)
 		and crane._collision_body.get_child_count() == 8

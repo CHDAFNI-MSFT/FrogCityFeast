@@ -131,9 +131,9 @@ The prototype includes:
   actions, safely resets failed guided struggles, and returns to the city after
   required belly actions;
 - a Skip action that marks the tutorial complete and restores normal play;
-- a persistent, per-profile Frog Field Guide covering all 35 target IDs in the
-  prototype, including Golden Cake, all four destructible-building sequences,
-  and Animal Control;
+- a persistent, per-profile Frog Field Guide covering all 36 gameplay target
+  IDs plus Animal Control, including Golden Cake and all four
+  destructible-building sequences;
 - first-swallow discovery credit that never adds score or growth, cannot be
   farmed by returning and re-eating a target, and is saved immediately;
 - useful hints for unknown Field Guide entries, including the unusual
@@ -177,6 +177,15 @@ The prototype includes:
   maximum-growth routes, and restored River Park camera state on final exit;
 - room-scoped Sewer Valve Wheel and resistant Abandoned Signal Lamp targets
   whose Belly returns and restocking remain in their original sewer sections;
+- an initially invisible Sewer Junction maintenance hatch revealed by the
+  existing Sewer Valve Wheel discovery state, leading to a compact Hidden
+  Sewer Maintenance Pocket with safe two-way landings, a fixed camera,
+  maximum-growth central space, and a dangerous resistant Maintenance Pump
+  Handle;
+- hidden-pocket traversal that cannot be bypassed with direct transition
+  calls, remains unlocked through persistent Field Guide state, pauses
+  generated-district unloading, blocks remote pursuit, rejects cross-space
+  Belly returns, restocks its target in place, and supports Reduce motion;
 - a marked River Park pond boardwalk leading to a larger navigable Lily Pond
   space with maximum-growth-safe central routes and a room-scoped Lily Pad
   Planter;
@@ -389,23 +398,23 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 355 game-subtree nodes, 40 collision objects, 103 collision shapes, 35 targets, 4 buildings, 9 separate rooms |
-| Ordinary pursuit | 357 nodes, 41 collision objects, 104 collision shapes, 1 pursuer |
-| Animal Control tongue deflection | Pursuit structure remains at 357 nodes, 41 collision objects, and 104 collision shapes; feedback is draw-only |
-| Pursuit in active crowd cover | Pursuit structure remains at 357 nodes, 41 collision objects, and 104 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
-| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 357 nodes, 41 collision objects, and 104 collision shapes |
-| Animal Control snare | 358 nodes, 41 collision objects, 104 collision shapes, 1 pursuer, 1 draw-only snare |
-| Roadblock pursuit | 359 nodes, 42 collision objects, 105 collision shapes, 1 pursuer, 1 roadblock |
-| Reachable gameplay peak | 360 nodes, 42 collision objects, 105 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
-| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 565 nodes, 99 collision objects, and 164 collision shapes including the authored core |
+| Baseline, night shop, any separate room, busy daytime, maximum growth, Field Guide, or options | 367 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
+| Ordinary pursuit | 369 nodes, 42 collision objects, 112 collision shapes, 1 pursuer |
+| Animal Control tongue deflection | Pursuit structure remains at 369 nodes, 42 collision objects, and 112 collision shapes; feedback is draw-only |
+| Pursuit in active crowd cover | Pursuit structure remains at 369 nodes, 42 collision objects, and 112 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
+| Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 369 nodes, 42 collision objects, and 112 collision shapes |
+| Animal Control snare | 370 nodes, 42 collision objects, 112 collision shapes, 1 pursuer, 1 draw-only snare |
+| Roadblock pursuit | 371 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock |
+| Reachable gameplay peak | 372 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
+| Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 577 nodes, 100 collision objects, and 172 collision shapes including the authored core |
 | Navigation query | At most 160 active obstacle rectangles, 70,000 total coarse/fine grid cells, and 512 smoothed route points per request |
-| Populated Belly sample | 64 items and rows, 611 nodes; this is a stress sample, not a gameplay capacity limit |
+| Populated Belly sample | 64 items and rows, 623 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
 | Audio | 6 fixed players: 1 music, 1 ambience, and 4 reusable effect voices |
-| Populated Field Guide | 46 rows, matching the fixed authored and generated-type catalog |
+| Populated Field Guide | 47 rows, matching the fixed authored and generated-type catalog |
 
 Run the rendered Windows measurements without writing a benchmark report:
 
@@ -417,6 +426,7 @@ The harness uses fixed random seeds and covers baseline play, the night-open
 Oddities Shop and Moonlight Market bazaar, the active Leap Café stockroom, the
 active Canal Apartments upper hall and connected fire escape, the two-section
 River Park sewer and subway chain, the River Park pond boardwalk, the
+discovery-gated Hidden Sewer Maintenance Pocket, the
 growth-gated Construction Crane High Deck, the
 progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
 Shop cellar, busy daytime, ordinary
@@ -433,31 +443,33 @@ arithmetic-mean FPS.
 
 Repeated August 31, 2026 local GL Compatibility measurements at 1280×960 on an
 NVIDIA RTX 4050 laptop measured the fixed-seed maximum nine-district ring at
-8.46–16.88 ms frame-time p95, 48.5–48.7 MiB static memory, 21.5 MiB video
+8.46–16.88 ms frame-time p95, 48.5–48.9 MiB static memory, 21.5 MiB video
 memory, 54 draw calls, 542 rendered objects, and 3,962 primitives. Its current
-structural snapshot is 565 game-subtree nodes, 99 collision objects, 164
-collision shapes, 107 total targets, and 13 total buildings, exactly matching
+structural snapshot is 577 game-subtree nodes, 100 collision objects, 172
+collision shapes, 108 total targets, and 13 total buildings, exactly matching
 the deterministic ceilings above. Its successful deliberate multi-corner
 navigation request used 61 active obstacle rectangles, 6,408 grid cells, 4
 smoothed points, and at most 2,986 microseconds across the repeated runs.
 
 The same runs measured the combined authored gameplay peak at 8.54–17.52 ms
-frame-time p95, 47.2–47.3 MiB static memory, 21.6 MiB video memory, up to 436
-draw calls, 1,049 rendered objects, and 25,870 primitives. Its current
-structural snapshot is exactly 360 nodes, 42 collision objects, and 105
+frame-time p95, 47.2–47.5 MiB static memory, 21.6 MiB video memory, up to 441
+draw calls, 1,085 rendered objects, and 26,162 primitives. Its current
+structural snapshot is exactly 372 nodes, 43 collision objects, and 113
 collision shapes. Four navigation requests all succeeded per run; the largest
 used 31 active obstacle rectangles, 6,480 grid cells, 4 smoothed points, and at
 most 2,872 microseconds.
 
-The Construction Crane High Deck measured 8.56 ms frame-time p95, 45.7 MiB
-static memory, 17.3 MiB video memory, 37 draw calls, 356 rendered objects, and
-2,994 primitives. Its exact structural snapshot was 355 nodes, 40 collision
-objects, 103 collision shapes, 35 targets, 4 buildings, and 9 authored rooms.
-Neither peak nor the crane deck recorded a navigation fallback, failure, or
-budget rejection. Command-driven desktop measurements remain advisory and can
-contain scheduling outliers; all states still require explicit profiling on
-the A16 iPad. The unsigned Godot-to-Xcode pipeline is verified, but installing
-and profiling on the target device still requires a separately authorized,
+The Construction Crane High Deck measured 8.56 ms frame-time p95, 45.7–45.9
+MiB static memory, 17.3 MiB video memory, 37 draw calls, 356 rendered objects,
+and 2,994 primitives. The Hidden Sewer Maintenance Pocket measured 8.59 ms
+frame-time p95 with the same 45.9 MiB memory and render snapshot. Both have an
+exact structural snapshot of 367 nodes, 41 collision objects, 111 collision
+shapes, 36 targets, 4 buildings, and 10 authored rooms. Neither peak nor either
+exploration space recorded a navigation fallback, failure, or budget
+rejection. Command-driven desktop measurements remain advisory and can contain
+scheduling outliers; all states still require explicit profiling on the A16
+iPad. The unsigned Godot-to-Xcode pipeline is verified, but installing and
+profiling on the target device still requires a separately authorized,
 developer-signed device build.
 
 ## Unsigned iOS export verification
