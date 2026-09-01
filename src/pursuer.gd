@@ -1,6 +1,8 @@
 class_name PrototypePursuer
 extends CharacterBody2D
 
+const TUNING := preload("res://src/gameplay_tuning.gd")
+
 signal caught(source_position: Vector2)
 signal escaped
 signal netted(source_position: Vector2)
@@ -51,8 +53,8 @@ const SECURITY_FLASHLIGHT_MAX_DISTANCE := 430.0
 const SECURITY_FLASHLIGHT_RADIUS := 24.0
 const SECURITY_PROTECTION_RADIUS := 260.0
 const SECURITY_CROWD_ESCAPE_DURATION := 1.1
-const SECURITY_CONTACT_PENALTY := 18
-const SECURITY_FLASHLIGHT_PENALTY := 12
+const SECURITY_CONTACT_PENALTY := TUNING.SECURITY_CONTACT_PENALTY
+const SECURITY_FLASHLIGHT_PENALTY := TUNING.SECURITY_FLASHLIGHT_PENALTY
 const SECURITY_PROTECTED_KINDS := [
 	"object",
 	"vehicle",
@@ -76,8 +78,8 @@ const WATCHDOG_LUNGE_MAX_DISTANCE := 360.0
 const WATCHDOG_LUNGE_HIT_RADIUS := 22.0
 const WATCHDOG_PROTECTION_RADIUS := 210.0
 const WATCHDOG_CROWD_ESCAPE_DURATION := 0.8
-const WATCHDOG_CONTACT_PENALTY := 14
-const WATCHDOG_LUNGE_PENALTY := 16
+const WATCHDOG_CONTACT_PENALTY := TUNING.WATCHDOG_CONTACT_PENALTY
+const WATCHDOG_LUNGE_PENALTY := TUNING.WATCHDOG_LUNGE_PENALTY
 const CAMOUFLAGE_ESCAPE_TIME := 0.8
 const ANIMAL_CONTROL_TRAP_DEPLOY_DELAY := 6.0
 const SECURITY_TRAP_DEPLOY_DELAY := 5.0
@@ -242,7 +244,7 @@ func contact_penalty() -> int:
 		ARCHETYPE_WATCHDOG:
 			return WATCHDOG_CONTACT_PENALTY
 		_:
-			return 25
+			return TUNING.ANIMAL_CONTROL_CONTACT_PENALTY
 
 
 func deploys_roadblock() -> bool:
@@ -467,7 +469,7 @@ func _physics_process(delta: float) -> void:
 
 	var catch_distance := collision_radius() + frog.collision_radius() + 6.0
 	if (
-		frog.growth_tier < 2
+		frog.growth_tier < TUNING.ENORMOUS_TIER
 		and not frog.is_flying
 		and _catch_cooldown <= 0.0
 		and global_position.distance_to(frog.global_position) < catch_distance
@@ -688,7 +690,7 @@ func _can_start_net_attack(distance_to_frog: float) -> bool:
 		and _net_phase == NetPhase.IDLE
 		and _net_cooldown <= 0.0
 		and _frog_detected
-		and frog.growth_tier < 2
+		and frog.growth_tier < TUNING.ENORMOUS_TIER
 		and frog.movement_enabled
 		and not frog.is_flying
 		and distance_to_frog >= NET_MIN_DISTANCE
@@ -703,7 +705,7 @@ func _can_start_flashlight_attack(distance_to_frog: float) -> bool:
 		and not flashlight_attack_active()
 		and _flashlight_cooldown <= 0.0
 		and _frog_detected
-		and frog.growth_tier < 2
+		and frog.growth_tier < TUNING.ENORMOUS_TIER
 		and frog.movement_enabled
 		and not frog.is_flying
 		and distance_to_frog >= SECURITY_FLASHLIGHT_MIN_DISTANCE
@@ -717,7 +719,7 @@ func _can_start_lunge_attack(distance_to_frog: float) -> bool:
 		and not lunge_attack_active()
 		and _lunge_cooldown <= 0.0
 		and _frog_detected
-		and frog.growth_tier < 2
+		and frog.growth_tier < TUNING.ENORMOUS_TIER
 		and frog.movement_enabled
 		and not frog.is_flying
 		and distance_to_frog >= WATCHDOG_LUNGE_MIN_DISTANCE
@@ -755,7 +757,7 @@ func _advance_flashlight_attack(delta: float) -> void:
 		return
 	if (
 		not is_instance_valid(frog)
-		or frog.growth_tier >= 2
+		or frog.growth_tier >= TUNING.ENORMOUS_TIER
 		or frog.is_flying
 	):
 		_flashlight_windup_left = 0.0
@@ -811,7 +813,7 @@ func _advance_lunge_attack(delta: float) -> void:
 		return
 	if (
 		not is_instance_valid(frog)
-		or frog.growth_tier >= 2
+		or frog.growth_tier >= TUNING.ENORMOUS_TIER
 		or frog.is_flying
 	):
 		_finish_lunge_attack()
@@ -889,7 +891,7 @@ func _advance_net_attack(delta: float) -> void:
 		return
 	if (
 		not is_instance_valid(frog)
-		or frog.growth_tier >= 2
+		or frog.growth_tier >= TUNING.ENORMOUS_TIER
 		or frog.is_flying
 	):
 		cancel_net_attack()

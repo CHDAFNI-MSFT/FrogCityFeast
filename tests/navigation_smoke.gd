@@ -77,7 +77,7 @@ func _test_narrow_door_route() -> void:
 				route["points"] as PackedVector2Array,
 				44.0
 			),
-		"Maximum-growth routing remains possible through a 110-pixel doorway."
+		"Large-growth routing remains possible through a 110-pixel doorway."
 	)
 
 

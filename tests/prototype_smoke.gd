@@ -105,7 +105,7 @@ func _run() -> void:
 		game._swallow_target(eligible_target, 1.0)
 		game._digest_item(0)
 		progression_steps += 1
-	_check(game._growth_tier == 2, "Digesting enough value reaches the maximum prototype growth tier.")
+	_check(game._growth_tier == 2, "Digesting enough value reaches the large growth tier.")
 	_check(game._frog.growth_tier == 2, "Frog presentation and abilities receive the growth tier.")
 	if not game._power_state.is_active(TemporaryPowerState.FLIGHT):
 		var cake := _find_target(game, "golden_cake")
@@ -126,7 +126,7 @@ func _run() -> void:
 			break
 	_check(vehicle != null, "The traffic target exists.")
 	if vehicle != null:
-		_check(vehicle.can_be_swallowed(game._growth_tier), "Traffic becomes edible at maximum growth.")
+		_check(vehicle.can_be_swallowed(game._growth_tier), "Traffic becomes edible at large growth.")
 
 	game._spawn_pursuer()
 	_check(is_instance_valid(game._pursuer), "An escaped target can summon a pursuer.")
@@ -1896,7 +1896,7 @@ func _test_crowd_pursuit_escape(game_scene: PackedScene) -> void:
 	game._growth_tier = 2
 	game._frog.set_growth_tier(2)
 	game._update_crowd_hiding(FrogGame.CROWD_HIDE_DURATION)
-	var maximum_growth_blocked := is_zero_approx(game._crowd_hide_time)
+	var large_growth_blocked := is_zero_approx(game._crowd_hide_time)
 	game._growth_tier = 0
 	game._frog.set_growth_tier(0)
 	game._frog.set_flying(true)
@@ -1921,7 +1921,7 @@ func _test_crowd_pursuit_escape(game_scene: PackedScene) -> void:
 	var pull_blocked := is_zero_approx(game._crowd_hide_time)
 	game._pull_target = null
 	_check(
-		maximum_growth_blocked
+		large_growth_blocked
 		and flight_blocked
 		and knockback_blocked
 		and net_blocked
@@ -2116,7 +2116,8 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 	game._update_net_escape(FrogGame.NET_ESCAPE_DURATION)
 	_check(
 		not game._net_escape_active
-		and game._score == 15
+		and game._score
+		== 40 - GameplayTuning.ANIMAL_CONTROL_NET_PENALTY
 		and game._frog._knockback_time > 0.0
 		and game._frog.movement_enabled
 		and game._status_label.text.contains("tightened the net"),
@@ -2128,12 +2129,13 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 	pursuer._advance_net_attack(PrototypePursuer.NET_WINDUP_DURATION)
 	var flying_cancels_net := not pursuer.net_attack_active()
 	game._frog.set_flying(false)
-	game._frog.set_growth_tier(2)
+	game._growth_tier = GameplayTuning.ENORMOUS_TIER
+	game._frog.set_growth_tier(GameplayTuning.ENORMOUS_TIER)
 	pursuer._begin_net_attack()
 	pursuer._advance_net_attack(PrototypePursuer.NET_WINDUP_DURATION)
 	_check(
 		flying_cancels_net and not pursuer.net_attack_active(),
-		"Flight and maximum growth prevent Animal Control nets from trapping the frog."
+		"Flight and enormous growth prevent Animal Control nets from trapping the frog."
 	)
 
 	game._frog.set_growth_tier(0)
@@ -2223,8 +2225,8 @@ func _test_pursuer_tongue_deflection(game_scene: PackedScene) -> void:
 		"Reduce motion keeps static deflection feedback without its expansion."
 	)
 
-	game._growth_tier = 2
-	game._frog.set_growth_tier(2)
+	game._growth_tier = GameplayTuning.ENORMOUS_TIER
+	game._frog.set_growth_tier(GameplayTuning.ENORMOUS_TIER)
 	game._tongue_recovery = 0.0
 	pursuer._deflect_feedback_left = 0.0
 	game._frog.global_position = Vector2(0, 0)
@@ -2241,7 +2243,7 @@ func _test_pursuer_tongue_deflection(game_scene: PackedScene) -> void:
 			game._tongue_end.distance_to(game._frog.global_position),
 			game._frog.tongue_range()
 		),
-		"Maximum growth ignores an officer inside an out-of-range shot while retaining the range limit."
+		"Enormous growth ignores an officer inside an out-of-range shot while retaining the range limit."
 	)
 
 	game._tongue_recovery = 0.0
@@ -2259,7 +2261,7 @@ func _test_pursuer_tongue_deflection(game_scene: PackedScene) -> void:
 		and game._belly[0].target_id == "street_donut"
 		and is_instance_valid(game._pursuer)
 		and not pursuer.deflect_feedback_active(),
-		"Maximum growth shoots through Animal Control's block to swallow the intended target."
+		"Enormous growth shoots through Animal Control's block to swallow the intended target."
 	)
 
 	game.queue_free()
@@ -2407,7 +2409,8 @@ func _test_security_guard_pursuer(game_scene: PackedScene) -> void:
 		PrototypePursuer.SECURITY_FLASHLIGHT_WINDUP_DURATION
 	)
 	_check(
-		game._score == 18
+		game._score
+		== 30 - GameplayTuning.SECURITY_FLASHLIGHT_PENALTY
 			and game._frog.knockback_active()
 			and game._status_label.text.contains("flashlight")
 			and not game._net_escape_active,
@@ -2435,8 +2438,8 @@ func _test_security_guard_pursuer(game_scene: PackedScene) -> void:
 	guard._flashlight_target_position = Vector2.ZERO
 
 	game.set_motion_scale(1.0)
-	game._growth_tier = 2
-	game._frog.set_growth_tier(2)
+	game._growth_tier = GameplayTuning.ENORMOUS_TIER
+	game._frog.set_growth_tier(GameplayTuning.ENORMOUS_TIER)
 	game._frog.global_position = Vector2(0, 320)
 	guard.global_position = Vector2(90, 320)
 	game._tongue_recovery = 0.0
@@ -2453,7 +2456,7 @@ func _test_security_guard_pursuer(game_scene: PackedScene) -> void:
 			and game._discoveries.has(
 				PrototypePursuer.ARCHETYPE_SECURITY_GUARD
 			),
-		"Maximum growth can swallow Security Guard into the Belly and Field Guide."
+		"Enormous growth can swallow Security Guard into the Belly and Field Guide."
 	)
 
 	game._growth_tier = 0
@@ -2636,7 +2639,8 @@ func _test_watchdog_pursuer(game_scene: PackedScene) -> void:
 	)
 	watchdog._advance_lunge_attack(0.25)
 	_check(
-		game._score == 14
+		game._score
+		== 30 - GameplayTuning.WATCHDOG_LUNGE_PENALTY
 			and game._frog.knockback_active()
 			and not watchdog.lunge_attack_active()
 			and game._status_label.text.contains("lunge")
@@ -2666,8 +2670,8 @@ func _test_watchdog_pursuer(game_scene: PackedScene) -> void:
 	watchdog.cancel_active_attack()
 
 	game.set_motion_scale(1.0)
-	game._growth_tier = 2
-	game._frog.set_growth_tier(2)
+	game._growth_tier = GameplayTuning.ENORMOUS_TIER
+	game._frog.set_growth_tier(GameplayTuning.ENORMOUS_TIER)
 	game._frog.global_position = Vector2(0, 320)
 	watchdog.global_position = Vector2(90, 320)
 	game._tongue_recovery = 0.0
@@ -2684,7 +2688,7 @@ func _test_watchdog_pursuer(game_scene: PackedScene) -> void:
 			and game._discoveries.has(
 				PrototypePursuer.ARCHETYPE_WATCHDOG
 			),
-		"Maximum growth can swallow Watchdog into the Belly and Field Guide."
+		"Enormous growth can swallow Watchdog into the Belly and Field Guide."
 	)
 
 	game._growth_tier = 0
@@ -2960,7 +2964,9 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 					segments_safe = false
 		staggered_game._update_navigation_paths()
 		var maximum_radius := (
-			staggered_game._frog.radius_for_tier(2)
+			staggered_game._frog.radius_for_tier(
+				GameplayTuning.ENORMOUS_TIER
+			)
 		)
 		var route := staggered_game._navigation.find_path(
 			staggered.global_position + Vector2(0, -220),
@@ -3012,7 +3018,7 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 					route_points,
 					maximum_radius
 				),
-			"The staggered layout preserves a maximum-growth escape lane."
+			"The staggered layout preserves an enormous-growth escape lane."
 		)
 		_check(
 			ground_blocked,
@@ -3066,7 +3072,10 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 	_check(
 		first_loaded_count
 			== DistrictGenerator.MAX_LOADED_GENERATED_DISTRICTS
-			and district_layout == PrototypeRoadblock.LAYOUT_STAGGERED
+			and district_layout in [
+				PrototypeRoadblock.LAYOUT_STRAIGHT,
+				PrototypeRoadblock.LAYOUT_STAGGERED,
+			]
 			and is_instance_valid(district_game._pursuer)
 			and not is_instance_valid(district_game._roadblock)
 			and (
@@ -3076,7 +3085,7 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 			and not district_game._loaded_districts.has(
 				first_coordinate + Vector2i(-1, -1)
 			),
-		"Unloading a generated ring clears its staggered roadblock without ending pursuit."
+		"Unloading a generated ring clears its roadblock without ending pursuit."
 	)
 	district_game.queue_free()
 	await process_frame
@@ -3170,7 +3179,9 @@ func _test_city_detour(game_scene: PackedScene) -> void:
 
 	game._refresh_navigation_geometry()
 	var detour_snapshot := game.performance_structure_snapshot()
-	var maximum_radius := game._frog.radius_for_tier(2)
+	var maximum_radius := game._frog.radius_for_tier(
+		GameplayTuning.ENORMOUS_TIER
+	)
 	var route := game._navigation.find_path(
 		detour.global_position + Vector2(0, -180),
 		detour.global_position + Vector2(0, 180),
@@ -3187,7 +3198,7 @@ func _test_city_detour(game_scene: PackedScene) -> void:
 		and not bool(route["fallback"])
 		and route_points.size() >= 4
 		and game._navigation.path_is_clear(route_points, maximum_radius),
-		"The maximum-growth navigation route safely detours around the one-segment repair."
+		"The enormous-growth navigation route safely detours around the one-segment repair."
 	)
 
 	var crossing_start := detour.global_position + Vector2(0, -150)
@@ -3548,8 +3559,8 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 	game._update_pursuit_trap(0.0)
 	var pull_blocked := is_instance_valid(game._pursuit_trap)
 	game._pull_target = null
-	game._growth_tier = 2
-	game._frog.set_growth_tier(2)
+	game._growth_tier = GameplayTuning.ENORMOUS_TIER
+	game._frog.set_growth_tier(GameplayTuning.ENORMOUS_TIER)
 	game._update_pursuit_trap(0.0)
 	_check(
 		is_instance_valid(game._pursuit_trap)
@@ -3559,7 +3570,7 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 		and struggle_blocked
 		and pull_blocked
 		and game._score == score_before,
-		"Disabled movement, knockback, netting, struggles, pulls, and maximum growth are immune to traps."
+		"Disabled movement, knockback, netting, struggles, pulls, and enormous growth are immune to traps."
 	)
 	game._growth_tier = 0
 	game._frog.set_growth_tier(0)
@@ -4182,8 +4193,8 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 	)
 	game._clear_struggle()
 
-	game._growth_tier = 2
-	game._frog.set_growth_tier(2)
+	game._growth_tier = GameplayTuning.ENORMOUS_TIER
+	game._frog.set_growth_tier(GameplayTuning.ENORMOUS_TIER)
 	game._spawn_pursuer()
 	_check(
 		is_instance_valid(game._pursuer),
@@ -4314,8 +4325,8 @@ func _test_session_challenges(game_scene: PackedScene) -> void:
 		game._challenges.progress(SessionChallenges.HOLD_ON) == 0,
 		"Directly swallowing a resistant target does not count as a struggle win."
 	)
-	game._growth_tier = 2
-	game._frog.set_growth_tier(2)
+	game._growth_tier = GameplayTuning.ENORMOUS_TIER
+	game._frog.set_growth_tier(GameplayTuning.ENORMOUS_TIER)
 	game._spawn_pursuer()
 	game._swallow_pursuer(game._pursuer, 1.0)
 	_check(
@@ -5043,9 +5054,9 @@ func _test_leap_cafe_sequence(game_scene: PackedScene) -> void:
 	_check(
 		game._pull_target == building_target
 		and game._status_label.text.contains(
-			"Leap Café is weak, but the frog must reach maximum growth"
+			"Leap Café is weak, but the frog must reach large growth"
 		),
-		"The fully weakened cafe still requires maximum growth."
+		"The fully weakened cafe still requires large growth."
 	)
 	game._cancel_pull()
 
@@ -5366,9 +5377,9 @@ func _test_canal_apartments_sequence(
 	_check(
 		game._pull_target == building_target
 		and game._status_label.text.contains(
-			"Canal Apartments is weak, but the frog must reach maximum growth"
+			"Canal Apartments is weak, but the frog must reach large growth"
 		),
-		"The fully weakened apartments still require maximum growth."
+		"The fully weakened apartments still require large growth."
 	)
 	game._cancel_pull()
 

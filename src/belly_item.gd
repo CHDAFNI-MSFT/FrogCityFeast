@@ -1,6 +1,8 @@
 class_name BellyItem
 extends RefCounted
 
+const TUNING := preload("res://src/gameplay_tuning.gd")
+
 var target_id := ""
 var display_name := ""
 var kind := "object"
@@ -28,13 +30,11 @@ var motion_seed := 0
 
 
 func score_value() -> int:
-	var multiplier := 1.0
-	multiplier += float(size_tier) * 0.45
-	multiplier += accuracy * 0.5
-	if rare:
-		multiplier += 1.0
-	if dangerous_location:
-		multiplier += 0.35
-	if captured_while_chased:
-		multiplier += 0.5
-	return maxi(1, roundi(float(base_value) * multiplier))
+	return TUNING.score_value(
+		base_value,
+		size_tier,
+		accuracy,
+		rare,
+		dangerous_location,
+		captured_while_chased
+	)

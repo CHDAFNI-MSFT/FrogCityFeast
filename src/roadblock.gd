@@ -8,8 +8,8 @@ const LIFETIME := 10.0
 const LAYOUT_STRAIGHT := "straight"
 const LAYOUT_STAGGERED := "staggered"
 const MAX_SEGMENTS := 2
-const SAFE_EDGE_CLEARANCE := 68.0
-const MIN_STAGGERED_OPENING := 104.0
+const SAFE_EDGE_CLEARANCE := PlayerFrog.TIER_RADII[-1] + 24.0
+const MIN_STAGGERED_OPENING := PlayerFrog.TIER_RADII[-1] * 2.0 + 16.0
 
 var barrier_size := Vector2(360, 52)
 var layout_id := LAYOUT_STRAIGHT

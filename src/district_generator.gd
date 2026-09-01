@@ -337,7 +337,7 @@ static func _generate_definition(
 		},
 		{
 			"position": center + Vector2(720, 0),
-			"size": Vector2(320, 52),
+			"size": Vector2(360, 52),
 			"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 		},
 		{
@@ -347,7 +347,7 @@ static func _generate_definition(
 		},
 		{
 			"position": center + Vector2(0, 620),
-			"size": Vector2(52, 300),
+			"size": Vector2(52, 360),
 			"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 		},
 	]

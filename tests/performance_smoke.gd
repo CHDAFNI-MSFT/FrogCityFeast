@@ -79,13 +79,13 @@ func _run() -> void:
 	_check(
 		is_equal_approx(
 			PrototypeRoadblock.SAFE_EDGE_CLEARANCE,
-			PlayerFrog.TIER_RADII[2] + 24.0
+			PlayerFrog.TIER_RADII[-1] + 24.0
 		)
 			and is_equal_approx(
 				PrototypeRoadblock.MIN_STAGGERED_OPENING,
-				PlayerFrog.TIER_RADII[2] * 2.0 + 16.0
+				PlayerFrog.TIER_RADII[-1] * 2.0 + 16.0
 			),
-		"Roadblock safety clearances track the maximum frog diameter."
+		"Roadblock safety clearances track the enormous frog diameter."
 	)
 	_check(
 		BUDGETS.MAX_PURSUIT_TRAPS == 1,
@@ -839,7 +839,7 @@ func _setup_net_attack(game: FrogGame) -> void:
 
 
 func _setup_maximum_growth(game: FrogGame) -> void:
-	game._apply_growth_tier(2)
+	game._apply_growth_tier(GameplayTuning.ENORMOUS_TIER)
 
 
 func _setup_presentation_peak(game: FrogGame) -> void:
@@ -977,7 +977,7 @@ func _exercise_city_detour_navigation(game: FrogGame) -> void:
 	var route := game._navigation.find_path(
 		center + Vector2(0, -180),
 		center + Vector2(0, 180),
-		PlayerFrog.TIER_RADII[2]
+		PlayerFrog.TIER_RADII[-1]
 	)
 	var points := route["points"] as PackedVector2Array
 	_check(
@@ -986,9 +986,9 @@ func _exercise_city_detour_navigation(game: FrogGame) -> void:
 			and points.size() >= 4
 			and game._navigation.path_is_clear(
 				points,
-				PlayerFrog.TIER_RADII[2]
+				PlayerFrog.TIER_RADII[-1]
 			),
-		"City-detour stress preserves a maximum-growth navigation route."
+		"City-detour stress preserves an enormous-growth navigation route."
 	)
 
 
@@ -1402,8 +1402,9 @@ func _check_scenario_expectations(
 			)
 		"maximum_growth":
 			_check(
-				int(snapshot["growth_tier"]) == 2,
-				"Maximum-growth stress uses the largest frog tier."
+				int(snapshot["growth_tier"])
+				== GameplayTuning.ENORMOUS_TIER,
+				"Enormous-growth stress uses the largest frog tier."
 			)
 		"presentation_peak":
 			_check_presentation_peak(snapshot)

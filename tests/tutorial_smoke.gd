@@ -264,7 +264,7 @@ func _test_game_integration() -> void:
 	game._open_belly()
 	game._digest_item(0)
 	await process_frame
-	_check(game._growth_points == 78, "Sign digestion reaches the intended growth total.")
+	_check(game._growth_points == 100, "Sign digestion reaches the intended growth total.")
 	_check(game._growth_tier == 1, "The first growth tier is actually applied before the door step.")
 	_check(game._tutorial.step == TutorialController.Step.EAT_DOOR, "Growth advances to the market door.")
 

@@ -280,6 +280,47 @@ Growth is a central form of progression within play.
 - People and vehicles react more strongly as the frog grows.
 - New areas become reachable at larger sizes.
 
+The implemented deterministic rebalance is centralized in
+`src/gameplay_tuning.gd`. Cumulative growth uses four physical tiers:
+
+| Tier | Growth required | Visual scale | Collision radius | Ground speed | Tongue range | City zoom | Camera lead |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Small | 0 | 1.00 | 28 | 330 | 380 | 0.90 | 220 |
+| Growing | 100 | 1.25 | 35 | 345 | 500 | 0.86 | 230 |
+| Large | 500 | 1.58 | 44 | 355 | 650 | 0.78 | 250 |
+| Enormous | 1,700 | 2.35 | 66 | 320 | 900 | 0.62 | 320 |
+
+Camera rotation is preserved when a growth tier changes; only the deterministic
+zoom and forward lead change. The slower enormous ground speed offsets its
+larger collision footprint and longest tongue.
+
+Score is the authored base value multiplied by `1 + 0.35 × size tier + 0.45 ×
+accuracy + 0.80 if rare + 0.30 if dangerous + 0.45 if swallowed during active
+pursuit`, rounded to the nearest integer with a minimum of one. Growth reward
+is the authored base value multiplied by `1.00`, `1.10`, `1.25`, or `1.35` for
+target size tiers zero through three, rounded to the nearest integer, plus 45
+for a rare target. The guided Market Sign fills any remaining gap to the first
+100-growth threshold so the tutorial retains its guaranteed growth lesson;
+the same sign uses the ordinary formula in free play.
+
+Resistant targets use a 3.4-second struggle. Required taps are the authored tap
+count minus the frog's size-tier advantage over the target, with a floor of
+four taps. Equal-size struggles therefore retain their authored difficulty,
+while returning to a smaller resistant target after growing is easier.
+
+Vehicles and fully weakened whole buildings become edible at the Large tier.
+Pursuers remain dangerous and protect their eligible targets through Large,
+then become edible and unable to damage, net, or trap the frog at Enormous.
+Enormous growth never makes roads, walls, bridges, portals, furniture, or other
+fixed collision geometry edible.
+
+Enormous growth is outdoor-only. Reaching 1,700 growth inside a connected room
+stores a pending session tier and applies it at the first collision-safe
+outdoor position after exit. An enormous frog cannot enter authored rooms or
+the hidden-maintenance portal, but an enormous state restored inside by a test
+or future migration may still use room exits. Enormous growth adds no scene
+nodes and uses the existing generated-district streaming ceiling.
+
 One confirmed temporary power allows the frog to fly around the city for one
 minute. The progression milestone also adds:
 
@@ -388,10 +429,10 @@ things to eat.
 - The navigation system marks buildings the player has discovered.
 - Generated districts currently contain one enterable street-level building
   shell with a collision-safe doorway, three removable parts, and a
-  maximum-growth whole-building capture. Generated separate rooms and upper
+  large-growth whole-building capture. Generated separate rooms and upper
   levels remain future work.
 - The current prototype has staged destruction for all four authored
-  buildings. Each requires three removable parts and maximum growth before the
+  buildings. Each requires three removable parts and Large growth before the
   whole weakened building can be swallowed.
 - Leap Café stays enterable throughout its ordered sequence: remove the
   Sidewalk Menu Board, grow once and win an interior struggle with the Rear
@@ -421,13 +462,13 @@ things to eat.
   door to a larger authored fire escape. This first multi-stage room chain uses
   paired safe landings instead of returning every room directly to the city.
   The fire escape uses a bounded follow camera, retains open central space for
-  maximum growth, and contains a room-scoped Balcony Laundry Basket. Returning
+  Large growth, and contains a room-scoped Balcony Laundry Basket. Returning
   through the upper hall restores the original city camera. Consuming the
   apartments disables the whole chain until the building is restored.
 - River Park now has a marked sewer hatch leading to a larger Sewer Junction,
   which continues into an Old Subway Service Tunnel and returns through the
   same two-stage route. Both sections use bounded follow cameras, authored
-  maximum-size-safe landings, central navigation space, and room-scoped
+  Large-size-safe landings, central navigation space, and room-scoped
   targets: the Sewer Valve Wheel and resistant Abandoned Signal Lamp. Entering
   the chain ends pursuit, blocks remote pursuit spawning, pauses generated
   district streaming, and restores the River Park position and city camera on
@@ -435,7 +476,7 @@ things to eat.
 - Discovering the existing Sewer Valve Wheel reveals an otherwise invisible
   maintenance hatch in the Sewer Junction. The hatch branches into a compact
   Hidden Sewer Maintenance Pocket without adding a new story dependency. Its
-  fixed camera, paired safe landings, and central floor support maximum growth;
+  fixed camera, paired safe landings, and central floor support Large growth;
   its dangerous, resistant Maintenance Pump Handle remains scoped to the
   pocket for Belly returns and restocking. The persistent Field Guide
   discovery keeps the hatch revealed, direct transition calls cannot bypass
@@ -443,14 +484,14 @@ things to eat.
   paused throughout the branch, and Reduce motion uses immediate cuts.
 - The River Park pond now has a marked boardwalk entrance leading to a larger
   Lily Pond Boardwalk with a bounded follow camera, authored safe arrival and
-  return positions, open maximum-growth navigation space, and a room-scoped
+  return positions, open Large-growth navigation space, and a room-scoped
   Lily Pad Planter. Entering ends pursuit and blocks remote pursuit spawning;
   leaving restores the River Park camera and exact safe return position.
 - The northwest construction site now has a marked lift that unlocks after the
   first growth tier and reaches a large Construction Crane High Deck. Its
   bounded follow camera permits limited rotation without exposing neighboring
   authored rooms, while the widened deck, authored lift landings, and central
-  route remain safe at maximum growth. Entering ends pursuit, blocks remote
+  route remain safe at Large growth. Entering ends pursuit, blocks remote
   pursuit spawning, and preserves a room-scoped dangerous, resistant Crane
   Operator Toolbox for Belly returns and restocking. Reduce motion uses an
   immediate lift cut and restores the city camera on return.
@@ -511,8 +552,8 @@ Earlier in the same cycle, five draw-only visitors gather for a 68-second River
 Park meetup, including a 50-second steady interval, then disperse before rain
 begins. During pursuit, the marked 145-unit meetup area becomes crowd cover. A
 small or medium ground frog that remains free inside it for 1.75 seconds loses
-Animal Control. Leaving the area resets progress; flight, maximum growth,
-knockback, netting, tongue pulls, and target struggles cannot build cover.
+Animal Control. Leaving the area resets progress; flight, Large or Enormous
+growth, knockback, netting, tongue pulls, and target struggles cannot build cover.
 Reduce motion freezes the visitors while preserving event and hiding timing.
 The meetup adds no collision, target, save, audio, or gameplay-random behavior.
 
@@ -564,7 +605,7 @@ core-city anchors in fixed order and retries once per second if live collision,
 targets, buildings, entrances, portals, or safe navigation margins block every
 site. The repair uses one `StaticBody2D`, one collision shape, a fixed label,
 and no animation or gameplay randomness. Ground movement and pursuers route
-around it, flight crosses it, and maximum growth retains a verified safe route.
+around it, flight crosses it, and Enormous growth retains a verified safe route.
 It may coexist with one draw-only pursuer trap, but it never overlaps a
 pursuit roadblock: an existing roadblock finishes first, while new roadblocks
 wait until the repair window ends. The detour expires at the schedule boundary,
@@ -626,8 +667,8 @@ path. The net sweeps its full radius against building collision, so walls and
 corners stop it, and moving out of the telegraphed line dodges it. A hit
 interrupts an active tongue struggle, roots the frog for a three-second escape,
 and reuses the existing rapid-tap panel. Six taps tear through the net without
-changing score or progression; timing out applies the existing 25-point capped
-loss and knockback. Flight and maximum growth are immune. Reduce motion removes
+changing score or progression; timing out applies a 22-point capped loss and
+knockback. Flight and Enormous growth are immune. Reduce motion removes
 the telegraph and escape scale pulses while preserving the gameplay timing and
 static net information. The attack is deterministic, uses no gameplay random
 numbers, adds no collision or scene nodes, and reuses existing audio.
@@ -636,7 +677,7 @@ Animal Control also explicitly deflects tongue shots from a small or medium
 frog. A direct shot at the officer, or a shot whose path crosses the officer
 before reaching another target, stops at the officer with a short draw-only
 shield flash and the normal tongue recovery. The intended target, score,
-growth, challenges, and Field Guide remain unchanged. At maximum growth the
+growth, challenges, and Field Guide remain unchanged. At Enormous growth the
 officer can no longer protect targets: shots pass through the block, while a
 direct hit can swallow Animal Control through the existing discovery path.
 Reduce motion keeps the static flash while suppressing its expansion. The
@@ -650,14 +691,14 @@ frog position using the same deterministic generated-district navigation, but
 solid city geometry breaks its 760-unit line of sight and three uninterrupted
 seconds without detection ends the chase. It protects only nearby valuables,
 not food or living targets, and uses a 0.65-second draw-only flashlight warning
-instead of a net. Remaining in the locked beam applies one 12-point capped
+instead of a net. Remaining in the locked beam applies one 10-point capped
 knockback; stepping out of the beam, moving behind a wall, flying, or reaching
-maximum growth prevents the strike. Crowd cover loses the sight-based guard in
+Enormous growth prevents the strike. Crowd cover loses the sight-based guard in
 1.1 seconds. The guard deploys no physical roadblock, but after five eligible
 seconds it can place one draw-only motion beacon with a 0.5-second calibration
 warning. An armed beacon reveals a ground frog through geometry for two seconds
 and clears partial crowd-hide progress without damage or immobilization. At
-maximum growth it can be swallowed into the Belly and discovered in the Field
+Enormous growth it can be swallowed into the Belly and discovered in the Field
 Guide like Animal Control. Reduce motion freezes beam decoration while
 preserving its warning and hit timing.
 
@@ -668,14 +709,14 @@ walls while the frog remains on the ground, and its 22-unit navigation radius,
 routes than either person. It protects only nearby living targets and attacks
 with a 0.45-second warning followed by one 220-unit physical lunge using its
 existing collision body. Walls stop the lunge, moving out of its locked path
-dodges it, and a hit applies one 16-point capped knockback. Flight breaks scent
+dodges it, and a hit applies one 14-point capped knockback. Flight breaks scent
 and ends the chase after 1.4 seconds; crowd cover takes 0.8 seconds; the total
 chase is capped at 22 seconds. The dog deploys no physical roadblock, but after
 four eligible seconds it can leave one draw-only sticky scent patch with a
 one-second settling warning. An armed patch applies 1.2 seconds of ordinary
 tongue recovery without stopping movement, changing score, or dealing damage.
 The dog uses no projectile or gameplay random numbers and remains edible at
-maximum growth with its own Belly and Field Guide record. Reduce motion
+Enormous growth with its own Belly and Field Guide record. Reduce motion
 suppresses decorative lunge pulses and trails without changing warning,
 movement, collision, or hit timing.
 
@@ -690,13 +731,13 @@ three unpaused, movement-enabled pursuit seconds, the nearest safe authored road
 anchor 260–850 units from the frog selects its fixed layout; if no anchor is
 currently valid, deployment waits and retries without consuming the allowance.
 Straight anchors use one solid segment. Staggered anchors use two offset
-segments with an authored opening of at least 104 units, preserving a route for
-the 88-unit-diameter maximum-growth frog while still creating a visible
+segments with an authored opening of at least 148 units, preserving a route for
+the 132-unit-diameter Enormous frog while still creating a visible
 chicane. Both layouts are represented by one capped roadblock body, with at
 most two collision shapes and two navigation rectangles.
 
 Every segment is checked against live collision, building footprints, targets,
-loaded navigation bounds, and maximum-growth edge clearance before deployment.
+loaded navigation bounds, and 90-unit Enormous edge clearance before deployment.
 The roadblock blocks ground movement, pursuer movement, net sweeps, and tongue
 rays; flight passes over it. Three tongue hits anywhere on its body break the
 entire layout, while an untouched roadblock expires after ten seconds.
@@ -712,7 +753,7 @@ the nearest safe authored anchor 180–700 units from the frog. If no anchor is
 safe, deployment retries without consuming the allowance. Animal Control waits
 six eligible seconds, then places a 46-unit snare with a 0.75-second arming
 warning and twelve-second lifetime. Eligible contact applies the existing
-capped damage and knockback flow for 15 points; active damage recovery prevents
+capped damage and knockback flow for 12 points; active damage recovery prevents
 the snare from stacking with another hit, and triggering it cancels an
 overlapping net so knockback cannot become an immediate capture loop. Security
 waits five seconds, then places a 54-unit motion beacon with a 0.5-second
@@ -723,7 +764,7 @@ patch with a one-second warning and
 fourteen-second lifetime. It deals no damage or immobilization and applies 1.2
 seconds of tongue recovery while movement and pursuit escape remain available.
 
-Flight, maximum growth, knockback, movement-disabled states, net escape, tongue
+Flight, Enormous growth, knockback, movement-disabled states, net escape, tongue
 pulls, and target struggles prevent every trap profile from triggering.
 Triggered or expired traps never redeploy in the same pursuit. Pursuit end,
 connected-room travel, and generated-district changes clear them immediately.
@@ -731,12 +772,13 @@ Reduce motion freezes decorative pulses while retaining labels, arming changes,
 and all gameplay timing. Placement uses no gameplay random numbers, changes no
 navigation topology, and adds no collision, target, save, score, growth,
 challenge, or Field Guide state beyond Animal Control's explicitly documented
-15-point damage.
+12-point damage.
 
 If a pursuer catches the frog:
 
 - the frog is knocked backward; and
-- points are lost, but the score never drops below zero.
+- points are lost, but the score never drops below zero. Contact costs 20
+  points for Animal Control, 16 for Security, and 12 for the Watchdog.
 
 The frog can escape by outrunning pursuers, hiding inside buildings, losing
 them in crowds, or using temporary powers. Once sufficiently large, the frog

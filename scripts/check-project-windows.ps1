@@ -112,6 +112,9 @@ Invoke-GodotCheck `
     -Label "power-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/power_smoke.gd"
 Invoke-GodotCheck `
+    -Label "enormous-growth-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/enormous_growth_smoke.gd"
+Invoke-GodotCheck `
     -Label "achievement-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/achievement_smoke.gd"
 Invoke-GodotCheck `

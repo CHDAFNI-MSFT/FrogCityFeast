@@ -36,6 +36,7 @@ const CITY_DETOUR_SCRIPT := preload("res://src/city_detour.gd")
 const NAVIGATION_SCRIPT := preload("res://src/deterministic_navigation.gd")
 const POWER_STATE_SCRIPT := preload("res://src/temporary_power_state.gd")
 const ACHIEVEMENT_MODEL_SCRIPT := preload("res://src/achievement_model.gd")
+const GAMEPLAY_TUNING_SCRIPT := preload("res://src/gameplay_tuning.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
 )
@@ -54,13 +55,13 @@ enum InteriorTransitionPhase {
 }
 
 const WORLD_RECT := Rect2(-1760, -1360, 3520, 2720)
-const GROWTH_THRESHOLDS := [60, 360]
-const TONGUE_RECOVERY := 0.42
+const GROWTH_THRESHOLDS := GAMEPLAY_TUNING_SCRIPT.GROWTH_THRESHOLDS
+const TONGUE_RECOVERY := GAMEPLAY_TUNING_SCRIPT.TONGUE_RECOVERY
 const TONGUE_EXTEND_DURATION := 0.09
 const TONGUE_HOLD_DURATION := 0.06
 const TONGUE_RETRACT_DURATION := 0.12
 const TONGUE_COLOR := Color(0.96, 0.42, 0.56, 1.0)
-const STRUGGLE_DURATION := 3.1
+const STRUGGLE_DURATION := GAMEPLAY_TUNING_SCRIPT.STRUGGLE_DURATION
 const DAMAGE_COOLDOWN := 1.4
 const NIGHT_AUDIO_THRESHOLD := 0.38
 const RAIN_START := 0.58
@@ -117,7 +118,7 @@ const ROADBLOCK_ANCHORS := [
 	},
 	{
 		"position": Vector2(-1080, -650),
-		"size": Vector2(280, 52),
+		"size": Vector2(360, 52),
 		"layout": PrototypeRoadblock.LAYOUT_STAGGERED,
 	},
 	{
@@ -545,6 +546,7 @@ var _pending_growth_tier := -1
 var _struggle_target: EdibleTarget
 var _struggle_accuracy := 0.0
 var _struggle_taps := 0
+var _struggle_required_taps := 0
 var _struggle_time_left := 0.0
 var _struggle_hit_offset := Vector2.ZERO
 var _net_escape_active := false
@@ -1613,6 +1615,11 @@ func _building_for_interior_room(room_id: String) -> PrototypeBuilding:
 func _interior_transition_requirement(
 	building: PrototypeBuilding
 ) -> String:
+	if _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER:
+		return (
+			"The enormous frog cannot fit through %s's %s."
+			% [building.display_name, building.transition_door_label.to_lower()]
+		)
 	if _growth_tier < building.transition_min_growth_tier:
 		return (
 			"Grow once before using %s's %s."
@@ -1640,6 +1647,13 @@ func _interior_transition_requirement(
 
 func _interior_portal_requirement(portal: Dictionary) -> String:
 	var requirement_text := str(portal.get("requirement_text", ""))
+	var destination := str(portal.get("destination", ""))
+	if (
+		_active_interior_id.is_empty()
+		and _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
+		and _interior_rooms.has(destination)
+	):
+		return "The enormous frog cannot fit through this entrance."
 	if _growth_tier < int(portal.get("min_growth_tier", 0)):
 		return (
 			requirement_text
@@ -1985,7 +1999,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 		)
 		var range_obstruction := _first_tongue_obstruction(
 			limited_end,
-			_growth_tier >= 2
+			_can_swallow_pursuer()
 		)
 		if not range_obstruction.is_empty():
 			_handle_tongue_obstruction(
@@ -2001,7 +2015,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 
 	var obstruction := _first_tongue_obstruction(
 		world_position,
-		pursuer_hit != null or _growth_tier >= 2,
+		pursuer_hit != null or _can_swallow_pursuer(),
 		target
 	)
 	if not obstruction.is_empty():
@@ -2013,7 +2027,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 
 	if pursuer_hit != null:
 		AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
-		if _growth_tier < 2:
+		if not _can_swallow_pursuer():
 			pursuer_hit.pulse_deflect()
 			_show_tongue(world_position)
 			_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
@@ -2034,7 +2048,11 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 	if target.kind == "building":
 		var building := _building_by_id.get(target.building_id) as PrototypeBuilding
 		if is_instance_valid(building) and (
-			not building.is_ready_to_swallow() or _growth_tier < 2
+			not building.is_ready_to_swallow()
+			or (
+				_growth_tier
+				< GAMEPLAY_TUNING_SCRIPT.WHOLE_BUILDING_EDIBLE_TIER
+			)
 		):
 			_start_pull(target, world_position - target.global_position)
 			if not building.is_ready_to_swallow():
@@ -2047,7 +2065,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 				)
 			else:
 				_show_status(
-					"%s is weak, but the frog must reach maximum growth."
+					"%s is weak, but the frog must reach large growth."
 					% building.display_name
 				)
 			return
@@ -2073,7 +2091,14 @@ func _begin_struggle(target: EdibleTarget, accuracy: float, hit_offset: Vector2)
 	_struggle_hit_offset = hit_offset
 	_struggle_taps = 0
 	_struggle_time_left = STRUGGLE_DURATION
-	_struggle_progress.max_value = target.taps_required
+	_struggle_required_taps = (
+		GAMEPLAY_TUNING_SCRIPT.struggle_taps_required(
+			target.taps_required,
+			target.size_tier,
+			_growth_tier
+		)
+	)
+	_struggle_progress.max_value = _struggle_required_taps
 	_struggle_progress.value = 0
 	_struggle_title.text = TARGET_STRUGGLE_TITLE
 	_struggle_hint.text = TARGET_STRUGGLE_HINT
@@ -2093,7 +2118,7 @@ func _register_struggle_tap() -> void:
 	_struggle_kick = 1.0
 	_struggle_target.pulse_feedback(_motion_scale)
 	_struggle_progress.value = _struggle_taps
-	if _struggle_taps >= _struggle_target.taps_required:
+	if _struggle_taps >= _struggle_required_taps:
 		var captured_target := _struggle_target
 		var captured_accuracy := _struggle_accuracy
 		_challenges.record_struggle_win()
@@ -2177,6 +2202,7 @@ func _clear_struggle() -> void:
 		)
 		_struggle_target.set_latched(false)
 	_struggle_target = null
+	_struggle_required_taps = 0
 	_struggle_panel.visible = false
 	_frog.movement_enabled = true
 	_start_tongue_retract()
@@ -2946,7 +2972,7 @@ func _digest_item(index: int) -> void:
 	AudioDirector.play_effect(FrogAudioDirector.DIGEST)
 	var points := item.score_value()
 	_score += points
-	var growth_gain := maxi(1, item.base_value + (60 if item.rare else 0))
+	var growth_gain := _growth_value_for_item(item)
 	_growth_points += growth_gain
 	_apply_digest_effects(item)
 	item_digested.emit(item.target_id)
@@ -2961,6 +2987,22 @@ func _digest_item(index: int) -> void:
 		call_deferred("_close_belly_after_tutorial_digest")
 
 
+func _growth_value_for_item(item: BellyItem) -> int:
+	var value := GAMEPLAY_TUNING_SCRIPT.growth_value(
+		item.base_value,
+		item.size_tier,
+		item.rare
+	)
+	if (
+		_tutorial != null
+		and _tutorial.active
+		and _tutorial.step == TutorialController.Step.DIGEST_SIGN
+		and item.target_id == "moonlight_market_sign"
+	):
+		return maxi(value, GROWTH_THRESHOLDS[0] - _growth_points)
+	return value
+
+
 func _digest_all() -> void:
 	if _tutorial != null and _tutorial.active:
 		_show_status(_tutorial.current_instruction())
@@ -2973,7 +3015,7 @@ func _digest_all() -> void:
 	while not _belly.is_empty():
 		var item: BellyItem = _belly.pop_back()
 		var points := item.score_value()
-		var growth_gain := maxi(1, item.base_value + (60 if item.rare else 0))
+		var growth_gain := _growth_value_for_item(item)
 		total_points += points
 		total_growth += growth_gain
 		_score += points
@@ -3141,6 +3183,13 @@ func _apply_growth_thresholds() -> void:
 	if next_tier == _growth_tier:
 		_pending_growth_tier = -1
 		return
+	if (
+		next_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
+		and not _active_interior_id.is_empty()
+	):
+		_pending_growth_tier = next_tier
+		_show_status("Return outdoors so the frog has room to grow enormous.")
+		return
 	if not _frog.is_flying:
 		var safe_position := _find_safe_frog_position(_frog.radius_for_tier(next_tier))
 		if safe_position == Vector2.INF:
@@ -3152,7 +3201,14 @@ func _apply_growth_thresholds() -> void:
 
 
 func _retry_pending_growth() -> void:
-	if _pending_growth_tier <= _growth_tier or _frog.is_flying:
+	if (
+		_pending_growth_tier <= _growth_tier
+		or _frog.is_flying
+		or (
+			_pending_growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
+			and not _active_interior_id.is_empty()
+		)
+	):
 		return
 	var safe_position := _find_safe_frog_position(
 		_frog.radius_for_tier(_pending_growth_tier)
@@ -3164,17 +3220,39 @@ func _retry_pending_growth() -> void:
 
 
 func _apply_growth_tier(tier: int) -> void:
+	if (
+		tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
+		and not _active_interior_id.is_empty()
+	):
+		_pending_growth_tier = tier
+		_show_status("Return outdoors so the frog has room to grow enormous.")
+		return
 	_growth_tier = tier
 	_pending_growth_tier = -1
 	_frog.set_growth_tier(_growth_tier)
+	_city_camera_zoom = GAMEPLAY_TUNING_SCRIPT.city_camera_zoom(
+		_growth_tier
+	)
+	if _active_interior_id.is_empty():
+		_camera.zoom = _city_camera_zoom
 	_invalidate_navigation()
 	_frog.celebrate_growth(_motion_scale)
 	_effects.emit_growth(_frog.global_position)
 	AudioDirector.play_effect(FrogAudioDirector.GROWTH)
-	_show_status("Growth tier %d! The frog and tongue are larger." % (_growth_tier + 1))
+	if _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER:
+		if is_instance_valid(_pursuer):
+			_pursuer.cancel_active_attack()
+			_pursuer.set_frog_netted(false)
+		_clear_pursuit_trap()
+		_show_status("Enormous growth! Pursuers are now edible.")
+	else:
+		_show_status(
+			"Growth tier %d! The frog and tongue are larger."
+			% (_growth_tier + 1)
+		)
 	if _growth_tier >= 1:
 		_unlock_profile_achievement("growth_spurt")
-	if _growth_tier >= 3:
+	if _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER:
 		_record_enormous_growth()
 	growth_tier_applied.emit(_growth_tier)
 
@@ -3860,7 +3938,13 @@ func _update_camera() -> void:
 			_camera.global_position = room.global_position
 		return
 	var forward := Vector2.UP.rotated(_camera.rotation)
-	_camera.global_position = _frog.global_position + forward * 220.0
+	_camera.global_position = (
+		_frog.global_position
+		+ forward
+		* GAMEPLAY_TUNING_SCRIPT.city_camera_forward_offset(
+			_growth_tier
+		)
+	)
 
 
 func _trigger_camera_shake(amplitude: float, duration: float) -> void:
@@ -3915,7 +3999,11 @@ func _check_vehicle_hazards() -> void:
 			and target.global_position.distance_to(_frog.global_position)
 			< target.pick_radius + _frog.collision_radius()
 		):
-			_apply_damage(target.global_position, 12, "A delivery van knocked the frog back!")
+			_apply_damage(
+				target.global_position,
+				GAMEPLAY_TUNING_SCRIPT.VEHICLE_COLLISION_PENALTY,
+				"A delivery van knocked the frog back!"
+			)
 			return
 
 
@@ -3926,6 +4014,11 @@ func _apply_damage(
 	pursuit_hit: bool = false
 ) -> void:
 	if _damage_cooldown > 0.0:
+		return
+	if (
+		pursuit_hit
+		and _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
+	):
 		return
 	if (
 		pursuit_hit
@@ -4109,6 +4202,7 @@ func _update_pursuit_roadblock(delta: float) -> void:
 		or _city_detour_reserves_obstacle_slot()
 		or not _active_interior_id.is_empty()
 		or not _frog.movement_enabled
+		or _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
 	):
 		return
 	_roadblock_deploy_time = maxf(
@@ -4349,7 +4443,7 @@ func _update_pursuit_trap(delta: float) -> void:
 					_pursuer.cancel_active_attack()
 					_apply_damage(
 						source_position,
-						15,
+						GAMEPLAY_TUNING_SCRIPT.ANIMAL_CONTROL_TRAP_PENALTY,
 						"An Animal Control snare knocked the frog back!",
 						true
 					)
@@ -4358,6 +4452,7 @@ func _update_pursuit_trap(delta: float) -> void:
 		_pursuit_trap_deployed
 		or not _active_interior_id.is_empty()
 		or not _frog.movement_enabled
+		or _growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
 	):
 		return
 	_pursuit_trap_deploy_time = maxf(
@@ -4377,7 +4472,7 @@ func _pursuit_trap_can_trigger() -> bool:
 			not _pursuit_trap.causes_damage()
 			or _damage_cooldown <= 0.0
 		)
-		and _growth_tier < 2
+		and _growth_tier < GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
 		and not _frog.is_flying
 		and not _power_state.is_active(TemporaryPowerState.CAMOUFLAGE)
 		and not _frog.knockback_active()
@@ -4596,7 +4691,10 @@ func _on_pursuer_attack_hit(
 
 
 func _on_pursuer_netted(source_position: Vector2) -> void:
-	if _frog.growth_tier >= 2 or _frog.is_flying:
+	if (
+		_frog.growth_tier >= GAMEPLAY_TUNING_SCRIPT.ENORMOUS_TIER
+		or _frog.is_flying
+	):
 		if is_instance_valid(_pursuer):
 			_pursuer.set_frog_netted(false)
 		return
@@ -4656,7 +4754,7 @@ func _fail_net_escape() -> void:
 		return
 	_apply_damage(
 		source_position,
-		25,
+		GAMEPLAY_TUNING_SCRIPT.ANIMAL_CONTROL_NET_PENALTY,
 		"Animal Control tightened the net! You lost some points.",
 		true
 	)
@@ -4698,6 +4796,13 @@ func _is_actively_chased() -> bool:
 	)
 
 
+func _can_swallow_pursuer() -> bool:
+	return (
+		_growth_tier
+		>= GAMEPLAY_TUNING_SCRIPT.PURSUER_EDIBLE_TIER
+	)
+
+
 func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	if _net_escape_active:
 		_clear_net_escape()
@@ -4709,7 +4814,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	item.display_name = str(belly_data["name"])
 	item.kind = "living"
 	item.base_value = int(belly_data["value"])
-	item.size_tier = 2
+	item.size_tier = GAMEPLAY_TUNING_SCRIPT.PURSUER_EDIBLE_TIER
 	item.resistant = true
 	item.taps_required = int(belly_data["taps"])
 	item.pick_radius = 40.0
@@ -5563,7 +5668,10 @@ func _find_safe_spit_position(radius: float) -> Vector2:
 
 func _find_safe_frog_position(radius: float) -> Vector2:
 	var candidates := [_frog.global_position, _last_safe_ground_position]
-	for distance in [60.0, 110.0, 170.0, 240.0]:
+	var search_distances := [60.0, 110.0, 170.0, 240.0]
+	if radius >= PlayerFrog.TIER_RADII[PlayerFrog.ENORMOUS_TIER]:
+		search_distances.append_array([320.0, 420.0])
+	for distance in search_distances:
 		for step in 12:
 			var angle := TAU * float(step) / 12.0
 			candidates.append(_frog.global_position + Vector2.RIGHT.rotated(angle) * distance)

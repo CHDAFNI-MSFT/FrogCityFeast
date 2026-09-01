@@ -24,7 +24,8 @@ The prototype includes:
 - equivalent mouse controls for desktop testing;
 - brief, draw-only move, tongue, and camera touch cues that confirm accepted
   controls without changing input coordinates, targeting, physics, or scoring;
-- fixed tongue range, wall obstruction, miss recovery, and center-hit accuracy;
+- tier-based tongue range, wall obstruction, miss recovery, and center-hit
+  accuracy;
 - presentation-only tongue extension, hold, and retraction that preserves the
   result and accuracy of the original touch;
 - ordinary, moving, resistant, rare, living, object, and vehicle targets;
@@ -35,47 +36,55 @@ The prototype includes:
 - individual Digest and Spit Out actions;
 - scoring based on size, rarity, accuracy, danger, and pursuit;
 - an immediate points-and-growth reward shown inside the belly after digestion;
-- three discrete frog growth tiers;
+- one centralized deterministic rebalance with 0/100/500/1,700 cumulative
+  growth thresholds, 0.38-second ordinary tongue recovery, a 3.4-second
+  resistant-target struggle, and exact score, growth, and penalty formulas;
+- four discrete frog growth tiers: Small, Growing, Large, and Enormous;
 - larger frog and tongue presentation at each tier;
 - a collision-safe frog growth pulse and expanding growth rings;
-- traffic that is dangerous while the frog is small and edible at maximum
+- traffic that is dangerous while the frog is small and edible at Large
   growth;
+- outdoor-only Enormous growth with a 66-unit collision radius, 900-unit
+  tongue, 0.62 city-camera zoom, preserved camera rotation, and deferred
+  application after leaving a connected room;
+- room entrances that reject the Enormous frog while preserving every normal
+  room exit and the Large-tier indoor navigation contract;
 - Animal Control pursuit after an escaped target calls for help;
 - deterministic Animal Control routes around authored and generated buildings,
   active roadblocks, and loaded-district boundaries, with bounded repathing and
   stuck recovery for later ground-pursuer compatibility;
 - Animal Control tongue deflection that stops direct shots and shots crossing
   the officer before another target, uses draw-only shield feedback and normal
-  recovery, and stops protecting targets once the frog reaches maximum growth;
+  recovery, and stops protecting targets once the frog reaches Enormous growth;
 - a Security Guard pursuer for escaped valuables and building struggles, with
   760-unit wall-aware line-of-sight detection, slower last-seen-position
   navigation, valuables-only tongue protection, a dodgeable 0.65-second
   draw-only flashlight strike, 1.1-second crowd escape, flight-based detection
   loss, one non-damaging five-second motion-beacon deployment, no physical
-  roadblock stacking, and maximum-growth Belly capture;
+  roadblock stacking, and Enormous-growth Belly capture;
 - a Watchdog pursuer for escaped living targets, with 860-unit wall-ignoring
   ground scent, faster 22-unit-radius navigation, living-target-only
   protection, a wall-stopped and dodgeable 0.45-second physical lunge,
   0.8-second crowd escape, 1.4-second flight scent loss, one non-damaging
   four-second sticky-patch deployment, no physical roadblock stacking, and
-  maximum-growth Belly capture;
+  Enormous-growth Belly capture;
 - a deterministic Animal Control net attack with a 0.8-second warning, one
   wall-aware draw-only projectile, a dodge window, and a three-second six-tap
   escape;
-- net failure that reuses the existing 25-point capped loss and knockback,
-  while flight and maximum growth prevent capture;
+- net failure that applies a 22-point capped loss and knockback, while flight
+  and Enormous growth prevent capture;
 - one deterministic physical Animal Control roadblock per pursuit, deployed
   after three eligible seconds at the nearest safe authored road anchor as
   either a straight segment or a two-segment staggered chicane, breakable with
   three tongue hits, self-expiring after ten seconds, and cleared immediately
   when pursuit ends;
-- a minimum 104-unit authored opening through every staggered chicane so the
-  maximum-growth frog retains a clear escape route, while flight passes over
+- a minimum 148-unit authored opening through every staggered chicane so the
+  Enormous frog retains a clear escape route, while flight passes over
   either layout;
 - one deterministic draw-only Animal Control sidewalk snare per pursuit,
   deployed after six eligible seconds with a 0.75-second arming warning,
-  harmless to flight and maximum growth, self-expiring after twelve seconds,
-  applying one 15-point capped knockback when an eligible frog triggers it,
+  harmless to flight and Enormous growth, self-expiring after twelve seconds,
+  applying one 12-point capped knockback when an eligible frog triggers it,
   and cancelling an overlapping net before it can create a capture loop;
 - one deterministic draw-only Security motion beacon per pursuit, deployed
   after five eligible seconds with a 0.5-second calibration warning, clearing
@@ -91,7 +100,7 @@ The prototype includes:
 - a deterministic River Park meetup where five draw-only visitors provide
   marked crowd cover and a 1.75-second Animal Control escape for an eligible
   small or medium frog;
-- the ability to swallow Animal Control at maximum growth;
+- the ability to swallow all three pursuer archetypes at Enormous growth;
 - harmless return of digested living targets at collision-safe locations,
   with indoor residents returning inside their building;
 - target restocking so a score session can continue;
@@ -159,7 +168,7 @@ The prototype includes:
   using one physical segment selected from three authored fallback anchors,
   one-second blocked-site retries, and no shared gameplay RNG;
 - a safe detour that ground movement and pursuers route around, flight crosses,
-  maximum growth can bypass, and room travel or generated-district departure
+  Enormous growth can route around, and room travel or generated-district departure
   clears; it can coexist with one draw-only trap but never a pursuit roadblock;
 - one deterministic 29-second daytime wind squall per cycle, with 7.2-second
   fades around a 14.4-second steady interval, a subtle tint, and 40 fixed
@@ -171,8 +180,8 @@ The prototype includes:
   50-second steady interval, five capped draw-only visitors, and no overlap
   with the rain shower;
 - crowd-cover progress that resets when the frog leaves and is unavailable
-  during flight, maximum growth, knockback, netting, tongue pulls, or target
-  struggles;
+  during flight, Large or Enormous growth, knockback, netting, tongue pulls,
+  or target struggles;
 - deterministic, draw-only pedestrians on fixed sidewalk routes, with a
   smaller night crowd and no collision, targeting, scoring, or Field Guide
   behavior;
@@ -241,7 +250,7 @@ The prototype includes:
   Canal Apartments is consumed;
 - a growth-gated fire door from the upper hall to a larger Canal Apartments
   fire escape, providing the first two-stage room chain, paired authored
-  landings, bounded follow-camera movement, safe maximum-growth space, and a
+  landings, bounded follow-camera movement, safe Large-growth space, and a
   room-scoped Balcony Laundry Basket;
 - fire-escape traversal that keeps the original city return and camera state
   across both rooms, blocks remote pursuit, rejects cross-room Belly returns,
@@ -249,23 +258,23 @@ The prototype includes:
   building until restoration;
 - a marked River Park sewer hatch leading to a navigable Sewer Junction and
   then an Old Subway Service Tunnel, with authored two-way landings, safe
-  maximum-growth routes, and restored River Park camera state on final exit;
+  Large-growth routes, and restored River Park camera state on final exit;
 - room-scoped Sewer Valve Wheel and resistant Abandoned Signal Lamp targets
   whose Belly returns and restocking remain in their original sewer sections;
 - an initially invisible Sewer Junction maintenance hatch revealed by the
   existing Sewer Valve Wheel discovery state, leading to a compact Hidden
   Sewer Maintenance Pocket with safe two-way landings, a fixed camera,
-  maximum-growth central space, and a dangerous resistant Maintenance Pump
+  Large-growth central space, and a dangerous resistant Maintenance Pump
   Handle;
 - hidden-pocket traversal that cannot be bypassed with direct transition
   calls, remains unlocked through persistent Field Guide state, pauses
   generated-district unloading, blocks remote pursuit, rejects cross-space
   Belly returns, restocks its target in place, and supports Reduce motion;
 - a marked River Park pond boardwalk leading to a larger navigable Lily Pond
-  space with maximum-growth-safe central routes and a room-scoped Lily Pad
+  space with Large-growth-safe central routes and a room-scoped Lily Pad
   Planter;
 - a growth-gated northwest construction lift leading to a large Construction
-  Crane High Deck with authored safe landings, maximum-growth central space, a
+  Crane High Deck with authored safe landings, Large-growth central space, a
   bounded follow camera, limited rotation, and a room-scoped resistant Crane
   Operator Toolbox whose dangerous-location bonus survives valid deck returns
   and restocking;
@@ -297,7 +306,7 @@ The prototype includes:
   - eat its exterior sign;
   - grow large enough to pull off its blocking door;
   - enter the market and eat its counter;
-  - reach maximum growth and win a struggle against the weakened building;
+  - reach Large growth and win a struggle against the weakened building;
   - swallow and digest the whole structure, or spit it back into a clear
     footprint with the removed parts still absent;
 - a second complete destructible-building sequence for the Oddities Shop:
@@ -305,14 +314,14 @@ The prototype includes:
   - grow once, enter the shop, and win a struggle with its Curio Shelf;
   - optionally use the revealed trapdoor to explore the Curio Cellar;
   - remove its exterior banner;
-  - reach maximum growth and win a struggle against the weakened shop; and
+  - reach Large growth and win a struggle against the weakened shop; and
   - digest the whole structure or restore it with all three parts still gone;
 - an ordered destructible-building sequence for Leap Café:
   - eat its Sidewalk Menu Board from outside;
   - grow once, enter the still-open café, and win a struggle with the Rear
     Espresso Counter;
   - remove the Front Awning without changing doorway collision;
-  - reach maximum growth and win a struggle against the weakened café; and
+  - reach Large growth and win a struggle against the weakened café; and
   - digest the whole structure or restore it in a clear footprint with all
     three parts still absent and the Loose Phone bar unchanged;
 - an ordered destructible-building sequence for Canal Apartments:
@@ -320,7 +329,7 @@ The prototype includes:
   - grow once, enter the still-open lobby, and win a struggle with the Lobby
     Bench;
   - remove the Entry Canopy without changing doorway collision;
-  - reach maximum growth and win a struggle against the weakened apartments;
+  - reach Large growth and win a struggle against the weakened apartments;
     and
   - digest the whole structure or restore it in a clear footprint with all
     three parts still absent and the Tenant's Cat and Lobby Lamp paths intact;
@@ -406,16 +415,16 @@ frame-step-independent festival motion, the bounded rain schedule and density
 change, the bounded wind-squall schedule and density,
 frame-step-independent weather marks, static reduced-motion weather and
 festivals, room and district event-layer stability, water-main deployment
-retries, exact expiry, ground blocking, maximum-growth routing, flight passage,
+retries, exact expiry, ground blocking, Enormous-growth routing, flight passage,
 navigation invalidation, roadblock mutual exclusion, pursuit, net windup
 and wall clearance, dodging, tongue interruption and deflection, Security
 Guard sight loss, valuables-only protection, flashlight dodging and damage,
 Watchdog scent, living-target protection, lunge wall stopping and dodging,
 straight and staggered roadblock selection, multi-segment collision and
-navigation, maximum-growth chicane passage, roadblock retries, breakage,
+navigation, Enormous-growth chicane passage, roadblock retries, breakage,
 expiry, transition and district-unload cleanup, profile-driven trap selection,
 exact arming and expiry boundaries, harmless reveal and tongue-delay effects,
-simultaneous attack windows, maximum-size deflection immunity, rapid-tap escape
+simultaneous attack windows, Enormous deflection immunity, rapid-tap escape
 and timeout damage, flight and growth immunity,
 profile persistence, Field Guide catalog and overlay behavior,
 legacy discovery saves, per-profile accessibility persistence and legacy
@@ -487,7 +496,7 @@ The deterministic structural budgets are enforced in CI:
 
 | Reachable state | Structural ceiling |
 |---|---|
-| Baseline, night shop, any separate room, busy daytime, peak wind, maximum growth, Field Guide, or options | 369 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
+| Baseline, night shop, any separate room, busy daytime, peak wind, Enormous growth, Field Guide, or options | 369 game-subtree nodes, 41 collision objects, 111 collision shapes, 36 targets, 4 buildings, 10 separate rooms |
 | Day-open Moonlight Market | The exact kite-festival overlap remains at the 369-node baseline ceiling; one existing removable door collision is disabled and navigation uses one fewer obstacle |
 | Ordinary Animal Control pursuit | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer |
 | Security Guard pursuit or flashlight warning | 371 nodes, 42 collision objects, 112 collision shapes, 1 pursuer; the flashlight is draw-only |
@@ -600,7 +609,7 @@ shapes with all 36 targets and 4 buildings retained; opening disables one
 existing door collision and reduces active navigation obstacles from 30 to 29.
 
 The final water-main repair passes measured 8.56–8.57 ms frame-time p95,
-146–151 draws, 945–961 objects, and 8,806–9,044 primitives. Its maximum-growth
+146–151 draws, 945–961 objects, and 8,806–9,044 primitives. Its Enormous-growth
 detour query used 31 active obstacles, 1,128 grid cells, 4 smoothed points, and
 946 microseconds. With 24 presentation effects and one profile trap, Animal
 Control used 390 draws and measured 11.15–24.77 ms p95, Security used 392 draws

@@ -3,10 +3,12 @@ extends CharacterBody2D
 
 signal move_reached(world_position: Vector2)
 
-const TIER_SCALES := [1.0, 1.28, 1.62]
-const TIER_RADII := [28.0, 35.0, 44.0]
-const TIER_SPEEDS := [330.0, 350.0, 365.0]
-const TIER_TONGUE_RANGES := [390.0, 540.0, 720.0]
+const TUNING := preload("res://src/gameplay_tuning.gd")
+const TIER_SCALES := TUNING.FROG_TIER_SCALES
+const TIER_RADII := TUNING.FROG_TIER_RADII
+const TIER_SPEEDS := TUNING.FROG_TIER_SPEEDS
+const TIER_TONGUE_RANGES := TUNING.FROG_TIER_TONGUE_RANGES
+const ENORMOUS_TIER := TUNING.ENORMOUS_TIER
 const WAYPOINT_TOLERANCE := 1.0
 
 var growth_tier := 0
