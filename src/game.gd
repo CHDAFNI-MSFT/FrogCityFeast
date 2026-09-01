@@ -34,8 +34,13 @@ const NAVIGATION_SCRIPT := preload("res://src/deterministic_navigation.gd")
 const POWER_STATE_SCRIPT := preload("res://src/temporary_power_state.gd")
 const ACHIEVEMENT_MODEL_SCRIPT := preload("res://src/achievement_model.gd")
 const GAMEPLAY_TUNING_SCRIPT := preload("res://src/gameplay_tuning.gd")
+const SCORE_EPILOGUE_SCENE := preload("res://scenes/score_epilogue.tscn")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
+)
+const OPTIONS_SUMMARY_TEXT := (
+	"Accessibility and audio choices are saved for this player "
+	+ "and apply immediately."
 )
 
 enum TonguePhase {
@@ -458,6 +463,7 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _tutorial_marker: TutorialMarker = $World/TutorialMarker
 @onready var _tutorial_panel: PanelContainer = %TutorialPanel
 @onready var _tutorial_progress: Label = %TutorialProgress
+@onready var _tutorial_card_art: TutorialCardArt = %TutorialCardArt
 @onready var _tutorial_title: Label = %TutorialTitle
 @onready var _tutorial_instruction: Label = %TutorialInstruction
 @onready var _skip_tutorial_button: Button = %SkipTutorialButton
@@ -469,6 +475,9 @@ const DESTRUCTIBLE_BUILDING_TARGETS := {
 @onready var _close_guide_button: Button = %CloseGuideButton
 @onready var _options_overlay: Control = %OptionsOverlay
 @onready var _options_center: CenterContainer = $HUD/Root/OptionsOverlay/Center
+@onready var _options_summary: Label = (
+	$HUD/Root/OptionsOverlay/Center/Panel/Margin/Content/Summary
+)
 @onready var _reduce_motion_toggle: CheckButton = %ReduceMotionToggle
 @onready var _larger_ui_toggle: CheckButton = %LargerUiToggle
 @onready var _input_assist_option: OptionButton = %InputAssistOption
@@ -622,6 +631,12 @@ var _refreshing_audio_controls := false
 var _audio_dragging := false
 var _tutorial_panel_was_visible_before_options := false
 var _performance_instrumentation: CanvasLayer
+var _score_epilogue: ScoreEpilogue
+var _end_return_requested := false
+var _save_warning_panel: PanelContainer
+var _save_warning_label: Label
+var _save_warning_message := ""
+var _safe_area_insets := Vector4.ZERO
 
 
 func _ready() -> void:
@@ -701,7 +716,104 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if is_instance_valid(_score_epilogue):
+		get_tree().paused = false
 	AudioDirector.leave_context(self)
+
+
+func show_save_error(message: String) -> void:
+	_save_warning_message = message
+	if message.is_empty():
+		_clear_save_warning()
+		_update_save_warning_surfaces()
+		return
+	if not is_instance_valid(_save_warning_panel):
+		_create_save_warning()
+	_save_warning_label.text = "SAVE WARNING: %s" % message
+	_apply_save_warning_layout()
+	_update_save_warning_surfaces()
+
+
+func _create_save_warning() -> void:
+	_save_warning_panel = PanelContainer.new()
+	_save_warning_panel.name = "SaveWarning"
+	_save_warning_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	_save_warning_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_save_warning_panel.z_index = 30
+	var panel_style := _status_panel.get_theme_stylebox("panel")
+	if panel_style != null:
+		_save_warning_panel.add_theme_stylebox_override("panel", panel_style)
+
+	_save_warning_label = Label.new()
+	_save_warning_label.name = "SaveWarningLabel"
+	_save_warning_label.custom_minimum_size = Vector2(0.0, 76.0)
+	_save_warning_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_save_warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_save_warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_save_warning_label.add_theme_color_override(
+		"font_color",
+		Color(1.0, 0.82, 0.35)
+	)
+	_save_warning_label.add_theme_color_override(
+		"font_outline_color",
+		Color(0.0, 0.0, 0.0, 0.9)
+	)
+	_save_warning_label.add_theme_constant_override("outline_size", 3)
+	_save_warning_label.add_theme_font_size_override("font_size", 18)
+	_save_warning_panel.add_child(_save_warning_label)
+	$HUD/Root.add_child(_save_warning_panel)
+	AccessibilityPresentation.apply(
+		_save_warning_panel,
+		_larger_text_controls_enabled
+	)
+
+
+func _clear_save_warning() -> void:
+	if is_instance_valid(_save_warning_panel):
+		_save_warning_panel.queue_free()
+	_save_warning_panel = null
+	_save_warning_label = null
+
+
+func _update_save_warning_surfaces() -> void:
+	_options_summary.text = (
+		OPTIONS_SUMMARY_TEXT
+		if _save_warning_message.is_empty()
+		else "SAVE WARNING: %s\n%s" % [
+			_save_warning_message,
+			OPTIONS_SUMMARY_TEXT,
+		]
+	)
+	if is_instance_valid(_score_epilogue):
+		_score_epilogue.set_save_warning(_save_warning_message)
+	if is_instance_valid(_save_warning_panel):
+		_save_warning_panel.visible = (
+			not _options_overlay.visible
+			and not _belly_overlay.visible
+			and not _guide_overlay.visible
+			and not is_instance_valid(_score_epilogue)
+		)
+
+
+func _apply_save_warning_layout() -> void:
+	if not is_instance_valid(_save_warning_panel):
+		return
+	var viewport_width := get_viewport_rect().size.x
+	var left := maxf(0.0, _safe_area_insets.x)
+	var top := maxf(0.0, _safe_area_insets.y)
+	var right := maxf(0.0, _safe_area_insets.z)
+	var safe_width := maxf(0.0, viewport_width - left - right)
+	var center_x := left + safe_width * 0.5
+	var half_width := minf(330.0, maxf(220.0, (safe_width - 48.0) * 0.5))
+	_save_warning_panel.anchor_left = 0.0
+	_save_warning_panel.anchor_top = 0.0
+	_save_warning_panel.anchor_right = 0.0
+	_save_warning_panel.anchor_bottom = 0.0
+	_save_warning_panel.offset_left = center_x - half_width
+	_save_warning_panel.offset_top = 230.0 + top
+	_save_warning_panel.offset_right = center_x + half_width
+	_save_warning_panel.offset_bottom = 306.0 + top
 
 
 func configure(
@@ -2511,12 +2623,14 @@ func _open_belly() -> void:
 		else 0.0
 	)
 	_belly_overlay.visible = true
+	_update_save_warning_surfaces()
 	_sync_overlay_pause()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _close_belly() -> void:
 	_belly_overlay.visible = false
+	_update_save_warning_surfaces()
 	_belly_center.offset_bottom = 0.0
 	_reset_touch_input_state()
 	_sync_overlay_pause()
@@ -2546,12 +2660,14 @@ func _open_guide() -> void:
 	_clear_camera_shake()
 	_hide_discovery_banner()
 	_guide_overlay.visible = true
+	_update_save_warning_surfaces()
 	_sync_overlay_pause()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _close_guide() -> void:
 	_guide_overlay.visible = false
+	_update_save_warning_surfaces()
 	_reset_touch_input_state()
 	_sync_overlay_pause()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
@@ -2568,12 +2684,14 @@ func _open_options() -> void:
 	_tutorial_panel_was_visible_before_options = _tutorial_panel.visible
 	_tutorial_panel.visible = false
 	_options_overlay.visible = true
+	_update_save_warning_surfaces()
 	_sync_overlay_pause()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
 func _close_options() -> void:
 	_options_overlay.visible = false
+	_update_save_warning_surfaces()
 	if (
 		_tutorial_panel_was_visible_before_options
 		and _tutorial != null
@@ -2743,19 +2861,23 @@ func _meta_journal_text() -> String:
 		)
 
 	lines.append("")
-	lines.append("STORY CLUES - saved for %s" % _display_name)
+	lines.append("STORY CLUES - POSTCARDS saved for %s" % _display_name)
+	var postcard_number := 1
 	for entry in ProgressionCatalog.story_clue_entries():
 		var clue_id := str(entry["id"])
 		lines.append(
 			(
-				"[FOUND] %s - %s" % [
+				"POSTCARD %02d [STAMPED] %s - %s" % [
+					postcard_number,
 					entry["name"],
 					entry["text"],
 				]
 				if _story_clues.has(clue_id)
-				else "[?] Undiscovered clue"
+				else "POSTCARD %02d [UNDELIVERED] Undiscovered clue"
+				% postcard_number
 			)
 		)
+		postcard_number += 1
 
 	lines.append("")
 	lines.append("POWER DISCOVERIES - saved for %s" % _display_name)
@@ -3665,6 +3787,17 @@ func performance_structure_snapshot() -> Dictionary:
 		"belly_overlay_visible": _belly_overlay.visible,
 		"guide_overlay_visible": _guide_overlay.visible,
 		"options_overlay_visible": _options_overlay.visible,
+		"save_warning_active": not _save_warning_message.is_empty(),
+		"save_warning_visible": (
+			is_instance_valid(_save_warning_panel)
+			and _save_warning_panel.visible
+		),
+		"save_warnings": (
+			1 if is_instance_valid(_save_warning_panel) else 0
+		),
+		"score_epilogues": (
+			1 if is_instance_valid(_score_epilogue) else 0
+		),
 		"reduce_motion": _reduce_motion_enabled,
 		"larger_text_controls": _larger_text_controls_enabled,
 		"performance_instrumentation": is_instance_valid(
@@ -3750,6 +3883,8 @@ func _apply_motion_scale(value: float) -> void:
 		_touch_feedback.set_motion_scale(_motion_scale)
 	if is_instance_valid(_tutorial_marker):
 		_tutorial_marker.set_motion_scale(_motion_scale)
+	if is_instance_valid(_tutorial_card_art):
+		_tutorial_card_art.set_motion_scale(_motion_scale)
 	if _motion_scale <= 0.0:
 		_clear_camera_shake()
 		_tongue.width = 12.0
@@ -3981,9 +4116,9 @@ func _hide_tongue() -> void:
 	_tongue.clear_points()
 
 
-func _show_status(message: String) -> void:
+func _show_status(message: String, duration: float = 3.0) -> void:
 	_status_label.text = message
-	_status_time = 3.0
+	_status_time = maxf(0.0, duration)
 
 
 func _find_target_at(world_position: Vector2) -> EdibleTarget:
@@ -6048,6 +6183,7 @@ func _apply_safe_area() -> void:
 
 
 func apply_safe_area_insets(insets: Vector4) -> void:
+	_safe_area_insets = insets
 	var left := maxf(0.0, insets.x)
 	var top := maxf(0.0, insets.y)
 	var right := maxf(0.0, insets.z)
@@ -6076,6 +6212,7 @@ func apply_safe_area_insets(insets: Vector4) -> void:
 	_challenge_panel.offset_bottom = 286.0 + top
 	_discovery_banner.offset_top = 162.0 + top
 	_discovery_banner.offset_bottom = 222.0 + top
+	_apply_save_warning_layout()
 
 	if _left_handed_hud_enabled:
 		_control_legend.anchor_left = 0.0
@@ -6091,7 +6228,7 @@ func apply_safe_area_insets(insets: Vector4) -> void:
 		_tutorial_panel.anchor_left = 0.0
 		_tutorial_panel.anchor_right = 0.0
 		_tutorial_panel.offset_left = 24.0 + left
-		_tutorial_panel.offset_top = -258.0 - bottom
+		_tutorial_panel.offset_top = -348.0 - bottom
 		_tutorial_panel.offset_right = 610.0 + left
 		_tutorial_panel.offset_bottom = -24.0 - bottom
 	else:
@@ -6108,7 +6245,7 @@ func apply_safe_area_insets(insets: Vector4) -> void:
 		_tutorial_panel.anchor_left = 1.0
 		_tutorial_panel.anchor_right = 1.0
 		_tutorial_panel.offset_left = -610.0 - right
-		_tutorial_panel.offset_top = -258.0 - bottom
+		_tutorial_panel.offset_top = -348.0 - bottom
 		_tutorial_panel.offset_right = -24.0 - right
 		_tutorial_panel.offset_bottom = -24.0 - bottom
 
@@ -6122,6 +6259,8 @@ func apply_safe_area_insets(insets: Vector4) -> void:
 		center.offset_top = top
 		center.offset_right = -right
 		center.offset_bottom = -bottom
+	if is_instance_valid(_score_epilogue):
+		_score_epilogue.apply_safe_area_insets(insets)
 
 
 func _find_safe_spit_position(radius: float) -> Vector2:
@@ -6543,6 +6682,7 @@ func _on_tutorial_step_changed(
 	_tutorial_progress.text = "Tutorial %d / %d" % [step_index + 1, step_count]
 	_tutorial_title.text = title
 	_tutorial_instruction.text = instruction
+	_tutorial_card_art.set_step(step_index)
 	_set_tutorial_highlight(target_id)
 
 	if step_index == TutorialController.Step.EAT_HOTDOG:
@@ -6789,6 +6929,9 @@ func _find_target_by_id(target_id: String) -> EdibleTarget:
 
 
 func _end_game() -> void:
+	if is_instance_valid(_score_epilogue):
+		return
+	_end_return_requested = false
 	if is_instance_valid(_struggle_target):
 		_clear_struggle()
 	if _net_escape_active:
@@ -6797,7 +6940,35 @@ func _end_game() -> void:
 	_clear_pursuit_trap()
 	_clear_city_detour()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
-	get_tree().paused = false
+	_belly_overlay.visible = false
+	_guide_overlay.visible = false
+	_options_overlay.visible = false
+	_tutorial_panel.visible = false
+	_tutorial_marker.active = false
+	_score_epilogue = SCORE_EPILOGUE_SCENE.instantiate() as ScoreEpilogue
+	$HUD/Root.add_child(_score_epilogue)
+	_score_epilogue.configure(
+		_display_name,
+		_score,
+		_growth_tier,
+		_known_discovery_count(),
+		_challenges.completed_count(),
+		_larger_text_controls_enabled,
+		_reduce_motion_enabled
+	)
+	_score_epilogue.apply_safe_area_insets(_safe_area_insets)
+	_score_epilogue.continue_requested.connect(_finish_end_game)
+	_update_save_warning_surfaces()
+	get_tree().paused = true
+
+
+func _finish_end_game() -> void:
+	if (
+		not is_instance_valid(_score_epilogue)
+		or _end_return_requested
+	):
+		return
+	_end_return_requested = true
 	end_requested.emit(_score)
 
 

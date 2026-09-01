@@ -30,7 +30,11 @@ signal start_requested(
 @onready var _effects_volume_label: Label = %EffectsVolumeLabel
 @onready var _effects_volume_slider: HSlider = %EffectsVolumeSlider
 @onready var _center: CenterContainer = $Center
+@onready var _panel_margin: MarginContainer = $Center/Panel/Margin
+@onready var _content: VBoxContainer = $Center/Panel/Margin/Content
 @onready var _backdrop: MenuBackdrop = $Backdrop
+@onready var _save_warning: PanelContainer = %SaveWarning
+@onready var _save_warning_label: Label = %SaveWarningLabel
 
 var _profile_store: ProfileStore
 var _preview_profile_id := ""
@@ -65,11 +69,21 @@ func _ready() -> void:
 		slider.drag_ended.connect(_on_audio_drag_ended)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	AccessibilityPresentation.apply(self, false)
+	_apply_menu_density(false)
 	_apply_safe_area()
 
 
 func _exit_tree() -> void:
 	AudioDirector.leave_context(self)
+
+
+func show_save_error(message: String) -> void:
+	if message.is_empty():
+		_save_warning.visible = false
+		_save_warning_label.text = ""
+		return
+	_save_warning_label.text = "SAVE WARNING: %s" % message
+	_save_warning.visible = true
 
 
 func configure(profile_store: ProfileStore, last_score: int) -> void:
@@ -240,6 +254,7 @@ func _on_accessibility_toggled(_pressed: bool) -> void:
 		self,
 		_larger_ui_toggle.button_pressed
 	)
+	_apply_menu_density(_larger_ui_toggle.button_pressed)
 	_backdrop.set_motion_scale(
 		0.0 if _reduce_motion_toggle.button_pressed else 1.0
 	)
@@ -279,6 +294,7 @@ func _show_accessibility_preferences(preferences: Dictionary) -> void:
 		self,
 		_larger_ui_toggle.button_pressed
 	)
+	_apply_menu_density(_larger_ui_toggle.button_pressed)
 	_backdrop.set_motion_scale(
 		0.0 if _reduce_motion_toggle.button_pressed else 1.0
 	)
@@ -302,6 +318,16 @@ func _update_accessibility_labels() -> void:
 	)
 	_left_handed_toggle.text = "Left-handed HUD: %s" % (
 		"On" if _left_handed_toggle.button_pressed else "Off"
+	)
+
+
+func _apply_menu_density(larger_text_controls: bool) -> void:
+	var vertical_margin := 20 if larger_text_controls else 28
+	_panel_margin.add_theme_constant_override("margin_top", vertical_margin)
+	_panel_margin.add_theme_constant_override("margin_bottom", vertical_margin)
+	_content.add_theme_constant_override(
+		"separation",
+		8 if larger_text_controls else 12
 	)
 
 
@@ -447,3 +473,5 @@ func apply_safe_area_insets(insets: Vector4) -> void:
 	_center.offset_top = insets.y
 	_center.offset_right = -insets.z
 	_center.offset_bottom = -insets.w
+	_save_warning.offset_top = 18.0 + maxf(0.0, insets.y)
+	_save_warning.offset_bottom = 94.0 + maxf(0.0, insets.y)

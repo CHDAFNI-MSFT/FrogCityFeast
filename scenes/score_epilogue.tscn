@@ -1,0 +1,121 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/score_epilogue.gd" id="1_epilogue"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_epilogue"]
+bg_color = Color(0.95, 0.88, 0.7, 0.98)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.28, 0.16, 0.25, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_right = 22
+corner_radius_bottom_left = 22
+
+[node name="ScoreEpilogue" type="Control"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_epilogue")
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(760, 620)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_epilogue")
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 36
+
+[node name="Content" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Postcard" type="Label" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.38, 0.22, 0.26, 1)
+theme_override_font_sizes/font_size = 18
+text = "POSTCARD FROM FROG CITY"
+horizontal_alignment = 1
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.14, 0.31, 0.24, 1)
+theme_override_font_sizes/font_size = 36
+text = "A Small Frog's Big Afternoon"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Story" type="Label" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.24, 0.17, 0.2, 1)
+theme_override_font_sizes/font_size = 21
+text = "At dusk, the city had one more story to tell."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Separator" type="HSeparator" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+
+[node name="Score" type="Label" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.38, 0.18, 0.18, 1)
+theme_override_font_sizes/font_size = 32
+text = "Final score  0"
+horizontal_alignment = 1
+
+[node name="Growth" type="Label" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.14, 0.31, 0.24, 1)
+theme_override_font_sizes/font_size = 23
+text = "Growth reached  Small"
+horizontal_alignment = 1
+
+[node name="Discoveries" type="Label" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.14, 0.31, 0.24, 1)
+theme_override_font_sizes/font_size = 23
+text = "Field Guide finds  0"
+horizontal_alignment = 1
+
+[node name="Challenges" type="Label" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.14, 0.31, 0.24, 1)
+theme_override_font_sizes/font_size = 23
+text = "Session goals  0 / 3"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ContinueButton" type="Button" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Return to Title"

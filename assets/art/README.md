@@ -29,6 +29,8 @@ project requires the owner's permission.
 | `targets/object.svg` | Tintable loose-object and whole-building token silhouette. |
 | `targets/vehicle.svg` | Tintable vehicle-category silhouette. |
 | `targets/building_part.svg` | Tintable removable sign, door, awning, and fixture silhouette. |
+| `src/tutorial_card_art.gd` | Draw-only onboarding-card compositions using the project palette and authored frog SVG. |
+| `src/score_epilogue.gd` | Draw-only city, canal, frog, and postcard composition for the score epilogue. |
 
 ## Reproduction
 
@@ -40,4 +42,7 @@ project import.
 The assets intentionally contain no linked images, external stylesheets,
 scripts, embedded fonts, or remote references. Runtime tinting and cutout
 animation are implemented in `src/production_art.gd`, `src/frog.gd`, and
-`src/edible.gd`.
+`src/edible.gd`. The onboarding and epilogue illustrations are deterministic
+Godot drawing code in `src/tutorial_card_art.gd` and
+`src/score_epilogue.gd`; running the corresponding scenes in Godot 4.7.2
+reproduces them without downloaded images, fonts, or linked resources.

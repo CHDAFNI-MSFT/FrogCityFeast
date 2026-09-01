@@ -124,6 +124,9 @@ Invoke-GodotCheck `
     -Label "prototype-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/prototype_smoke.gd"
 Invoke-GodotCheck `
+    -Label "ux-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/ux_smoke.gd"
+Invoke-GodotCheck `
     -Label "performance-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/performance_smoke.gd"
 Invoke-GodotCheck `

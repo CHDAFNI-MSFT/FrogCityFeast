@@ -34,6 +34,32 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2_backdrop")
 
+[node name="SaveWarning" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 20
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -420.0
+offset_top = 18.0
+offset_right = 420.0
+offset_bottom = 94.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_menu_panel")
+
+[node name="SaveWarningLabel" type="Label" parent="SaveWarning"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.35, 1)
+theme_override_font_sizes/font_size = 19
+text = "Saving is unavailable."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
 [node name="Center" type="CenterContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -68,7 +94,7 @@ horizontal_alignment = 1
 [node name="Subtitle" type="Label" parent="Center/Panel/Margin/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 21
-text = "Eat. Grow. Explore. How high can you score?"
+text = "One hungry frog. One sprawling city. One unforgettable appetite."
 horizontal_alignment = 1
 
 [node name="Separator" type="HSeparator" parent="Center/Panel/Margin/Content"]
@@ -292,6 +318,6 @@ text = "Replay Tutorial"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.68, 0.76, 0.74, 1)
 theme_override_font_sizes/font_size = 17
-text = "Tap the ground to run. Double-tap a target to use the tongue.\nUse a second finger to turn the camera."
+text = "MOVE CARD: Tap open ground\nTONGUE CARD: Double-tap or hold a target\nCAMERA CARD: Drag with a second finger"
 horizontal_alignment = 1
 autowrap_mode = 2

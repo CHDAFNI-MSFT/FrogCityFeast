@@ -426,6 +426,21 @@ func _run() -> void:
 			"discoveries": DiscoveryCatalog.ids(),
 		},
 		{
+			"name": "save_warning_options",
+			"setup": _setup_save_warning_options,
+			"preferences": {
+				"reduce_motion": true,
+				"larger_text_controls": true,
+			},
+			"discoveries": DiscoveryCatalog.ids(),
+		},
+		{
+			"name": "score_epilogue_save_warning",
+			"setup": _setup_score_epilogue_save_warning,
+			"preferences": _default_preferences(),
+			"discoveries": DiscoveryCatalog.ids(),
+		},
+		{
 			"name": "gameplay_peak",
 			"setup": _setup_gameplay_peak,
 			"preferences": _default_preferences(),
@@ -886,6 +901,22 @@ func _setup_field_guide_overlay(game: FrogGame) -> void:
 
 func _setup_accessibility_options(game: FrogGame) -> void:
 	game._open_options()
+
+
+func _setup_save_warning_options(game: FrogGame) -> void:
+	game.show_save_error(
+		"Progress saving is unavailable because the previous save "
+		+ "could not be preserved."
+	)
+	game._open_options()
+
+
+func _setup_score_epilogue_save_warning(game: FrogGame) -> void:
+	game.show_save_error(
+		"Progress saving is unavailable because the previous save "
+		+ "could not be preserved."
+	)
+	game._end_game()
 
 
 func _setup_gameplay_peak(game: FrogGame) -> void:
@@ -1430,6 +1461,23 @@ func _check_scenario_expectations(
 				and bool(snapshot["larger_text_controls"])
 				and bool(snapshot["options_overlay_visible"]),
 				"Accessibility stress enables both presentation options."
+			)
+		"save_warning_options":
+			_check(
+				bool(snapshot["save_warning_active"])
+				and not bool(snapshot["save_warning_visible"])
+				and int(snapshot["save_warnings"]) == 1
+				and int(snapshot["score_epilogues"]) == 0
+				and bool(snapshot["options_overlay_visible"]),
+				"Options warning stress uses one hidden banner and the modal summary."
+			)
+		"score_epilogue_save_warning":
+			_check(
+				bool(snapshot["save_warning_active"])
+				and not bool(snapshot["save_warning_visible"])
+				and int(snapshot["save_warnings"]) == 1
+				and int(snapshot["score_epilogues"]) == 1,
+				"Epilogue warning stress accounts for both bounded UI subtrees."
 			)
 		"gameplay_peak":
 			_check(

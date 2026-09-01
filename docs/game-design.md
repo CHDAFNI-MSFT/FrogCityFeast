@@ -98,24 +98,27 @@ batched draw-only rain streaks, 40 batched draw-only wind ribbons, 10 draw-only
 night-bazaar lanterns, 8 draw-only
 kite-festival decorations, 1 draw-only Animal Control net projectile, 24 capped
 world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
-effect voices. Baseline and separate-room states permit up to 376 game-subtree
+effect voices. Baseline and separate-room states permit up to 377 game-subtree
 nodes,
 41 collision objects, and 111 collision shapes; ordinary pursuit and net attack
-permit 378 nodes, 42 collision objects, and 112 collision shapes; any
-pursuit-trap profile permits 379 nodes with the same physics structure; a
-straight-roadblock pursuit permits 380 nodes, 43 collision objects, and 113
-collision shapes; a staggered-roadblock pursuit permits 381 nodes, 43 collision
+permit 379 nodes, 42 collision objects, and 112 collision shapes; any
+pursuit-trap profile permits 380 nodes with the same physics structure; a
+straight-roadblock pursuit permits 381 nodes, 43 collision objects, and 113
+collision shapes; a staggered-roadblock pursuit permits 382 nodes, 43 collision
 objects, and 114 collision shapes; the reachable staggered-roadblock-and-snare
-gameplay peak permits 382 nodes with the same 43 collision objects and 114
-shapes. The scheduled city detour permits 378 nodes, 42 collision objects, and
-112 shapes by itself, or 381 nodes, 43 collision objects, and 113 shapes with
+gameplay peak permits 383 nodes with the same 43 collision objects and 114
+shapes. The scheduled city detour permits 379 nodes, 42 collision objects, and
+112 shapes by itself, or 382 nodes, 43 collision objects, and 113 shapes with
 one pursuer and profile trap. The performance Belly scenario renders 64
-item rows within 632 nodes without changing the belly's unlimited gameplay
-semantics. The populated Field Guide contains exactly 49 rows.
+item rows within 633 nodes without changing the belly's unlimited gameplay
+semantics. A recoverable save warning adds exactly two temporary UI nodes,
+including while Options is open. The score epilogue adds 15 temporary UI
+nodes, for a maximum 394-node ending state when a save warning is also
+retained. The populated Field Guide contains exactly 49 rows.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 586 game-subtree nodes, 100 collision objects, and 172
+structural ceiling is 587 game-subtree nodes, 100 collision objects, and 172
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
@@ -943,6 +946,14 @@ Use an illustrated title scene, skippable contextual onboarding cards,
 journal-style clue postcards, and a score-summary end-game epilogue. Story
 presentation remains concise, child-friendly, optional for score-focused play,
 and free of required reading, cutscenes, or dialogue trees.
+
+The production implementation uses an original draw-only city-and-canal title
+backdrop, illustrated tutorial cue cards, numbered clue postcards inside the
+Guide & Journal, a paused score postcard before returning to the title, and
+short input-blocking screen fades. Reduce Motion converts screen fades and
+decorative card movement to immediate/static presentation. Save read, backup,
+and write failures are surfaced as persistent player-facing warnings while
+technical error details remain in the Godot log.
 
 ### Accessibility additions
 

@@ -1,6 +1,8 @@
 class_name ProfileStore
 extends RefCounted
 
+signal save_error(message: String)
+
 const SAVE_PATH := "user://frog_city_scores.cfg"
 const SAVE_VERSION := 3
 const DEFAULT_PROFILE_NAME := "Player 1"
@@ -9,6 +11,9 @@ var _config := ConfigFile.new()
 var _save_path := SAVE_PATH
 var _save_enabled := true
 var _save_disabled_error_reported := false
+var _save_dirty := false
+var _persistent_save_error := ""
+var _write_save_error := ""
 
 
 func _init(save_path: String = SAVE_PATH) -> void:
@@ -39,6 +44,7 @@ func ensure_profile(requested_name: String) -> String:
 
 	for profile in list_profiles():
 		if str(profile["name"]).nocasecmp_to(display_name) == 0:
+			_save_if_dirty()
 			return str(profile["id"])
 
 	var normalized_name := display_name.to_lower()
@@ -69,6 +75,14 @@ func get_profile_best(profile_id: String) -> int:
 
 func get_device_best() -> int:
 	return int(_config.get_value("device", "best_score", 0))
+
+
+func last_save_error() -> String:
+	return (
+		_write_save_error
+		if not _write_save_error.is_empty()
+		else _persistent_save_error
+	)
 
 
 func get_profile_achievements(profile_id: String) -> PackedStringArray:
@@ -142,6 +156,8 @@ func mark_profile_achievement(
 		) or changed
 	if changed:
 		_save()
+	else:
+		_save_if_dirty()
 	return changed
 
 
@@ -206,6 +222,7 @@ func set_accessibility_preferences(
 		return
 	var sanitized := AccessibilityPresentation.sanitize_preferences(preferences)
 	if get_accessibility_preferences(profile_id) == sanitized:
+		_save_if_dirty()
 		return
 	_config.set_value("accessibility", profile_id, sanitized)
 	_save()
@@ -220,6 +237,7 @@ func set_audio_preferences(
 		return
 	var sanitized := AudioPreferences.sanitize_preferences(preferences)
 	if get_audio_preferences(profile_id) == sanitized:
+		_save_if_dirty()
 		return
 	_config.set_value("audio", profile_id, sanitized)
 	_save()
@@ -231,6 +249,7 @@ func is_tutorial_complete(profile_id: String) -> bool:
 
 func mark_tutorial_complete(profile_id: String) -> void:
 	if is_tutorial_complete(profile_id):
+		_save_if_dirty()
 		return
 	_config.set_value("tutorial", profile_id, true)
 	_save()
@@ -267,6 +286,7 @@ func mark_discovered(profile_id: String, target_id: String) -> bool:
 		return false
 	var discoveries := get_discoveries(profile_id)
 	if discoveries.has(normalized_id):
+		_save_if_dirty()
 		return false
 	discoveries.append(normalized_id)
 	discoveries.sort()
@@ -296,6 +316,8 @@ func update_high_scores(profile_id: String, score: int) -> void:
 		changed = true
 	if changed:
 		_save()
+	else:
+		_save_if_dirty()
 
 
 func _load() -> void:
@@ -310,9 +332,19 @@ func _load() -> void:
 			return
 		push_warning("Unsupported frog score save version; starting with fresh scores.")
 		_save_enabled = _backup_existing_save("unsupported")
+		if _save_enabled:
+			_report_save_error(
+				"Previous progress used an unsupported version. "
+				+ "A backup was preserved and a fresh save was started."
+			)
 	elif error != ERR_FILE_NOT_FOUND:
 		push_warning("Could not read frog score save; starting with fresh scores.")
 		_save_enabled = _backup_existing_save("unreadable")
+		if _save_enabled:
+			_report_save_error(
+				"Previous progress could not be read. "
+				+ "A backup was preserved and a fresh save was started."
+			)
 
 	_initialize_fresh_save()
 
@@ -325,6 +357,10 @@ func _migrate_to_current(version: int) -> bool:
 	)
 	if not _backup_existing_save(backup_reason):
 		_save_enabled = false
+		_report_save_error(
+			"Progress saving was disabled because the previous save "
+			+ "could not be preserved."
+		)
 		return false
 	var next_version := version
 	while next_version < SAVE_VERSION:
@@ -367,16 +403,32 @@ func _initialize_fresh_save() -> void:
 
 
 func _save() -> void:
+	_save_dirty = true
 	if not _save_enabled:
 		if not _save_disabled_error_reported:
-			push_error(
-				"Frog score saving is disabled because the previous save could not be preserved."
+			_report_save_error(
+				"Progress saving is unavailable because the previous "
+				+ "save could not be preserved."
 			)
 			_save_disabled_error_reported = true
 		return
 	var error := _config.save(_save_path)
 	if error != OK:
-		push_error("Could not save frog score data: error %d" % error)
+		_report_save_error(
+			"Progress could not be saved. Keep the game open and try again.",
+			"Could not save frog score data: error %d" % error,
+			true
+		)
+		return
+	_save_dirty = false
+	if not _write_save_error.is_empty():
+		_write_save_error = ""
+		save_error.emit(last_save_error())
+
+
+func _save_if_dirty() -> void:
+	if _save_dirty:
+		_save()
 
 
 func _backup_existing_save(reason: String) -> bool:
@@ -400,13 +452,28 @@ func _backup_existing_save(reason: String) -> bool:
 		suffix += 1
 	var error := DirAccess.rename_absolute(absolute_path, backup_path)
 	if error != OK:
-		push_error(
+		_report_save_error(
+			"Progress saving is unavailable because the previous save "
+			+ "could not be backed up.",
 			"Could not preserve the previous frog score save: error %d"
 			% error
 		)
 		return false
 	push_warning("Preserved the previous frog score save at %s." % backup_path)
 	return true
+
+
+func _report_save_error(
+	message: String,
+	technical_message: String = "",
+	recoverable_write_error: bool = false
+) -> void:
+	if recoverable_write_error:
+		_write_save_error = message
+	else:
+		_persistent_save_error = message
+	push_error(message if technical_message.is_empty() else technical_message)
+	save_error.emit(last_save_error())
 
 
 func _mark_profile_id(
@@ -428,6 +495,7 @@ func _mark_id(
 	allowed_ids: PackedStringArray
 ) -> bool:
 	if not _store_id(section, key, entry_id, allowed_ids):
+		_save_if_dirty()
 		return false
 	_save()
 	return true
@@ -616,6 +684,8 @@ func _reconcile_progression() -> void:
 
 	if changed:
 		_save()
+	else:
+		_save_if_dirty()
 
 
 func _contains_all_ids(

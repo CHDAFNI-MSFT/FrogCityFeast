@@ -56,7 +56,9 @@ const MAX_GENERATED_TARGETS := (
 )
 const MAX_SECRET_RING_ENVIRONMENT_BODIES := 9
 const MAX_SECRET_RING_OBSTACLE_SHAPES := 18
-const BASE_GAME_NODES := 376
+const BASE_GAME_NODES := 377
+const SAVE_WARNING_NODES := 2
+const SCORE_EPILOGUE_NODES := 15
 const MAX_SECRET_DISTRICT_NODES := BASE_GAME_NODES + 225
 const MAX_SECRET_DISTRICT_COLLISION_OBJECTS := 104
 const MAX_SECRET_DISTRICT_COLLISION_SHAPES := 183
@@ -433,6 +435,26 @@ const STRUCTURAL_LIMITS := {
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
 		"guide_rows": FIELD_GUIDE_ROWS,
+	},
+	"save_warning_options": {
+		"game_nodes": BASE_GAME_NODES + SAVE_WARNING_NODES,
+		"collision_objects": 41,
+		"collision_shapes": 111,
+		"targets": MAX_TARGETS,
+		"save_warnings": 1,
+		"score_epilogues": 0,
+	},
+	"score_epilogue_save_warning": {
+		"game_nodes": (
+			BASE_GAME_NODES
+			+ SAVE_WARNING_NODES
+			+ SCORE_EPILOGUE_NODES
+		),
+		"collision_objects": 41,
+		"collision_shapes": 111,
+		"targets": MAX_TARGETS,
+		"save_warnings": 1,
+		"score_epilogues": 1,
 	},
 	"gameplay_peak": {
 		"game_nodes": BASE_GAME_NODES + 6,

@@ -54,6 +54,8 @@ run_checked achievement-smoke --headless --path "$repo_root" \
   --script res://tests/achievement_smoke.gd
 run_checked prototype-smoke --headless --path "$repo_root" \
   --script res://tests/prototype_smoke.gd
+run_checked ux-smoke --headless --path "$repo_root" \
+  --script res://tests/ux_smoke.gd
 run_checked performance-smoke --headless --path "$repo_root" \
   --script res://tests/performance_smoke.gd
 run_checked tutorial-smoke --headless --path "$repo_root" \

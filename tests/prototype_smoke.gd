@@ -593,8 +593,12 @@ func _run() -> void:
 				ProjectSettings.globalize_path("user://%s" % file_name)
 			)
 	_check(
-		backup_found and not unsupported_store.list_profiles().is_empty(),
-		"Unsupported saves are preserved before a fresh save is created."
+		backup_found
+		and not unsupported_store.list_profiles().is_empty()
+		and unsupported_store.last_save_error().contains(
+			"unsupported version"
+		),
+		"Unsupported saves are preserved and expose a player-facing warning."
 	)
 	if FileAccess.file_exists(unsupported_path):
 		DirAccess.remove_absolute(absolute_unsupported_path)
@@ -615,8 +619,12 @@ func _run() -> void:
 				ProjectSettings.globalize_path("user://%s" % file_name)
 			)
 	_check(
-		unreadable_backup_found and not unreadable_store.list_profiles().is_empty(),
-		"Unreadable saves are preserved before a fresh save is created."
+		unreadable_backup_found
+		and not unreadable_store.list_profiles().is_empty()
+		and unreadable_store.last_save_error().contains(
+			"could not be read"
+		),
+		"Unreadable saves are preserved and expose a player-facing warning."
 	)
 	if FileAccess.file_exists(unreadable_path):
 		DirAccess.remove_absolute(absolute_unreadable_path)
@@ -638,8 +646,9 @@ func _run() -> void:
 	_check(
 		not failing_store._save_enabled
 		and failing_store._save_disabled_error_reported
+		and not failing_store.last_save_error().is_empty()
 		and FileAccess.get_file_as_string(preservation_path) == original_save_text,
-		"A failed backup disables later saves without clobbering the old file."
+		"A failed backup disables saves, warns the player, and preserves the file."
 	)
 	if FileAccess.file_exists(preservation_path):
 		DirAccess.remove_absolute(absolute_preservation_path)
@@ -714,6 +723,55 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	root.add_child(game)
 	await process_frame
 	await physics_frame
+	game.show_save_error("Progress could not be saved.")
+	_check(
+		is_instance_valid(game._save_warning_panel)
+		and game._save_warning_label.text.contains("SAVE WARNING"),
+		"Gameplay surfaces save failures in a dedicated readable warning."
+	)
+	game._show_status("Digested Street Donut for 12 points!")
+	await process_frame
+	_check(
+		game._save_warning_label.text.contains("SAVE WARNING")
+		and game._status_label.text.contains("Digested Street Donut"),
+		"Gameplay feedback cannot overwrite the persistent save warning."
+	)
+	game._open_options()
+	_check(
+		game._options_overlay.visible
+		and not game._save_warning_panel.visible
+		and game._options_summary.text.contains("SAVE WARNING"),
+		"Paused Options surfaces the warning without a floating modal overlap."
+	)
+	game._close_options()
+	_check(
+		game._save_warning_panel.visible,
+		"Closing Options restores the dedicated gameplay warning."
+	)
+	game._open_belly()
+	_check(
+		game._belly_overlay.visible
+		and not game._save_warning_panel.visible,
+		"The Belly hides the floating warning instead of covering its summary."
+	)
+	game._close_belly()
+	game._open_guide()
+	_check(
+		game._guide_overlay.visible
+		and not game._save_warning_panel.visible,
+		"The Guide hides the floating warning instead of covering its progress."
+	)
+	game._close_guide()
+	_check(
+		game._save_warning_panel.visible,
+		"Closing paused overlays restores the dedicated gameplay warning."
+	)
+	game.show_save_error("")
+	await process_frame
+	_check(
+		not is_instance_valid(game._save_warning_panel),
+		"A successful save clears the gameplay warning."
+	)
 	_check(
 		game._motion_scale == 1.0
 		and game._effects.motion_scale == 1.0
@@ -935,6 +993,10 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		"Hold assistance keeps its owner through unrelated touch releases."
 	)
 	var struggle_time := game._struggle_time_left
+	game.show_save_error(
+		"Progress saving is unavailable because the previous save "
+		+ "could not be preserved."
+	)
 	game._open_options()
 	var options_panel := game.get_node(
 		"HUD/Root/OptionsOverlay/Center/Panel"
@@ -950,8 +1012,21 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		"Accessibility options pause in-progress play without stacking or resetting it."
 	)
 	_check(
-		safe_rect.encloses(options_panel.get_global_rect()),
-		"Accessibility options remain inside the inset 4:3 safe area."
+		safe_rect.encloses(options_panel.get_global_rect())
+		and game._options_summary.text.contains("SAVE WARNING")
+		and game._options_summary.autowrap_mode
+		== TextServer.AUTOWRAP_WORD_SMART
+		and not game._save_warning_panel.visible,
+		(
+			"Long save warnings keep enlarged Options inside the inset safe area: "
+			+ "panel %s in %s, summary %s, wrap %d, banner visible %s."
+		) % [
+			options_panel.get_global_rect(),
+			safe_rect,
+			game._options_summary.get_global_rect(),
+			game._options_summary.autowrap_mode,
+			game._save_warning_panel.visible,
+		]
 	)
 	game._select_input_assist_mode(
 		AccessibilityPresentation.INPUT_ASSIST_STANDARD
@@ -970,9 +1045,11 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	game._close_options()
 	_check(
 		not paused
-		and game._struggle_target == pulsing_target,
+		and game._struggle_target == pulsing_target
+		and game._save_warning_panel.visible,
 		"Closing Accessibility resumes the exact in-progress gameplay state."
 	)
+	game.show_save_error("")
 	game._clear_struggle()
 	game.queue_free()
 	await process_frame
@@ -1001,6 +1078,7 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	await process_frame
 	menu.configure(menu_store, 0)
 	menu.apply_safe_area_insets(safe_insets)
+	menu.show_save_error("Progress could not be saved.")
 	await process_frame
 	var menu_panel := menu.get_node("Center/Panel") as Control
 	_check(
@@ -1016,6 +1094,11 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 		and menu._haptics_toggle.button_pressed
 		and menu._left_handed_toggle.button_pressed,
 		"Menu loads every saved accessibility choice."
+	)
+	_check(
+		menu._save_warning.visible
+		and menu._save_warning_label.text.contains("SAVE WARNING"),
+		"The title screen surfaces save failures without hiding profile controls."
 	)
 	_check(
 		_all_interactive_controls_at_least(

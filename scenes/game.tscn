@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://src/game.gd" id="1_game"]
 [ext_resource type="Script" path="res://src/city_backdrop.gd" id="2_city"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://src/feel_effects.gd" id="5_feel_effects"]
 [ext_resource type="Script" path="res://src/city_activity.gd" id="6_city_activity"]
 [ext_resource type="Script" path="res://src/touch_feedback.gd" id="7_touch_feedback"]
+[ext_resource type="Script" path="res://src/tutorial_card_art.gd" id="8_tutorial_card"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_status"]
 bg_color = Color(0.025, 0.085, 0.09, 0.96)
@@ -646,7 +647,7 @@ theme_override_constants/separation = 12
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 36
-text = "Options"
+text = "Paused / Options"
 horizontal_alignment = 1
 
 [node name="Summary" type="Label" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
@@ -654,6 +655,7 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Accessibility and audio choices are saved for this player and apply immediately."
 horizontal_alignment = 1
+autowrap_mode = 3
 
 [node name="Columns" type="HBoxContainer" parent="HUD/Root/OptionsOverlay/Center/Panel/Margin/Content"]
 layout_mode = 2
@@ -867,7 +869,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -610.0
-offset_top = -258.0
+offset_top = -348.0
 offset_right = -24.0
 offset_bottom = -24.0
 grow_horizontal = 0
@@ -895,6 +897,13 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.48, 1, 0.56, 1)
 theme_override_font_sizes/font_size = 18
 text = "Tutorial 1 / 10"
+
+[node name="TutorialCardArt" type="Control" parent="HUD/Root/TutorialPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("8_tutorial_card")
 
 [node name="TutorialTitle" type="Label" parent="HUD/Root/TutorialPanel/Margin/Content"]
 unique_name_in_owner = true

@@ -150,8 +150,11 @@ func _test_game_integration() -> void:
 	)
 	_check(
 		game._tutorial_marker.motion_scale == 0.0
-		and not game._tutorial_marker.is_processing(),
-		"Reduced motion freezes the continuous tutorial marker pulse."
+		and not game._tutorial_marker.is_processing()
+		and game._tutorial_card_art._step_index
+		== TutorialController.Step.MOVE
+		and not game._tutorial_card_art.is_processing(),
+		"Reduced motion freezes illustrated onboarding without hiding its cues."
 	)
 	var tutorial_step_before_options := game._tutorial.step
 	game._open_options()
@@ -483,13 +486,35 @@ func _test_skip_and_early_end() -> void:
 	root.add_child(end_game)
 	await process_frame
 	var early_completion := {"count": 0}
+	var end_request := {"count": 0}
 	end_game.tutorial_finished.connect(func(_skipped: bool) -> void:
 		early_completion["count"] = int(early_completion["count"]) + 1
 	)
+	end_game.end_requested.connect(func(_score: int) -> void:
+		end_request["count"] = int(end_request["count"]) + 1
+	)
 	end_game._end_game()
-	_check(int(early_completion["count"]) == 0, "Ending early does not mark the tutorial complete.")
+	_check(
+		int(early_completion["count"]) == 0
+		and int(end_request["count"]) == 0
+		and is_instance_valid(end_game._score_epilogue)
+		and end_game._score_epilogue._story.text.contains("End Tester"),
+		"Ending early opens the score epilogue without completing the tutorial."
+	)
+	end_game._finish_end_game()
+	end_game._finish_end_game()
+	_check(
+		int(end_request["count"]) == 1
+		and paused
+		and is_instance_valid(end_game._score_epilogue),
+		"The epilogue requests one protected return while remaining paused."
+	)
 	end_game.queue_free()
 	await process_frame
+	_check(
+		not paused,
+		"Removing the faded game clears the epilogue pause state."
+	)
 
 
 func _push_mouse_click(viewport: Viewport, position: Vector2) -> void:
