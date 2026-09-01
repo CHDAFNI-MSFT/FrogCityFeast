@@ -134,9 +134,16 @@ The prototype includes:
 - one deterministic 36-second daytime rain shower per 180-second cycle, with
   smooth fades, wet-road sheen, puddle highlights, and 84 capped draw-only rain
   streaks;
-- peak rain that reduces ambient activity from 10 pedestrians and 5 secondary
-  vehicles to 4 pedestrians and 3 vehicles without changing gameplay targets,
-  collision, scoring, saves, the Field Guide, or the day/night audio;
+- peak rain presentation that reduces ambient activity from 10 pedestrians and
+  5 secondary vehicles to 4 pedestrians and 3 vehicles without itself changing
+  gameplay targets, collision, scoring, saves, the Field Guide, or the
+  day/night audio;
+- one deterministic rain-window water-main repair from clock 0.62 to 0.74,
+  using one physical segment selected from three authored fallback anchors,
+  one-second blocked-site retries, and no shared gameplay RNG;
+- a safe detour that ground movement and pursuers route around, flight crosses,
+  maximum growth can bypass, and room travel or generated-district departure
+  clears; it can coexist with one draw-only trap but never a pursuit roadblock;
 - one deterministic 29-second daytime wind squall per cycle, with 7.2-second
   fades around a 14.4-second steady interval, a subtle tint, and 40 fixed
   directional ribbons submitted as one batched draw-only mark set;
@@ -368,7 +375,9 @@ the bounded kite-festival schedule and fixed decoration count,
 frame-step-independent festival motion, the bounded rain schedule and density
 change, the bounded wind-squall schedule and density,
 frame-step-independent weather marks, static reduced-motion weather and
-festivals, room and district event-layer stability, pursuit, net windup
+festivals, room and district event-layer stability, water-main deployment
+retries, exact expiry, ground blocking, maximum-growth routing, flight passage,
+navigation invalidation, roadblock mutual exclusion, pursuit, net windup
 and wall clearance, dodging, tongue interruption and deflection, Security
 Guard sight loss, valuables-only protection, flashlight dodging and damage,
 Watchdog scent, living-target protection, lunge wall stopping and dodging,
@@ -466,7 +475,8 @@ The deterministic structural budgets are enforced in CI:
 | Canal Kite Festival | 8 fixed draw-only kites over daytime activity; structural counts remain at the baseline ceiling |
 | Kite festival with Security or Watchdog | One pursuer-specific draw-only trap, 20 city actors, 8 kites, and 24 presentation effects; 372 nodes, 42 collision objects, and 112 collision shapes |
 | Kite festival gameplay peak | Animal Control, one draw-only snare, the two-segment staggered roadblock, 20 city actors, 8 kites, and 24 presentation effects; 375 nodes, 43 collision objects, and 114 collision shapes |
-| Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
+| Peak rainy daytime with water-main repair | 4 pedestrians, 3 secondary vehicles, 84 batched draw-only rain streaks, and 1 physical detour segment; 371 nodes, 42 collision objects, and 112 collision shapes |
+| Water-main repair with any pursuer profile | One pursuer, one profile-specific draw-only trap, one physical detour segment, and no roadblock; 374 nodes, 43 collision objects, and 113 collision shapes |
 | Peak wind squall | 10 pedestrians, 5 meetup visitors, 5 secondary vehicles, and 40 batched draw-only directional ribbons; structural counts remain at the baseline ceiling |
 | Wind with Security or Watchdog | One pursuer-specific draw-only trap, 20 city actors, 40 wind ribbons, and 24 presentation effects; 372 nodes, 42 collision objects, and 112 collision shapes |
 | Simultaneous presentation | 24 world effects and 3 touch cues; neither adds physics objects |
@@ -490,7 +500,8 @@ progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
 Shop cellar, busy daytime, peak rain, the wind squall alone and combined with
 Security's motion beacon and Watchdog's sticky patch, the Canal Kite Festival
 alone and combined with all three pursuer-and-trap profiles, ordinary and
-crowd-cover Animal Control pursuit,
+crowd-cover Animal Control pursuit, the rain-window water-main repair alone and
+combined with all three pursuer-and-trap profiles,
 Security Guard pursuit and flashlight warning, active tongue-deflection
 feedback, Watchdog pursuit and lunge, a temporary
 straight roadblock, a two-segment staggered roadblock, all three
@@ -557,6 +568,16 @@ objects, and 9,380 primitives. Its exact structural snapshot remains 369
 nodes, 41 collision objects, and 111 collision shapes with all 36 targets and
 4 buildings retained; opening disables one existing door collision and reduces
 the active navigation obstacle count from 30 to 29.
+
+The fixed-seed water-main repair measured 8.48 ms frame-time p95, 46.9 MiB
+static memory, 19.3 MiB video memory, 151 draw calls, 961 rendered objects, and
+9,044 primitives. Its maximum-growth detour query used 31 active obstacles,
+1,128 grid cells, 4 smoothed points, and 946 microseconds. The exact structural
+snapshot is 371 nodes, 42 collision objects, and 112 collision shapes. With 24
+presentation effects and one profile trap, Animal Control measured 8.49 ms p95
+and 390 draws, Security measured 12.67 ms and 392 draws, and Watchdog measured
+15.70 ms and 393 draws. All three combined snapshots remained at 374 nodes, 43
+collision objects, and 113 collision shapes with no pursuit roadblock.
 
 The straight-roadblock snapshot measured 8.77 ms frame-time p95, 46.6 MiB
 static memory, 19.5 MiB video memory, 211 draw calls, 906 rendered objects, and
@@ -646,7 +667,7 @@ The following parts of the full design are not implemented yet:
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
-- random emergencies and fantasy events;
+- further fantasy events;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
 - final art, authored animation, expanded audio content and target-device mix

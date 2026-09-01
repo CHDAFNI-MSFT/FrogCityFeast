@@ -363,6 +363,7 @@ func _run() -> void:
 	await _test_security_guard_pursuer(game_scene)
 	await _test_watchdog_pursuer(game_scene)
 	await _test_pursuer_roadblock(game_scene)
+	await _test_city_detour(game_scene)
 	await _test_pursuer_snare(game_scene)
 	await _test_pursuer_net_escape(game_scene)
 	await _test_accessibility(game_scene)
@@ -3029,6 +3030,259 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 		"Unloading a generated ring clears its staggered roadblock without ending pursuit."
 	)
 	district_game.queue_free()
+	await process_frame
+
+
+func _test_city_detour(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("city_detour_test", "City Detour Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	_check(
+		not FrogGame.city_detour_active_for_clock(0.6199)
+		and FrogGame.city_detour_active_for_clock(0.62)
+		and FrogGame.city_detour_active_for_clock(0.7399)
+		and not FrogGame.city_detour_active_for_clock(0.74)
+		and FrogGame.city_detour_active_for_clock(1.62),
+		"The water-main detour uses one deterministic bounded rain-window schedule."
+	)
+
+	var blockers: Array[StaticBody2D] = []
+	for configuration_value in FrogGame.CITY_DETOUR_ANCHORS:
+		var configuration := configuration_value as Dictionary
+		var blocker := StaticBody2D.new()
+		blocker.position = configuration["position"] as Vector2
+		var collision := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = configuration["size"] as Vector2
+		collision.shape = shape
+		blocker.add_child(collision)
+		game._world.add_child(blocker)
+		blockers.append(blocker)
+	await physics_frame
+
+	var score_before := game._score
+	var growth_before := game._growth_points
+	var belly_before := game._belly.size()
+	var targets_before := game._targets.size()
+	var discoveries_before := game._known_discovery_count()
+	var challenge_progress_before := [
+		game._challenges.progress(SessionChallenges.SHARP_AIM),
+		game._challenges.progress(SessionChallenges.HOLD_ON),
+		game._challenges.progress(SessionChallenges.CITY_TOUR),
+		game._challenges.completed_count(),
+	]
+	game._day_clock = 0.62
+	game._update_day_night(0.0)
+	seed(20260901)
+	var expected_random := randf()
+	seed(20260901)
+	game._update_city_detour(0.0)
+	var actual_random := randf()
+	_check(
+		not is_instance_valid(game._city_detour)
+		and game._city_detour_window_active
+		and is_equal_approx(
+			game._city_detour_retry_time,
+			FrogGame.CITY_DETOUR_RETRY_DELAY
+		)
+		and is_equal_approx(actual_random, expected_random),
+		"Blocked authored anchors schedule one deterministic retry without consuming gameplay RNG."
+	)
+	game._update_city_detour(FrogGame.CITY_DETOUR_RETRY_DELAY * 0.5)
+	blockers[0].queue_free()
+	await physics_frame
+	game._update_city_detour(FrogGame.CITY_DETOUR_RETRY_DELAY * 0.5)
+	var detour := game._city_detour
+	for blocker in blockers:
+		if is_instance_valid(blocker):
+			blocker.queue_free()
+	await physics_frame
+	_check(
+		is_instance_valid(detour)
+		and detour.global_position
+		== FrogGame.CITY_DETOUR_ANCHORS[0]["position"]
+		and detour.barrier_size
+		== FrogGame.CITY_DETOUR_ANCHORS[0]["size"]
+		and detour.collision_layer == 1
+		and detour.get_child_count() == 1
+		and detour.get_child(0) is CollisionShape2D,
+		"The detour retries into the first clear authored anchor with one capped physical segment."
+	)
+	if not is_instance_valid(detour):
+		game.queue_free()
+		await process_frame
+		return
+
+	game._refresh_navigation_geometry()
+	var detour_snapshot := game.performance_structure_snapshot()
+	var maximum_radius := game._frog.radius_for_tier(2)
+	var route := game._navigation.find_path(
+		detour.global_position + Vector2(0, -180),
+		detour.global_position + Vector2(0, 180),
+		maximum_radius
+	)
+	var route_points := route["points"] as PackedVector2Array
+	_check(
+		int(detour_snapshot["game_nodes"]) == 371
+		and int(detour_snapshot["collision_objects"]) == 42
+		and int(detour_snapshot["collision_shapes"]) == 112
+		and int(detour_snapshot["city_detours"]) == 1
+		and int(detour_snapshot["navigation_obstacles"]) == 31
+		and bool(route["reachable"])
+		and not bool(route["fallback"])
+		and route_points.size() >= 4
+		and game._navigation.path_is_clear(route_points, maximum_radius),
+		"The maximum-growth navigation route safely detours around the one-segment repair."
+	)
+
+	var crossing_start := detour.global_position + Vector2(0, -150)
+	var crossing_destination := detour.global_position + Vector2(0, 150)
+	game._frog.global_position = crossing_start
+	game._frog.set_physics_process(true)
+	game._frog.move_to(crossing_destination)
+	for _frame in 120:
+		await physics_frame
+	var ground_blocked := (
+		game._frog.global_position.distance_to(crossing_destination)
+		> 60.0
+	)
+	game._frog.stop_moving()
+	game._frog.global_position = crossing_start
+	game._frog.set_flying(true)
+	game._frog.move_to(crossing_destination)
+	for _frame in 120:
+		await physics_frame
+		if not game._frog._has_move_target:
+			break
+	var flight_crossed := (
+		game._frog.global_position.distance_to(crossing_destination)
+		<= PlayerFrog.WAYPOINT_TOLERANCE
+	)
+	game._frog.set_flying(false)
+	game._frog.set_physics_process(false)
+	_check(
+		ground_blocked and flight_crossed,
+		"The repair blocks direct ground crossing while flight preserves a clear escape."
+	)
+
+	game._frog.global_position = Vector2(0, -520)
+	game._spawn_pursuer()
+	if is_instance_valid(game._pursuer):
+		game._pursuer.set_physics_process(false)
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+	_check(
+		is_instance_valid(game._pursuer)
+		and is_instance_valid(game._city_detour)
+		and not is_instance_valid(game._roadblock)
+		and is_instance_valid(game._pursuit_trap)
+		and game._pursuit_trap.variant_id
+		== PrototypePursuitTrap.VARIANT_SNARE,
+		"The detour can coexist with one draw-only trap but suppresses a stacking pursuit roadblock."
+	)
+	if is_instance_valid(game._pursuer):
+		game._pursuer._escape()
+		await process_frame
+
+	game.set_motion_scale(0.0)
+	var cafe := (
+		game._building_by_id.get("leap_cafe") as PrototypeBuilding
+	)
+	game._frog.global_position = cafe.transition_door_approach_position()
+	game._begin_interior_transition(FrogGame.STOCKROOM_ID)
+	var transition_cleared := (
+		game._active_interior_id == FrogGame.STOCKROOM_ID
+		and not is_instance_valid(game._city_detour)
+	)
+	game._begin_interior_transition("city")
+	game._update_city_detour(0.0)
+	var return_retried := is_instance_valid(game._city_detour)
+	game._frog.global_position = DistrictGenerator.bounds_for_coordinate(
+		Vector2i(2, 2)
+	).get_center()
+	game._update_district_streaming()
+	game._update_city_detour(0.0)
+	var district_cleared := (
+		not is_instance_valid(game._city_detour)
+		and game._current_district_coordinate == Vector2i(2, 2)
+	)
+	game._spawn_pursuer()
+	if is_instance_valid(game._pursuer):
+		game._pursuer.set_physics_process(false)
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	var generated_roadblock_allowed := is_instance_valid(game._roadblock)
+	if is_instance_valid(game._pursuer):
+		game._pursuer._escape()
+		await process_frame
+	game._frog.global_position = Vector2.ZERO
+	game._update_district_streaming()
+	game._update_city_detour(0.0)
+	_check(
+		transition_cleared
+		and return_retried
+		and district_cleared
+		and generated_roadblock_allowed
+		and is_instance_valid(game._city_detour),
+		"District departure clears the repair without suppressing generated roadblocks, then core return retries it."
+	)
+
+	game._day_clock = 0.74
+	game._update_day_night(0.0)
+	game._update_city_detour(0.0)
+	_check(
+		not game._city_detour_window_active
+		and not is_instance_valid(game._city_detour)
+		and game._score == score_before
+		and game._growth_points == growth_before
+		and game._belly.size() == belly_before
+		and game._targets.size() == targets_before
+		and game._known_discovery_count() == discoveries_before
+		and challenge_progress_before == [
+			game._challenges.progress(SessionChallenges.SHARP_AIM),
+			game._challenges.progress(SessionChallenges.HOLD_ON),
+			game._challenges.progress(SessionChallenges.CITY_TOUR),
+			game._challenges.completed_count(),
+		],
+		"Expiry clears the repair without score, growth, Belly, target, discovery, or challenge changes."
+	)
+
+	game._day_clock = 0.60
+	game._update_day_night(0.0)
+	game._frog.global_position = Vector2(0, -520)
+	game._spawn_pursuer()
+	if is_instance_valid(game._pursuer):
+		game._pursuer.set_physics_process(false)
+	game._roadblock_deploy_time = 0.0
+	game._update_pursuit_roadblock(0.1)
+	var existing_roadblock := game._roadblock
+	game._day_clock = 0.62
+	game._update_day_night(0.0)
+	game._update_city_detour(0.0)
+	var roadblock_took_priority := (
+		is_instance_valid(existing_roadblock)
+		and not is_instance_valid(game._city_detour)
+	)
+	if is_instance_valid(existing_roadblock):
+		existing_roadblock._process(PrototypeRoadblock.LIFETIME)
+	await process_frame
+	game._update_city_detour(0.0)
+	_check(
+		roadblock_took_priority
+		and not is_instance_valid(game._roadblock)
+		and is_instance_valid(game._city_detour),
+		"An existing pursuit roadblock finishes first, then the repair deploys without overlap."
+	)
+
+	game.queue_free()
 	await process_frame
 
 

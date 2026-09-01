@@ -26,6 +26,7 @@ const MAX_CROWD_MEMBERS := 5
 const MAX_CITY_ACTORS := 20
 const MAX_ROADBLOCKS := 1
 const MAX_ROADBLOCK_SEGMENTS := PrototypeRoadblock.MAX_SEGMENTS
+const MAX_CITY_DETOURS := 1
 const MAX_PURSUIT_TRAPS := 1
 const MAX_RAIN_STREAKS := 84
 const MAX_WIND_RIBBONS := 40
@@ -172,11 +173,50 @@ const STRUCTURAL_LIMITS := {
 		"active_city_actors": MAX_CITY_ACTORS,
 	},
 	"rainy_day": {
-		"game_nodes": 369,
-		"collision_objects": 41,
-		"collision_shapes": 111,
+		"game_nodes": 371,
+		"collision_objects": 42,
+		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
 		"rain_streaks": MAX_RAIN_STREAKS,
+		"city_detours": MAX_CITY_DETOURS,
+	},
+	"city_detour": {
+		"game_nodes": 371,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"city_detours": MAX_CITY_DETOURS,
+		"rain_streaks": MAX_RAIN_STREAKS,
+	},
+	"city_detour_animal_peak": {
+		"game_nodes": 374,
+		"collision_objects": 43,
+		"collision_shapes": 113,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"city_detours": MAX_CITY_DETOURS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_effects": MAX_VISUAL_EFFECTS,
+	},
+	"city_detour_security_peak": {
+		"game_nodes": 374,
+		"collision_objects": 43,
+		"collision_shapes": 113,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"city_detours": MAX_CITY_DETOURS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_effects": MAX_VISUAL_EFFECTS,
+	},
+	"city_detour_watchdog_peak": {
+		"game_nodes": 374,
+		"collision_objects": 43,
+		"collision_shapes": 113,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"city_detours": MAX_CITY_DETOURS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_effects": MAX_VISUAL_EFFECTS,
 	},
 	"wind_squall": {
 		"game_nodes": 369,

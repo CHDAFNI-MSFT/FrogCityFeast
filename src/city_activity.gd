@@ -875,9 +875,12 @@ func _draw_rain() -> void:
 		)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var rain_color := Color(0.72, 0.88, 1.0, 0.5 * rain_intensity)
+	var segments := PackedVector2Array()
 	for index in RAIN_STREAK_COUNT:
 		var start := rain_streak_position_at(index, _animation_time)
-		draw_line(start, start + RAIN_SLANT, rain_color, 2.0)
+		segments.append(start)
+		segments.append(start + RAIN_SLANT)
+	draw_multiline(segments, rain_color, 2.0)
 
 
 func _draw_wind_squall() -> void:

@@ -79,8 +79,9 @@ profiling build on the device remains separate signed-device work.
 Deterministic structural budgets are enforced independently of hardware. The
 authored core permits 36 gameplay targets, 4 buildings, 10 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 profile-driven draw-only
-pursuit trap, 20 draw-only city actors, 84 draw-only rain streaks, 40 batched
-draw-only wind ribbons, 10 draw-only night-bazaar lanterns, 8 draw-only
+pursuit trap, 1 scheduled physical city detour, 20 draw-only city actors, 84
+batched draw-only rain streaks, 40 batched draw-only wind ribbons, 10 draw-only
+night-bazaar lanterns, 8 draw-only
 kite-festival decorations, 1 draw-only Animal Control net projectile, 24 capped
 world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
 effect voices. Baseline and separate-room states permit up to 369 game-subtree
@@ -92,7 +93,9 @@ straight-roadblock pursuit permits 373 nodes, 43 collision objects, and 113
 collision shapes; a staggered-roadblock pursuit permits 374 nodes, 43 collision
 objects, and 114 collision shapes; the reachable staggered-roadblock-and-snare
 gameplay peak permits 375 nodes with the same 43 collision objects and 114
-shapes. The performance Belly scenario renders 64
+shapes. The scheduled city detour permits 371 nodes, 42 collision objects, and
+112 shapes by itself, or 374 nodes, 43 collision objects, and 113 shapes with
+one pursuer and profile trap. The performance Belly scenario renders 64
 item rows within 625 nodes without changing the belly's unlimited gameplay
 semantics. The populated Field Guide contains exactly 49 rows.
 
@@ -124,7 +127,8 @@ busy daytime city activity,
 peak rain, the wind squall alone and with each pursuer-and-trap profile, the
 Canal Kite Festival alone and with every pursuer-and-trap profile, pursuit,
 active crowd cover, both roadblock layouts, the
-staggered-roadblock-and-snare peak, a net in flight, maximum growth, a finite
+staggered-roadblock-and-snare peak, the rain-window city detour alone and with
+every pursuer-and-trap profile, a net in flight, maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
 Guide, both accessibility settings, and a reachable gameplay peak. Desktop
 measurements are advisory; the target iPad release build is authoritative. The
@@ -379,13 +383,14 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements eight small deterministic dynamic-city
+The fixed-city prototype now implements nine small deterministic dynamic-city
 slices. The day and night cycle changes the visible pedestrian crowd, secondary
 traffic level, streetlight glow, and restrained synthesized ambience. Once per
 180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
 peak, and fades out. Peak rain adds fixed draw-only streaks, wet-road sheen,
 puddle highlights, and a cooler tint while reducing ambient activity from 10
-pedestrians and 5 vehicles to 4 pedestrians and 3 vehicles. Reduce motion keeps
+pedestrians and 5 vehicles to 4 pedestrians and 3 vehicles. The 84 streaks are
+submitted as one batched draw-only mark set. Reduce motion keeps
 the wet presentation and lower density but freezes the streaks with the other
 decorative movement. Rain adds no audio asset, physics, targeting, scoring,
 save data, random-number use, or Field Guide entry.
@@ -452,6 +457,22 @@ forces, targets, saves, score, growth, Belly items, discoveries, challenges,
 gameplay random-number use, audio assets, or Field Guide entries. Pursuit,
 crowd escape, traps, roadblocks, room travel, and district streaming continue
 to use their existing rules.
+
+During the steady rain window, one bounded water-main repair creates a temporary
+detour from clock 0.62 through the instant before 0.74. It tries three authored
+core-city anchors in fixed order and retries once per second if live collision,
+targets, buildings, entrances, portals, or safe navigation margins block every
+site. The repair uses one `StaticBody2D`, one collision shape, a fixed label,
+and no animation or gameplay randomness. Ground movement and pursuers route
+around it, flight crosses it, and maximum growth retains a verified safe route.
+It may coexist with one draw-only pursuer trap, but it never overlaps a
+pursuit roadblock: an existing roadblock finishes first, while new roadblocks
+wait until the repair window ends. The detour expires at the schedule boundary,
+clears on connected-room travel or leaving the authored core, retries on a safe
+return during the same window, and updates navigation on every deployment and
+cleanup. It changes no score, growth, Belly state, saves, discoveries,
+challenges, targets, audio, gameplay random-number state, or Field Guide
+progress.
 
 Ambient pedestrians and vehicles use authored routes and are decorative rather
 than targets, hazards, or persistent world state. The labeled Delivery Van

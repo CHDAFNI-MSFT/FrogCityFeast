@@ -24,6 +24,7 @@ const GENERATED_DISTRICT_SCRIPT := preload("res://src/generated_district.gd")
 const PURSUER_SCRIPT := preload("res://src/pursuer.gd")
 const ROADBLOCK_SCRIPT := preload("res://src/roadblock.gd")
 const PURSUIT_TRAP_SCRIPT := preload("res://src/pursuit_trap.gd")
+const CITY_DETOUR_SCRIPT := preload("res://src/city_detour.gd")
 const NAVIGATION_SCRIPT := preload("res://src/deterministic_navigation.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
@@ -77,6 +78,23 @@ const ODDITIES_SHOP_OPEN_START := 0.78
 const ODDITIES_SHOP_OPEN_END := 0.18
 const MOONLIGHT_MARKET_OPEN_START := 0.30
 const MOONLIGHT_MARKET_OPEN_END := 0.58
+const CITY_DETOUR_START := 0.62
+const CITY_DETOUR_END := 0.74
+const CITY_DETOUR_RETRY_DELAY := 1.0
+const CITY_DETOUR_ANCHORS := [
+	{
+		"position": Vector2(0, -900),
+		"size": Vector2(220, 48),
+	},
+	{
+		"position": Vector2(-1080, 430),
+		"size": Vector2(220, 48),
+	},
+	{
+		"position": Vector2(0, 1080),
+		"size": Vector2(220, 48),
+	},
+]
 const SHOP_DOORWAY_CLEARANCE := 8.0
 const ROADBLOCK_DEPLOY_DELAY := 3.0
 const ROADBLOCK_MIN_DISTANCE := 260.0
@@ -472,6 +490,7 @@ var _next_session_instance_id := 1
 var _pursuer: PrototypePursuer
 var _roadblock: PrototypeRoadblock
 var _pursuit_trap: PrototypePursuitTrap
+var _city_detour: PrototypeCityDetour
 var _navigation: DeterministicNavigation2D = NAVIGATION_SCRIPT.new()
 var _navigation_dirty := true
 var _frog_route_requested_destination := Vector2.INF
@@ -495,6 +514,8 @@ var _current_crowd_intensity := 0.0
 var _current_kite_festival_intensity := 0.0
 var _oddities_shop_scheduled_open := false
 var _moonlight_market_scheduled_open := false
+var _city_detour_window_active := false
+var _city_detour_retry_time := 0.0
 var _crowd_hide_time := 0.0
 var _roadblock_deploy_time := 0.0
 var _roadblock_deployed := false
@@ -703,6 +724,7 @@ func _update_district_streaming(force: bool = false) -> void:
 	if coordinate_changed and not force:
 		_clear_roadblock()
 		_clear_pursuit_trap()
+		_clear_city_detour()
 
 
 func _desired_generated_districts(
@@ -1186,6 +1208,7 @@ func _process(delta: float) -> void:
 	if _net_escape_active:
 		_update_net_escape(delta)
 	_update_crowd_hiding(delta)
+	_update_city_detour(delta)
 	_update_pursuit_roadblock(delta)
 	_update_pursuit_trap(delta)
 	_update_district_streaming()
@@ -1746,6 +1769,7 @@ func _complete_interior_transfer() -> void:
 				_camera.position_smoothing_enabled
 			)
 		_active_interior_id = _interior_transition_destination
+		_clear_city_detour()
 		_frog.global_position = room.entry_position(
 			_interior_transition_entry_id
 		)
@@ -2747,6 +2771,8 @@ func performance_structure_snapshot() -> Dictionary:
 			if is_instance_valid(_roadblock)
 			else 0
 		),
+		"city_detour_window_active": _city_detour_window_active,
+		"city_detours": 1 if is_instance_valid(_city_detour) else 0,
 		"pursuit_traps": 1 if is_instance_valid(_pursuit_trap) else 0,
 		"pursuit_trap_variant": (
 			_pursuit_trap.variant_id
@@ -3452,6 +3478,95 @@ func _spawn_pursuer(
 	_pursuit_trap_deployed = not _pursuer.deploys_pursuit_trap()
 
 
+static func city_detour_active_for_clock(value: float) -> bool:
+	var clock := fposmod(value, 1.0)
+	return clock >= CITY_DETOUR_START and clock < CITY_DETOUR_END
+
+
+func _update_city_detour(delta: float) -> void:
+	var should_be_active := city_detour_active_for_clock(_day_clock)
+	if not should_be_active:
+		var was_visible := is_instance_valid(_city_detour)
+		_clear_city_detour()
+		if _city_detour_window_active and was_visible:
+			_show_status("Water-main repairs cleared the road.")
+		_city_detour_window_active = false
+		_city_detour_retry_time = 0.0
+		return
+	if not _city_detour_window_active:
+		_city_detour_window_active = true
+		_city_detour_retry_time = 0.0
+	if (
+		not _active_interior_id.is_empty()
+		or _current_district_coordinate
+		!= DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+	):
+		_clear_city_detour()
+		return
+	if is_instance_valid(_city_detour) or is_instance_valid(_roadblock):
+		return
+	_city_detour_retry_time = maxf(
+		0.0,
+		_city_detour_retry_time - maxf(0.0, delta)
+	)
+	if _city_detour_retry_time > 0.0:
+		return
+	if not _spawn_city_detour():
+		_city_detour_retry_time = CITY_DETOUR_RETRY_DELAY
+
+
+func _spawn_city_detour() -> bool:
+	if is_instance_valid(_city_detour):
+		return true
+	if is_instance_valid(_roadblock):
+		return false
+	var configuration := _select_city_detour_anchor()
+	if configuration.is_empty():
+		return false
+	var detour := CITY_DETOUR_SCRIPT.new() as PrototypeCityDetour
+	detour.position = configuration["position"] as Vector2
+	detour.configure(configuration["size"] as Vector2)
+	_world.add_child(detour)
+	_city_detour = detour
+	_invalidate_navigation()
+	_show_status("A water-main repair opened a marked detour.")
+	return true
+
+
+func _select_city_detour_anchor() -> Dictionary:
+	for configuration_value in CITY_DETOUR_ANCHORS:
+		var configuration := configuration_value as Dictionary
+		if _city_detour_anchor_clear(configuration):
+			return configuration
+	return {}
+
+
+func _city_detour_anchor_clear(configuration: Dictionary) -> bool:
+	var roadblock_configuration := configuration.duplicate()
+	roadblock_configuration["layout"] = PrototypeRoadblock.LAYOUT_STRAIGHT
+	return _roadblock_anchor_clear(roadblock_configuration)
+
+
+func _clear_city_detour() -> void:
+	_city_detour_retry_time = 0.0
+	if is_instance_valid(_city_detour):
+		_city_detour.dismiss()
+		_city_detour = null
+		_invalidate_navigation()
+
+
+func _city_detour_reserves_obstacle_slot() -> bool:
+	return (
+		is_instance_valid(_city_detour)
+		or (
+			city_detour_active_for_clock(_day_clock)
+			and _active_interior_id.is_empty()
+			and _current_district_coordinate
+			== DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+		)
+	)
+
+
 func _update_pursuit_roadblock(delta: float) -> void:
 	if not is_instance_valid(_pursuer):
 		_clear_roadblock()
@@ -3461,6 +3576,7 @@ func _update_pursuit_roadblock(delta: float) -> void:
 		return
 	if (
 		_roadblock_deployed
+		or _city_detour_reserves_obstacle_slot()
 		or not _active_interior_id.is_empty()
 		or not _frog.movement_enabled
 	):
@@ -3477,6 +3593,8 @@ func _update_pursuit_roadblock(delta: float) -> void:
 func _spawn_roadblock() -> bool:
 	if is_instance_valid(_roadblock):
 		return true
+	if _city_detour_reserves_obstacle_slot():
+		return false
 	var configuration := _select_roadblock_anchor()
 	if configuration.is_empty():
 		return false
@@ -5039,6 +5157,11 @@ func _refresh_navigation_geometry() -> void:
 			obstacles.append_array(
 				_roadblock.navigation_obstacle_rects()
 			)
+		if (
+			is_instance_valid(_city_detour)
+			and _city_detour.collision_layer != 0
+		):
+			obstacles.append(_city_detour.navigation_obstacle_rect())
 	_navigation.update_geometry(bounds, obstacles)
 	_navigation_dirty = false
 
@@ -5468,6 +5591,7 @@ func _end_game() -> void:
 		_clear_net_escape()
 	_clear_roadblock()
 	_clear_pursuit_trap()
+	_clear_city_detour()
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 	get_tree().paused = false
 	end_requested.emit(_score)

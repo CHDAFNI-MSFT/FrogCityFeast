@@ -73,6 +73,10 @@ func _run() -> void:
 		"The roadblock segment budget matches the two-segment layout cap."
 	)
 	_check(
+		BUDGETS.MAX_CITY_DETOURS == 1,
+		"The scheduled city-detour budget remains capped at one segment."
+	)
+	_check(
 		is_equal_approx(
 			PrototypeRoadblock.SAFE_EDGE_CLEARANCE,
 			PlayerFrog.TIER_RADII[2] + 24.0
@@ -241,6 +245,30 @@ func _run() -> void:
 		{
 			"name": "rainy_day",
 			"setup": _setup_rainy_day,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "city_detour",
+			"setup": _setup_city_detour,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "city_detour_animal_peak",
+			"setup": _setup_city_detour_animal_peak,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "city_detour_security_peak",
+			"setup": _setup_city_detour_security_peak,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "city_detour_watchdog_peak",
+			"setup": _setup_city_detour_watchdog_peak,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -629,6 +657,31 @@ func _setup_rainy_day(game: FrogGame) -> void:
 	game._update_day_night(0.0)
 
 
+func _setup_city_detour(game: FrogGame) -> void:
+	game._day_clock = 0.68
+	game._update_day_night(0.0)
+	game._update_city_detour(0.0)
+	_exercise_city_detour_navigation(game)
+
+
+func _setup_city_detour_animal_peak(game: FrogGame) -> void:
+	_setup_city_detour(game)
+	_setup_animal_control_snare(game)
+	_setup_presentation_peak(game)
+
+
+func _setup_city_detour_security_peak(game: FrogGame) -> void:
+	_setup_city_detour(game)
+	_setup_security_motion_beacon(game)
+	_setup_presentation_peak(game)
+
+
+func _setup_city_detour_watchdog_peak(game: FrogGame) -> void:
+	_setup_city_detour(game)
+	_setup_watchdog_sticky_patch(game)
+	_setup_presentation_peak(game)
+
+
 func _setup_wind_squall(game: FrogGame) -> void:
 	game._day_clock = 0.38
 	game._update_day_night(0.0)
@@ -870,6 +923,33 @@ func _exercise_navigation_detour(
 	)
 
 
+func _exercise_city_detour_navigation(game: FrogGame) -> void:
+	_check(
+		is_instance_valid(game._city_detour),
+		"City-detour stress creates one scheduled physical segment."
+	)
+	if not is_instance_valid(game._city_detour):
+		return
+	game._refresh_navigation_geometry()
+	var center := game._city_detour.global_position
+	var route := game._navigation.find_path(
+		center + Vector2(0, -180),
+		center + Vector2(0, 180),
+		PlayerFrog.TIER_RADII[2]
+	)
+	var points := route["points"] as PackedVector2Array
+	_check(
+		bool(route["reachable"])
+			and not bool(route["fallback"])
+			and points.size() >= 4
+			and game._navigation.path_is_clear(
+				points,
+				PlayerFrog.TIER_RADII[2]
+			),
+		"City-detour stress preserves a maximum-growth navigation route."
+	)
+
+
 func _check_scenario_expectations(
 	scenario_name: String,
 	snapshot: Dictionary
@@ -1007,8 +1087,42 @@ func _check_scenario_expectations(
 				and int(snapshot["rain_streaks"])
 				== BUDGETS.MAX_RAIN_STREAKS
 				and int(snapshot["active_pedestrians"]) == 4
-				and int(snapshot["active_vehicles"]) == 3,
-				"Peak rain uses bounded draw-only streaks and reduces ambient city activity."
+				and int(snapshot["active_vehicles"]) == 3
+				and int(snapshot["city_detours"])
+				== BUDGETS.MAX_CITY_DETOURS,
+				"Peak rain uses bounded draw-only streaks, reduced activity, and the scheduled repair detour."
+			)
+		"city_detour":
+			_check(
+				int(snapshot["city_detours"])
+				== BUDGETS.MAX_CITY_DETOURS
+				and bool(snapshot["city_detour_window_active"])
+				and int(snapshot["rain_streaks"])
+				== BUDGETS.MAX_RAIN_STREAKS
+				and int(snapshot["roadblocks"]) == 0,
+				"The rain-window emergency adds one physical detour and no pursuit roadblock."
+			)
+			_check_navigation_stress(snapshot, "City detour")
+		"city_detour_animal_peak":
+			_check_city_detour_peak(
+				snapshot,
+				PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL,
+				PrototypePursuitTrap.VARIANT_SNARE,
+				"Animal Control"
+			)
+		"city_detour_security_peak":
+			_check_city_detour_peak(
+				snapshot,
+				PrototypePursuer.ARCHETYPE_SECURITY_GUARD,
+				PrototypePursuitTrap.VARIANT_MOTION_BEACON,
+				"Security"
+			)
+		"city_detour_watchdog_peak":
+			_check_city_detour_peak(
+				snapshot,
+				PrototypePursuer.ARCHETYPE_WATCHDOG,
+				PrototypePursuitTrap.VARIANT_STICKY_PATCH,
+				"Watchdog"
 			)
 		"wind_squall":
 			_check(
@@ -1289,6 +1403,27 @@ func _check_presentation_peak(snapshot: Dictionary) -> void:
 	)
 
 
+func _check_city_detour_peak(
+	snapshot: Dictionary,
+	archetype_id: String,
+	trap_variant: String,
+	label: String
+) -> void:
+	_check(
+		int(snapshot["city_detours"]) == BUDGETS.MAX_CITY_DETOURS
+			and int(snapshot["roadblocks"]) == 0
+			and int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+			and int(snapshot["pursuit_traps"])
+			== BUDGETS.MAX_PURSUIT_TRAPS
+			and str(snapshot["pursuer_archetype"]) == archetype_id
+			and str(snapshot["pursuit_trap_variant"]) == trap_variant,
+		"%s shares the city detour with one profile trap and no roadblock."
+		% label
+	)
+	_check_navigation_stress(snapshot, "%s city-detour peak" % label)
+	_check_presentation_peak(snapshot)
+
+
 func _check_navigation_stress(
 	snapshot: Dictionary,
 	label: String
@@ -1326,6 +1461,9 @@ func _measure_scenario(
 		"kite_security_peak",
 		"kite_watchdog_peak",
 		"kite_gameplay_peak",
+		"city_detour_animal_peak",
+		"city_detour_security_peak",
+		"city_detour_watchdog_peak",
 	]:
 		_setup_presentation_peak(game)
 	elif scenario_name == "net_attack":
@@ -1362,6 +1500,9 @@ func _measure_scenario(
 			"kite_security_peak",
 			"kite_watchdog_peak",
 			"kite_gameplay_peak",
+			"city_detour_animal_peak",
+			"city_detour_security_peak",
+			"city_detour_watchdog_peak",
 			"net_attack",
 			"crowd_pursuit",
 		]
@@ -1388,6 +1529,9 @@ func _measure_scenario(
 		"kite_security_peak",
 		"kite_watchdog_peak",
 		"kite_gameplay_peak",
+		"city_detour_animal_peak",
+		"city_detour_security_peak",
+		"city_detour_watchdog_peak",
 	]:
 		_setup_presentation_peak(game)
 		await process_frame
@@ -1432,6 +1576,10 @@ func _measure_scenario(
 	if scenario_name in [
 		"gameplay_peak",
 		"kite_gameplay_peak",
+		"city_detour",
+		"city_detour_animal_peak",
+		"city_detour_security_peak",
+		"city_detour_watchdog_peak",
 		"generated_streaming",
 	]:
 		_check_navigation_stress(
