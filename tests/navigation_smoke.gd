@@ -602,7 +602,9 @@ func _test_generated_security_navigation() -> void:
 			)
 			and guard.speed < 250.0
 			and not guard.deploys_roadblock()
-			and not guard.deploys_pursuit_trap(),
+			and guard.deploys_pursuit_trap()
+			and guard.pursuit_trap_variant()
+			== PrototypePursuitTrap.VARIANT_MOTION_BEACON,
 		"Security Guard searches around generated collision with its own bounded navigation profile."
 	)
 
@@ -668,7 +670,10 @@ func _test_generated_watchdog_navigation() -> void:
 				watchdog._navigation_path,
 				watchdog.navigation_radius()
 			)
-			and watchdog.speed > 250.0,
+			and watchdog.speed > 250.0
+			and watchdog.deploys_pursuit_trap()
+			and watchdog.pursuit_trap_variant()
+			== PrototypePursuitTrap.VARIANT_STICKY_PATCH,
 		"Watchdog scent tracks through generated buildings while deterministic navigation routes around them."
 	)
 

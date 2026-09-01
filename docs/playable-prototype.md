@@ -51,13 +51,14 @@ The prototype includes:
   760-unit wall-aware line-of-sight detection, slower last-seen-position
   navigation, valuables-only tongue protection, a dodgeable 0.65-second
   draw-only flashlight strike, 1.1-second crowd escape, flight-based detection
-  loss, no Animal Control roadblock or snare stacking, and maximum-growth Belly
-  capture;
+  loss, one non-damaging five-second motion-beacon deployment, no physical
+  roadblock stacking, and maximum-growth Belly capture;
 - a Watchdog pursuer for escaped living targets, with 860-unit wall-ignoring
   ground scent, faster 22-unit-radius navigation, living-target-only
   protection, a wall-stopped and dodgeable 0.45-second physical lunge,
-  0.8-second crowd escape, 1.4-second flight scent loss, no Animal Control
-  obstacle stacking, and maximum-growth Belly capture;
+  0.8-second crowd escape, 1.4-second flight scent loss, one non-damaging
+  four-second sticky-patch deployment, no physical roadblock stacking, and
+  maximum-growth Belly capture;
 - a deterministic Animal Control net attack with a 0.8-second warning, one
   wall-aware draw-only projectile, a dodge window, and a three-second six-tap
   escape;
@@ -70,7 +71,15 @@ The prototype includes:
 - one deterministic draw-only Animal Control sidewalk snare per pursuit,
   deployed after six eligible seconds with a 0.75-second arming warning,
   harmless to flight and maximum growth, self-expiring after twelve seconds,
-  and applying one 15-point capped knockback when an eligible frog triggers it;
+  applying one 15-point capped knockback when an eligible frog triggers it,
+  and cancelling an overlapping net before it can create a capture loop;
+- one deterministic draw-only Security motion beacon per pursuit, deployed
+  after five eligible seconds with a 0.5-second calibration warning, clearing
+  partial crowd cover and revealing an eligible frog for exactly two seconds
+  without damage or immobilization;
+- one deterministic draw-only Watchdog sticky patch per pursuit, deployed
+  after four eligible seconds with a one-second settling warning, applying 1.2
+  seconds of tongue recovery without stopping movement or changing score;
 - knockback and score loss that never reduces the score below zero;
 - short, deterministic, eight-pixel-or-less camera shake for damage and whole
   building captures, suppressed during camera gestures and struggles;
@@ -342,8 +351,11 @@ frame-step-independent rain, static reduced-motion weather, pursuit, net windup
 and wall clearance, dodging, tongue interruption and deflection, Security
 Guard sight loss, valuables-only protection, flashlight dodging and damage,
 Watchdog scent, living-target protection, lunge wall stopping and dodging,
-maximum-size deflection immunity, rapid-tap escape and timeout damage, flight
-and growth immunity, profile persistence, Field Guide catalog and overlay behavior,
+profile-driven trap selection, deployment retries, exact arming and expiry
+boundaries, harmless reveal and tongue-delay effects, simultaneous attack
+windows, transition and district-unload cleanup, maximum-size deflection
+immunity, rapid-tap escape and timeout damage, flight and growth immunity,
+profile persistence, Field Guide catalog and overlay behavior,
 legacy discovery saves, per-profile accessibility persistence and legacy
 defaults, touch-target sizing, safe-area layout, touch feedback, reduced-motion
 transitions, deterministic session challenges,
@@ -418,7 +430,7 @@ The deterministic structural budgets are enforced in CI:
 | Animal Control tongue deflection | Pursuit structure remains at 371 nodes, 42 collision objects, and 112 collision shapes; feedback is draw-only |
 | Pursuit in active crowd cover | Pursuit structure remains at 371 nodes, 42 collision objects, and 112 collision shapes; 5 meetup visitors bring draw-only city activity to 20 actors |
 | Animal Control net attack | 1 draw-only projectile; pursuit structure remains at 371 nodes, 42 collision objects, and 112 collision shapes |
-| Animal Control snare | 372 nodes, 42 collision objects, 112 collision shapes, 1 pursuer, 1 draw-only snare |
+| Any pursuer-specific trap | 372 nodes, 42 collision objects, 112 collision shapes, 1 pursuer, 1 draw-only snare, motion beacon, or sticky patch |
 | Roadblock pursuit | 373 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock |
 | Reachable gameplay peak | 374 nodes, 43 collision objects, 113 collision shapes, 1 pursuer, 1 roadblock, 1 draw-only snare |
 | Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 579 nodes, 100 collision objects, and 172 collision shapes including the authored core |
@@ -447,8 +459,9 @@ progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
 Shop cellar, busy daytime, ordinary and crowd-cover Animal Control pursuit,
 Security Guard pursuit and flashlight warning, active tongue-deflection
 feedback, Watchdog pursuit and lunge, a temporary
-roadblock, a draw-only pursuit snare, an Animal Control net in flight, maximum
-growth, a finite maximum presentation burst, a 64-item Belly, the populated
+roadblock, all three pursuer-specific draw-only traps, an Animal Control net in
+flight, maximum growth, a finite maximum presentation burst, a 64-item Belly,
+the populated
 Field Guide, both accessibility options, a maximum 3x3 generated-district ring,
 and a reachable gameplay peak
 combining daytime activity, pursuit, growth, the roadblock, the snare, and
@@ -480,7 +493,7 @@ static memory, 19.5 MiB video memory, 217 draw calls, 902 rendered objects, and
 12,728 primitives. Its active draw-only flashlight warning measured 8.75 ms
 frame-time p95 with the same memory, 207 draw calls, 896 rendered objects, and
 12,098 primitives. Both exact structural snapshots are 371 nodes, 42 collision
-objects, and 112 collision shapes, with one pursuer and no roadblock, snare, or
+objects, and 112 collision shapes, with one pursuer and no roadblock, trap, or
 projectile node.
 
 The bounded Watchdog pursuit measured 8.74 ms frame-time p95, 46.4 MiB static
@@ -489,7 +502,14 @@ primitives. Its physical lunge scenario measured 8.80 ms frame-time p95 with
 the same memory and render snapshot. Both exact structural snapshots are 371
 nodes, 42 collision objects, and 112 collision shapes; the lunge reuses the
 single pursuer body and adds no projectile, collision shape, roadblock, or
-snare.
+trap.
+
+The three fixed-seed pursuit-trap snapshots measured 8.81 ms frame-time p95 for
+Animal Control's snare, 8.74 ms for Security's motion beacon, and 8.84 ms for
+Watchdog's sticky patch. Each exact snapshot is 372 nodes, 42 collision
+objects, and 112 collision shapes with one pursuer and one draw-only trap. The
+three profiles used 46.5 MiB static memory, 19.5 MiB video memory, 206–215 draw
+calls, 804–898 rendered objects, and 11,838–12,426 primitives.
 
 The Construction Crane High Deck measured 8.56 ms frame-time p95, 45.7–45.9
 MiB static memory, 17.3 MiB video memory, 37 draw calls, 356 rendered objects,
@@ -548,7 +568,7 @@ The following parts of the full design are not implemented yet:
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
-- additional trap varieties and roadblock layouts;
+- additional roadblock layouts;
 - additional storms, festivals, shop schedules, and random emergencies;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;

@@ -227,7 +227,23 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": MAX_PURSUERS,
 		"roadblocks": MAX_ROADBLOCKS,
 	},
-	"pursuit_trap": {
+	"animal_control_snare": {
+		"game_nodes": 372,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+	},
+	"security_motion_beacon": {
+		"game_nodes": 372,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+	},
+	"watchdog_sticky_patch": {
 		"game_nodes": 372,
 		"collision_objects": 42,
 		"collision_shapes": 112,

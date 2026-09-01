@@ -1983,10 +1983,17 @@ func _test_security_guard_pursuer(game_scene: PackedScene) -> void:
 				PrototypePursuer.SECURITY_NAVIGATION_RADIUS
 			)
 			and not guard.deploys_roadblock()
-			and not guard.deploys_pursuit_trap()
+			and guard.deploys_pursuit_trap()
+			and guard.pursuit_trap_variant() == (
+				PrototypePursuitTrap.VARIANT_MOTION_BEACON
+			)
+			and is_equal_approx(
+				game._pursuit_trap_deploy_time,
+				PrototypePursuer.SECURITY_TRAP_DEPLOY_DELAY
+			)
 			and game._roadblock_deployed
-			and game._pursuit_trap_deployed,
-		"Security Guard uses its slower search profile without stacking Animal Control obstacles."
+			and not game._pursuit_trap_deployed,
+		"Security Guard uses its slower search profile and one delayed motion beacon."
 	)
 	if not is_instance_valid(guard):
 		game.queue_free()
@@ -2193,8 +2200,15 @@ func _test_watchdog_pursuer(game_scene: PackedScene) -> void:
 				PrototypePursuer.WATCHDOG_CROWD_ESCAPE_DURATION
 			)
 			and not watchdog.deploys_roadblock()
-			and not watchdog.deploys_pursuit_trap(),
-		"Watchdog uses the fastest small-radius pursuit profile without stacked obstacles."
+			and watchdog.deploys_pursuit_trap()
+			and watchdog.pursuit_trap_variant() == (
+				PrototypePursuitTrap.VARIANT_STICKY_PATCH
+			)
+			and is_equal_approx(
+				game._pursuit_trap_deploy_time,
+				PrototypePursuer.WATCHDOG_TRAP_DEPLOY_DELAY
+			),
+		"Watchdog uses the fastest small-radius profile and one delayed sticky patch."
 	)
 	if not is_instance_valid(watchdog):
 		game.queue_free()
@@ -2570,6 +2584,81 @@ func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 
 
 func _test_pursuer_snare(game_scene: PackedScene) -> void:
+	var trap_profiles := [
+		{
+			"variant": PrototypePursuitTrap.VARIANT_SNARE,
+			"radius": 46.0,
+			"arm_delay": 0.75,
+			"lifetime": 12.0,
+			"damaging": true,
+			"arming_label": "ARMING",
+			"armed_label": "SNARE",
+		},
+		{
+			"variant": PrototypePursuitTrap.VARIANT_MOTION_BEACON,
+			"radius": 54.0,
+			"arm_delay": 0.5,
+			"lifetime": 10.0,
+			"damaging": false,
+			"arming_label": "CALIBRATING",
+			"armed_label": "MOTION BEACON",
+		},
+		{
+			"variant": PrototypePursuitTrap.VARIANT_STICKY_PATCH,
+			"radius": 42.0,
+			"arm_delay": 1.0,
+			"lifetime": 14.0,
+			"damaging": false,
+			"arming_label": "SETTLING",
+			"armed_label": "STICKY PATCH",
+		},
+	]
+	for profile in trap_profiles:
+		var one_step := PrototypePursuitTrap.new()
+		var split_step := PrototypePursuitTrap.new()
+		var variant_id := str(profile["variant"])
+		one_step.configure_variant(variant_id)
+		split_step.configure_variant(variant_id)
+		one_step.set_presentation_motion_scale(0.0)
+		var arm_delay := float(profile["arm_delay"])
+		var warning_label := one_step.state_label()
+		one_step.advance(arm_delay)
+		split_step.advance(arm_delay * 0.5)
+		split_step.advance(arm_delay * 0.5)
+		_check(
+			one_step.variant_id == variant_id
+				and is_equal_approx(
+					one_step.radius(),
+					float(profile["radius"])
+				)
+				and is_equal_approx(one_step.arm_delay(), arm_delay)
+				and is_equal_approx(
+					one_step.lifetime(),
+					float(profile["lifetime"])
+				)
+				and one_step.causes_damage()
+				== bool(profile["damaging"])
+				and warning_label == str(profile["arming_label"])
+				and one_step.state_label()
+				== str(profile["armed_label"])
+				and one_step.is_armed()
+				and split_step.is_armed()
+				and is_equal_approx(
+					one_step.elapsed(),
+					split_step.elapsed()
+				)
+				and is_zero_approx(one_step._motion_scale),
+			"%s uses fixed, frame-step-independent timing while reduced motion freezes decoration."
+			% variant_id
+		)
+		one_step.advance(float(profile["lifetime"]) - arm_delay)
+		_check(
+			one_step.expired(),
+			"%s expires at its exact bounded lifetime." % variant_id
+		)
+		one_step.free()
+		split_step.free()
+
 	var game := game_scene.instantiate() as FrogGame
 	game.set_motion_scale(1.0)
 	game.configure("snare_test", "Snare Tester", false)
@@ -2597,11 +2686,21 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 		return
 	pursuer.set_physics_process(false)
 
+	game._update_navigation_paths()
+	var navigation_revision_before := game._navigation.revision()
 	game._frog.movement_enabled = false
 	game._pursuit_trap_deploy_time = 0.0
 	game._update_pursuit_trap(0.1)
 	var blocked_while_rooted := not is_instance_valid(game._pursuit_trap)
 	game._frog.movement_enabled = true
+	game._frog.global_position = Vector2(2000, 2000)
+	game._update_pursuit_trap(0.1)
+	var retried_unsafe_anchor := (
+		not is_instance_valid(game._pursuit_trap)
+		and not game._pursuit_trap_deployed
+		and is_zero_approx(game._pursuit_trap_deploy_time)
+	)
+	game._frog.global_position = Vector2(0, -520)
 	seed(20260830)
 	var expected_random := randf()
 	seed(20260830)
@@ -2610,12 +2709,14 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 	var pursuit_trap := game._pursuit_trap
 	_check(
 		blocked_while_rooted
+		and retried_unsafe_anchor
 		and is_instance_valid(pursuit_trap)
 		and pursuit_trap.global_position == Vector2(350, -285)
 		and not pursuit_trap.is_armed()
 		and is_equal_approx(actual_random, expected_random)
-		and game._pursuit_trap_deployed,
-		"The snare deploys at the nearest safe authored anchor without gameplay RNG."
+		and game._pursuit_trap_deployed
+		and game._navigation.revision() == navigation_revision_before,
+		"The snare retries unsafe anchors, then deploys deterministically without consuming RNG or changing navigation."
 	)
 	if not is_instance_valid(pursuit_trap):
 		game.queue_free()
@@ -2628,7 +2729,7 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 			and target.kind != "building"
 			and target.global_position.distance_to(
 				pursuit_trap.global_position
-			) < target.pick_radius + PrototypePursuitTrap.RADIUS
+			) < target.pick_radius + pursuit_trap.radius()
 		):
 			avoids_targets = false
 	_check(
@@ -2638,13 +2739,13 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 		)
 		and game._circle_position_clear(
 			pursuit_trap.global_position,
-			PrototypePursuitTrap.RADIUS,
+			pursuit_trap.radius(),
 			true
 		),
 		"The draw-only snare avoids targets, buildings, and physical collision."
 	)
 
-	var score_before := 40
+	var score_before := 10
 	game._score = score_before
 	var growth_before := game._growth_points
 	var target_count_before := game._targets.size()
@@ -2670,27 +2771,72 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 		"Flight safely crosses an armed snare."
 	)
 	game._frog.set_flying(false)
+	game._frog.movement_enabled = false
+	game._update_pursuit_trap(0.0)
+	var movement_disabled_blocked := is_instance_valid(
+		game._pursuit_trap
+	)
+	game._frog.movement_enabled = true
+	game._frog.knock_back_from(
+		game._frog.global_position + Vector2.LEFT
+	)
+	game._update_pursuit_trap(0.0)
+	var knockback_blocked := is_instance_valid(game._pursuit_trap)
+	game._frog.clear_knockback()
+	game._net_escape_active = true
+	game._update_pursuit_trap(0.0)
+	var net_blocked := is_instance_valid(game._pursuit_trap)
+	game._net_escape_active = false
+	var immunity_target := _find_target(game, "park_chair")
+	game._struggle_target = immunity_target
+	game._update_pursuit_trap(0.0)
+	var struggle_blocked := is_instance_valid(game._pursuit_trap)
+	game._struggle_target = null
+	game._pull_target = immunity_target
+	game._update_pursuit_trap(0.0)
+	var pull_blocked := is_instance_valid(game._pursuit_trap)
+	game._pull_target = null
 	game._growth_tier = 2
 	game._frog.set_growth_tier(2)
 	game._update_pursuit_trap(0.0)
 	_check(
 		is_instance_valid(game._pursuit_trap)
+		and movement_disabled_blocked
+		and knockback_blocked
+		and net_blocked
+		and struggle_blocked
+		and pull_blocked
 		and game._score == score_before,
-		"Maximum growth is immune to the Animal Control snare."
+		"Disabled movement, knockback, netting, struggles, pulls, and maximum growth are immune to traps."
 	)
 	game._growth_tier = 0
 	game._frog.set_growth_tier(0)
+	game._damage_cooldown = 0.5
+	game._update_pursuit_trap(0.0)
+	var cooldown_prevented_stack := (
+		is_instance_valid(game._pursuit_trap)
+		and game._score == score_before
+	)
+	game._damage_cooldown = 0.0
+	pursuer._begin_net_attack()
+	pursuer._advance_net_attack(
+		PrototypePursuer.NET_WINDUP_DURATION
+	)
+	var net_overlapped_snare := pursuer.net_attack_active()
 	game._update_pursuit_trap(0.0)
 	await process_frame
 	_check(
-		not is_instance_valid(game._pursuit_trap)
-		and game._score == score_before - 15
+		cooldown_prevented_stack
+		and net_overlapped_snare
+		and not pursuer.net_attack_active()
+		and not is_instance_valid(game._pursuit_trap)
+		and game._score == 0
 		and game._growth_points == growth_before
 		and game._targets.size() == target_count_before
 		and game._known_discovery_count() == discovery_count_before
 		and game._frog.knockback_active()
 		and game._status_label.text.contains("snare"),
-		"An eligible frog triggers one bounded penalty without rewards or progression changes."
+		"An eligible frog takes one bounded penalty and its snare cancels an overlapping net instead of stacking capture."
 	)
 	game._update_pursuit_trap(PrototypePursuitTrap.LIFETIME)
 	_check(
@@ -2772,6 +2918,347 @@ func _test_pursuer_snare(game_scene: PackedScene) -> void:
 	)
 
 	cleanup_game.queue_free()
+	await process_frame
+
+	var beacon_game := game_scene.instantiate() as FrogGame
+	beacon_game.configure(
+		"beacon_test",
+		"Beacon Tester",
+		false
+	)
+	root.add_child(beacon_game)
+	await process_frame
+	await physics_frame
+	beacon_game.set_process(false)
+	beacon_game._frog.set_physics_process(false)
+	beacon_game._frog.global_position = Vector2(0, -520)
+	beacon_game._spawn_pursuer(
+		PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+	)
+	var guard := beacon_game._pursuer
+	if is_instance_valid(guard):
+		guard.set_physics_process(false)
+	beacon_game._pursuit_trap_deploy_time = 0.0
+	seed(20260831)
+	var expected_beacon_random := randf()
+	seed(20260831)
+	beacon_game._update_pursuit_trap(0.1)
+	var actual_beacon_random := randf()
+	var beacon := beacon_game._pursuit_trap
+	_check(
+		is_instance_valid(guard)
+			and is_instance_valid(beacon)
+			and beacon.variant_id
+			== PrototypePursuitTrap.VARIANT_MOTION_BEACON
+			and is_equal_approx(
+				beacon_game._pursuit_trap_deploy_time,
+				0.0
+			)
+			and is_equal_approx(
+				actual_beacon_random,
+				expected_beacon_random
+			)
+			and beacon_game._status_label.text.contains(
+				"motion beacon"
+			),
+		"Security deploys one deterministic motion beacon with explicit warning text."
+	)
+	if is_instance_valid(guard) and is_instance_valid(beacon):
+		var beacon_score_before := beacon_game._score
+		var beacon_growth_before := beacon_game._growth_points
+		var beacon_belly_before := beacon_game._belly.size()
+		var beacon_targets_before := beacon_game._targets.size()
+		var beacon_discoveries_before := (
+			beacon_game._known_discovery_count()
+		)
+		var beacon_challenges_before := [
+			beacon_game._challenges.progress(
+				SessionChallenges.SHARP_AIM
+			),
+			beacon_game._challenges.progress(
+				SessionChallenges.HOLD_ON
+			),
+			beacon_game._challenges.progress(
+				SessionChallenges.CITY_TOUR
+			),
+			beacon_game._challenges.completed_count(),
+		]
+		var beacon_progression_events: Array[String] = []
+		beacon_game.score_changed.connect(
+			func(_score: int) -> void:
+				beacon_progression_events.append("score")
+		)
+		beacon_game.target_discovered.connect(
+			func(_target_id: String) -> void:
+				beacon_progression_events.append("discovery")
+		)
+		beacon_game.target_swallowed.connect(
+			func(_target_id: String) -> void:
+				beacon_progression_events.append("swallow")
+		)
+		beacon_game.item_digested.connect(
+			func(_target_id: String) -> void:
+				beacon_progression_events.append("digest")
+		)
+		beacon_game.growth_tier_applied.connect(
+			func(_tier: int) -> void:
+				beacon_progression_events.append("growth")
+		)
+		beacon_game._crowd_hide_time = 0.8
+		beacon_game._city_activity.crowd_hide_progress = 0.5
+		beacon_game._damage_cooldown = 0.8
+		beacon.global_position = beacon_game._frog.global_position
+		guard._begin_flashlight_attack()
+		beacon_game._update_pursuit_trap(beacon.arm_delay())
+		_check(
+			not is_instance_valid(beacon_game._pursuit_trap)
+				and guard.flashlight_attack_active()
+				and guard.frog_detected()
+				and is_equal_approx(
+					guard._forced_detection_left,
+					PrototypePursuitTrap.BEACON_REVEAL_DURATION
+				)
+				and is_zero_approx(beacon_game._crowd_hide_time)
+				and is_zero_approx(
+					beacon_game._city_activity.crowd_hide_progress
+				)
+				and beacon_game._score == beacon_score_before
+				and beacon_game._growth_points
+				== beacon_growth_before
+				and beacon_game._belly.size()
+				== beacon_belly_before
+				and beacon_game._targets.size()
+				== beacon_targets_before
+				and beacon_game._known_discovery_count()
+				== beacon_discoveries_before
+				and [
+					beacon_game._challenges.progress(
+						SessionChallenges.SHARP_AIM
+					),
+					beacon_game._challenges.progress(
+						SessionChallenges.HOLD_ON
+					),
+					beacon_game._challenges.progress(
+						SessionChallenges.CITY_TOUR
+					),
+					beacon_game._challenges.completed_count(),
+				] == beacon_challenges_before
+				and beacon_progression_events.is_empty()
+				and not beacon_game._frog.knockback_active()
+				and not beacon_game._net_escape_active,
+			"The beacon can overlap a flashlight warning but only reveals the frog and clears crowd cover."
+		)
+
+		guard.global_position = Vector2(0, 320)
+		beacon_game._frog.global_position = Vector2(100, 320)
+		var sight_blocker := StaticBody2D.new()
+		sight_blocker.position = Vector2(50, 320)
+		sight_blocker.collision_layer = 1
+		var sight_collision := CollisionShape2D.new()
+		var sight_shape := CircleShape2D.new()
+		sight_shape.radius = 34.0
+		sight_collision.shape = sight_shape
+		sight_blocker.add_child(sight_collision)
+		beacon_game._world.add_child(sight_blocker)
+		await physics_frame
+		guard._update_detection(
+			PrototypePursuitTrap.BEACON_REVEAL_DURATION * 0.5
+		)
+		var reveal_active := guard.frog_detected()
+		guard._update_detection(
+			PrototypePursuitTrap.BEACON_REVEAL_DURATION * 0.5
+		)
+		_check(
+			reveal_active
+				and not guard.frog_detected()
+				and is_zero_approx(guard._forced_detection_left),
+			"Beacon detection crosses walls only for its exact two-second reveal window."
+		)
+		sight_blocker.queue_free()
+		beacon_game._update_pursuit_trap(
+			PrototypePursuitTrap.BEACON_REVEAL_DURATION
+		)
+		_check(
+			not is_instance_valid(beacon_game._pursuit_trap),
+			"A triggered beacon cannot redeploy during the same pursuit."
+		)
+	beacon_game.queue_free()
+	await process_frame
+
+	var sticky_game := game_scene.instantiate() as FrogGame
+	sticky_game.configure(
+		"sticky_test",
+		"Sticky Tester",
+		false
+	)
+	root.add_child(sticky_game)
+	await process_frame
+	await physics_frame
+	sticky_game.set_process(false)
+	sticky_game._frog.set_physics_process(false)
+	sticky_game._frog.global_position = Vector2(0, -520)
+	sticky_game._spawn_pursuer(PrototypePursuer.ARCHETYPE_WATCHDOG)
+	var watchdog := sticky_game._pursuer
+	if is_instance_valid(watchdog):
+		watchdog.set_physics_process(false)
+	sticky_game._pursuit_trap_deploy_time = 0.0
+	seed(20260901)
+	var expected_sticky_random := randf()
+	seed(20260901)
+	sticky_game._update_pursuit_trap(0.1)
+	var actual_sticky_random := randf()
+	var sticky_patch := sticky_game._pursuit_trap
+	_check(
+		is_instance_valid(watchdog)
+			and is_instance_valid(sticky_patch)
+			and sticky_patch.variant_id
+			== PrototypePursuitTrap.VARIANT_STICKY_PATCH
+			and is_equal_approx(
+				actual_sticky_random,
+				expected_sticky_random
+			)
+			and sticky_game._status_label.text.contains(
+				"sticky scent patch"
+			),
+		"Watchdog deploys one deterministic sticky patch with explicit warning text."
+	)
+	if is_instance_valid(watchdog) and is_instance_valid(sticky_patch):
+		var sticky_score_before := sticky_game._score
+		var sticky_growth_before := sticky_game._growth_points
+		var sticky_belly_before := sticky_game._belly.size()
+		var sticky_targets_before := sticky_game._targets.size()
+		var sticky_discoveries_before := (
+			sticky_game._known_discovery_count()
+		)
+		var sticky_challenges_before := [
+			sticky_game._challenges.progress(
+				SessionChallenges.SHARP_AIM
+			),
+			sticky_game._challenges.progress(
+				SessionChallenges.HOLD_ON
+			),
+			sticky_game._challenges.progress(
+				SessionChallenges.CITY_TOUR
+			),
+			sticky_game._challenges.completed_count(),
+		]
+		sticky_game._damage_cooldown = 0.8
+		sticky_patch.global_position = (
+			sticky_game._frog.global_position
+		)
+		watchdog._begin_lunge_attack()
+		sticky_game._update_pursuit_trap(
+			sticky_patch.arm_delay()
+		)
+		_check(
+			not is_instance_valid(sticky_game._pursuit_trap)
+				and watchdog.lunge_attack_active()
+				and is_equal_approx(
+					sticky_game._tongue_recovery,
+					PrototypePursuitTrap.STICKY_TONGUE_RECOVERY
+				)
+				and sticky_game._frog.movement_enabled
+				and not sticky_game._frog.knockback_active()
+				and not sticky_game._net_escape_active
+				and sticky_game._score == sticky_score_before
+				and sticky_game._growth_points
+				== sticky_growth_before
+				and sticky_game._belly.size()
+				== sticky_belly_before
+				and sticky_game._targets.size()
+				== sticky_targets_before
+				and sticky_game._known_discovery_count()
+				== sticky_discoveries_before
+				and [
+					sticky_game._challenges.progress(
+						SessionChallenges.SHARP_AIM
+					),
+					sticky_game._challenges.progress(
+						SessionChallenges.HOLD_ON
+					),
+					sticky_game._challenges.progress(
+						SessionChallenges.CITY_TOUR
+					),
+					sticky_game._challenges.completed_count(),
+				] == sticky_challenges_before,
+			"The sticky patch can overlap a lunge warning but only delays the tongue while movement stays available."
+		)
+		sticky_game._process(
+			PrototypePursuitTrap.STICKY_TONGUE_RECOVERY * 0.5
+		)
+		var sticky_half_time := sticky_game._tongue_recovery
+		sticky_game._process(
+			PrototypePursuitTrap.STICKY_TONGUE_RECOVERY * 0.5
+		)
+		_check(
+			is_equal_approx(
+				sticky_half_time,
+				PrototypePursuitTrap.STICKY_TONGUE_RECOVERY
+				* 0.5
+			)
+				and is_zero_approx(sticky_game._tongue_recovery)
+				and sticky_game._frog.movement_enabled,
+			"Sticky tongue recovery expires exactly without immobilizing the frog."
+		)
+		sticky_game._update_pursuit_trap(
+			PrototypePursuitTrap.STICKY_TONGUE_RECOVERY
+		)
+		_check(
+			not is_instance_valid(sticky_game._pursuit_trap),
+			"A triggered sticky patch cannot redeploy during the same pursuit."
+		)
+	sticky_game.queue_free()
+	await process_frame
+
+	var district_game := game_scene.instantiate() as FrogGame
+	district_game.configure(
+		"trap_district_test",
+		"Trap District Tester",
+		false
+	)
+	root.add_child(district_game)
+	await process_frame
+	await physics_frame
+	district_game.set_process(false)
+	district_game._frog.set_physics_process(false)
+	var first_coordinate := Vector2i(2, 2)
+	district_game._frog.global_position = (
+		DistrictGenerator.bounds_for_coordinate(
+			first_coordinate
+		).get_center()
+	)
+	district_game._update_district_streaming()
+	district_game._spawn_pursuer(
+		PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+	)
+	if is_instance_valid(district_game._pursuer):
+		district_game._pursuer.set_physics_process(false)
+	district_game._pursuit_trap_deploy_time = 0.0
+	district_game._update_pursuit_trap(0.1)
+	var district_trap := district_game._pursuit_trap
+	var first_loaded_count := district_game._loaded_districts.size()
+	district_game._frog.global_position = (
+		DistrictGenerator.bounds_for_coordinate(
+			Vector2i(4, 2)
+		).get_center()
+	)
+	district_game._update_district_streaming()
+	await process_frame
+	_check(
+		first_loaded_count
+			== DistrictGenerator.MAX_LOADED_GENERATED_DISTRICTS
+			and is_instance_valid(district_game._pursuer)
+			and not is_instance_valid(district_game._pursuit_trap)
+			and (
+				not is_instance_valid(district_trap)
+				or district_trap.is_queued_for_deletion()
+			)
+			and not district_game._loaded_districts.has(
+				first_coordinate + Vector2i(-1, -1)
+			),
+		"Changing generated-district rings unloads old content and clears its temporary trap without ending pursuit."
+	)
+	district_game.queue_free()
 	await process_frame
 
 
@@ -4524,8 +5011,14 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	)
 	game._digest_item(0)
 
+	game._frog.global_position = Vector2(0, -520)
 	game._spawn_pursuer()
 	var pursuing_before_entry := is_instance_valid(game._pursuer)
+	if pursuing_before_entry:
+		game._pursuer.set_physics_process(false)
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+	var transition_trap := game._pursuit_trap
 	game._frog.global_position = cafe.transition_door_approach_position()
 	game._begin_interior_transition(FrogGame.STOCKROOM_ID)
 	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
@@ -4533,8 +5026,13 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	_check(
 		pursuing_before_entry
 		and not is_instance_valid(game._pursuer)
+		and not is_instance_valid(game._pursuit_trap)
+		and (
+			not is_instance_valid(transition_trap)
+			or transition_trap.is_queued_for_deletion()
+		)
 		and game._active_interior_id == FrogGame.STOCKROOM_ID,
-		"Entering the stockroom breaks an active Animal Control pursuit."
+		"Entering the stockroom clears Animal Control and its temporary trap."
 	)
 
 	game.set_motion_scale(0.0)

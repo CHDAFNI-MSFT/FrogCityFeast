@@ -60,7 +60,7 @@ func _run() -> void:
 	)
 	_check(
 		BUDGETS.MAX_PURSUIT_TRAPS == 1,
-		"The Animal Control snare budget remains capped at one."
+		"The profile-driven pursuit-trap budget remains capped at one."
 	)
 	_check(
 		BUDGETS.MAX_INTERIOR_ROOMS == 10,
@@ -262,8 +262,20 @@ func _run() -> void:
 			"discoveries": PackedStringArray(),
 		},
 		{
-			"name": "pursuit_trap",
-			"setup": _setup_pursuit_trap,
+			"name": "animal_control_snare",
+			"setup": _setup_animal_control_snare,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "security_motion_beacon",
+			"setup": _setup_security_motion_beacon,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "watchdog_sticky_patch",
+			"setup": _setup_watchdog_sticky_patch,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
 		},
@@ -576,9 +588,23 @@ func _setup_roadblock(game: FrogGame) -> void:
 	game._update_pursuit_roadblock(0.1)
 
 
-func _setup_pursuit_trap(game: FrogGame) -> void:
+func _setup_animal_control_snare(game: FrogGame) -> void:
 	game._frog.global_position = Vector2(0, -520)
 	game._spawn_pursuer()
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+
+
+func _setup_security_motion_beacon(game: FrogGame) -> void:
+	game._frog.global_position = Vector2(0, -520)
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_SECURITY_GUARD)
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+
+
+func _setup_watchdog_sticky_patch(game: FrogGame) -> void:
+	game._frog.global_position = Vector2(0, -520)
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_WATCHDOG)
 	game._pursuit_trap_deploy_time = 0.0
 	game._update_pursuit_trap(0.1)
 
@@ -903,12 +929,38 @@ func _check_scenario_expectations(
 				== BUDGETS.MAX_ROADBLOCKS,
 				"Roadblock stress contains one pursuer and one physical barricade."
 			)
-		"pursuit_trap":
+		"animal_control_snare":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
 				and int(snapshot["pursuit_traps"])
-				== BUDGETS.MAX_PURSUIT_TRAPS,
-				"Snare stress contains one pursuer and one draw-only trap."
+				== BUDGETS.MAX_PURSUIT_TRAPS
+				and str(snapshot["pursuer_archetype"])
+				== PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL
+				and str(snapshot["pursuit_trap_variant"])
+				== PrototypePursuitTrap.VARIANT_SNARE,
+				"Snare stress contains Animal Control and one draw-only damaging trap."
+			)
+		"security_motion_beacon":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["pursuit_traps"])
+				== BUDGETS.MAX_PURSUIT_TRAPS
+				and str(snapshot["pursuer_archetype"])
+				== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+				and str(snapshot["pursuit_trap_variant"])
+				== PrototypePursuitTrap.VARIANT_MOTION_BEACON,
+				"Beacon stress contains Security and one draw-only reveal trap."
+			)
+		"watchdog_sticky_patch":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["pursuit_traps"])
+				== BUDGETS.MAX_PURSUIT_TRAPS
+				and str(snapshot["pursuer_archetype"])
+				== PrototypePursuer.ARCHETYPE_WATCHDOG
+				and str(snapshot["pursuit_trap_variant"])
+				== PrototypePursuitTrap.VARIANT_STICKY_PATCH,
+				"Sticky-patch stress contains Watchdog and one draw-only tongue-delay trap."
 			)
 		"net_attack":
 			_check(

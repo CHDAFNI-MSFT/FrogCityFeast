@@ -78,15 +78,16 @@ profiling build on the device remains separate signed-device work.
 
 Deterministic structural budgets are enforced independently of hardware. The
 authored core permits 36 gameplay targets, 4 buildings, 10 separate exploration
-rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
-draw-only city actors, 84 draw-only rain streaks, 10 draw-only festival
-lanterns, 1 draw-only Animal Control net projectile, 24 capped world effects,
-3 touch cues, and 6 fixed audio players including 4 reusable effect voices.
-Baseline and separate-room states permit up to 369 game-subtree nodes, 41
-collision objects, and 111 collision shapes; ordinary pursuit and net attack
-permit 371 nodes, 42 collision objects, and 112 collision shapes; a snare
-pursuit permits 372 nodes with the same physics structure; a roadblock pursuit
-permits 373 nodes, 43 collision objects, and 113 collision shapes; the
+rooms, 1 pursuer, 1 temporary physical roadblock, 1 profile-driven draw-only
+pursuit trap, 20 draw-only city actors, 84 draw-only rain streaks, 10 draw-only
+festival lanterns, 1 draw-only Animal Control net projectile, 24 capped world
+effects, 3 touch cues, and 6 fixed audio players including 4 reusable effect
+voices. Baseline and separate-room states permit up to 369 game-subtree nodes,
+41 collision objects, and 111 collision shapes; ordinary pursuit and net attack
+permit 371 nodes, 42 collision objects, and 112 collision shapes; any
+pursuit-trap profile permits 372 nodes with the same physics structure; a
+roadblock pursuit permits 373 nodes, 43 collision objects, and 113 collision
+shapes; the
 reachable roadblock-and-snare gameplay peak permits 374 nodes with the same 43
 collision objects and 113 shapes. The performance Belly scenario renders 64
 item rows within 625 nodes without changing the belly's unlimited gameplay
@@ -117,7 +118,8 @@ budget rejection.
 Reproducible stress coverage includes the maximum generated-district ring, all
 ten connected exploration rooms, the night
 bazaar, busy daytime city activity, peak rain, pursuit, active crowd cover,
-roadblock and snare pursuit, a net in flight, maximum growth, a finite
+roadblock pursuit, all three pursuer-and-trap profiles, a net in flight,
+maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
 Guide, both accessibility settings, and a reachable gameplay peak. Desktop
 measurements are advisory; the target iPad release build is authoritative. The
@@ -482,8 +484,10 @@ not food or living targets, and uses a 0.65-second draw-only flashlight warning
 instead of a net. Remaining in the locked beam applies one 12-point capped
 knockback; stepping out of the beam, moving behind a wall, flying, or reaching
 maximum growth prevents the strike. Crowd cover loses the sight-based guard in
-1.1 seconds. The guard deploys neither Animal Control roadblocks nor snares, so
-the one-pursuer cap cannot create stacked damage or obstruction loops. At
+1.1 seconds. The guard deploys no physical roadblock, but after five eligible
+seconds it can place one draw-only motion beacon with a 0.5-second calibration
+warning. An armed beacon reveals a ground frog through geometry for two seconds
+and clears partial crowd-hide progress without damage or immobilization. At
 maximum growth it can be swallowed into the Belly and discovered in the Field
 Guide like Animal Control. Reduce motion freezes beam decoration while
 preserving its warning and hit timing.
@@ -497,8 +501,11 @@ with a 0.45-second warning followed by one 220-unit physical lunge using its
 existing collision body. Walls stop the lunge, moving out of its locked path
 dodges it, and a hit applies one 16-point capped knockback. Flight breaks scent
 and ends the chase after 1.4 seconds; crowd cover takes 0.8 seconds; the total
-chase is capped at 22 seconds. The dog deploys no Animal Control roadblock or
-snare, uses no projectile or gameplay random numbers, and remains edible at
+chase is capped at 22 seconds. The dog deploys no physical roadblock, but after
+four eligible seconds it can leave one draw-only sticky scent patch with a
+one-second settling warning. An armed patch applies 1.2 seconds of ordinary
+tongue recovery without stopping movement, changing score, or dealing damage.
+The dog uses no projectile or gameplay random numbers and remains edible at
 maximum growth with its own Belly and Field Guide record. Reduce motion
 suppresses decorative lunge pulses and trails without changing warning,
 movement, collision, or hit timing.
@@ -521,18 +528,31 @@ pursuit clears it immediately. Placement is deterministic, uses no gameplay
 random numbers, and changes no score, growth, target, save, challenge, or Field
 Guide state.
 
-Animal Control also deploys one draw-only sidewalk snare per chase after six
-unpaused, movement-enabled pursuit seconds. The nearest safe authored anchor
-180–700 units from the frog receives a clearly labeled 0.75-second arming
-warning. Once armed, contact by an eligible small or medium ground frog applies
-the existing capped damage and knockback flow for 15 points and removes the
-snare. Flight, maximum growth, knockback, movement-disabled states, net escape,
-tongue pulls, target struggles, and active damage recovery prevent triggering.
-An untouched snare expires after twelve seconds, never redeploys in the same
-pursuit, and clears immediately when pursuit ends. Reduce motion freezes its
-pulse while retaining the static armed-state change and all gameplay timing.
-Placement and timing use no gameplay random numbers, and the snare adds no
-collision, target, save, challenge, or Field Guide state.
+Each pursuer can deploy one profile-driven draw-only sidewalk trap per chase at
+the nearest safe authored anchor 180–700 units from the frog. If no anchor is
+safe, deployment retries without consuming the allowance. Animal Control waits
+six eligible seconds, then places a 46-unit snare with a 0.75-second arming
+warning and twelve-second lifetime. Eligible contact applies the existing
+capped damage and knockback flow for 15 points; active damage recovery prevents
+the snare from stacking with another hit, and triggering it cancels an
+overlapping net so knockback cannot become an immediate capture loop. Security
+waits five seconds, then places a 54-unit motion beacon with a 0.5-second
+warning and ten-second lifetime. It deals no damage, clears partial crowd
+cover, and grants exactly two seconds of forced sight before wall-aware
+detection resumes. Watchdog waits
+four seconds, then leaves a 42-unit sticky patch with a one-second warning and
+fourteen-second lifetime. It deals no damage or immobilization and applies 1.2
+seconds of tongue recovery while movement and pursuit escape remain available.
+
+Flight, maximum growth, knockback, movement-disabled states, net escape, tongue
+pulls, and target struggles prevent every trap profile from triggering.
+Triggered or expired traps never redeploy in the same pursuit. Pursuit end,
+connected-room travel, and generated-district changes clear them immediately.
+Reduce motion freezes decorative pulses while retaining labels, arming changes,
+and all gameplay timing. Placement uses no gameplay random numbers, changes no
+navigation topology, and adds no collision, target, save, score, growth,
+challenge, or Field Guide state beyond Animal Control's explicitly documented
+15-point damage.
 
 If a pursuer catches the frog:
 

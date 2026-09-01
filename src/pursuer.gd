@@ -78,6 +78,9 @@ const WATCHDOG_PROTECTION_RADIUS := 210.0
 const WATCHDOG_CROWD_ESCAPE_DURATION := 0.8
 const WATCHDOG_CONTACT_PENALTY := 14
 const WATCHDOG_LUNGE_PENALTY := 16
+const ANIMAL_CONTROL_TRAP_DEPLOY_DELAY := 6.0
+const SECURITY_TRAP_DEPLOY_DELAY := 5.0
+const WATCHDOG_TRAP_DEPLOY_DELAY := 4.0
 
 var frog: PlayerFrog
 var navigation: DeterministicNavigation2D
@@ -120,6 +123,7 @@ var _lunge_target_position := Vector2.ZERO
 var _lunge_direction := Vector2.ZERO
 var _lunge_travel := 0.0
 var _lunge_windup_left := 0.0
+var _forced_detection_left := 0.0
 
 
 func _ready() -> void:
@@ -244,7 +248,27 @@ func deploys_roadblock() -> bool:
 
 
 func deploys_pursuit_trap() -> bool:
-	return archetype_id == ARCHETYPE_ANIMAL_CONTROL
+	return true
+
+
+func pursuit_trap_variant() -> String:
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			return PrototypePursuitTrap.VARIANT_MOTION_BEACON
+		ARCHETYPE_WATCHDOG:
+			return PrototypePursuitTrap.VARIANT_STICKY_PATCH
+		_:
+			return PrototypePursuitTrap.VARIANT_SNARE
+
+
+func pursuit_trap_deploy_delay() -> float:
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			return SECURITY_TRAP_DEPLOY_DELAY
+		ARCHETYPE_WATCHDOG:
+			return WATCHDOG_TRAP_DEPLOY_DELAY
+		_:
+			return ANIMAL_CONTROL_TRAP_DEPLOY_DELAY
 
 
 func protects_target(target: EdibleTarget) -> bool:
@@ -287,6 +311,17 @@ func lunge_attack_active() -> bool:
 	return _lunge_phase != LungePhase.IDLE
 
 
+func reveal_frog(position: Vector2, duration: float) -> void:
+	_last_detected_frog_position = position
+	_forced_detection_left = maxf(
+		_forced_detection_left,
+		maxf(0.0, duration)
+	)
+	_far_time = 0.0
+	_frog_detected = true
+	invalidate_navigation()
+
+
 func _physics_process(delta: float) -> void:
 	if not active or not is_instance_valid(frog):
 		velocity = Vector2.ZERO
@@ -309,7 +344,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_chase_time += delta
-	_update_detection()
+	_update_detection(delta)
 	var offset := frog.global_position - global_position
 	match archetype_id:
 		ARCHETYPE_SECURITY_GUARD:
@@ -520,9 +555,17 @@ func cancel_net_attack() -> void:
 	queue_redraw()
 
 
-func _update_detection() -> void:
+func _update_detection(delta: float = 0.0) -> void:
 	if not is_instance_valid(frog):
 		_frog_detected = false
+		return
+	_forced_detection_left = maxf(
+		0.0,
+		_forced_detection_left - maxf(0.0, delta)
+	)
+	if _forced_detection_left > 0.0 and not frog.is_flying:
+		_frog_detected = true
+		_last_detected_frog_position = frog.global_position
 		return
 	if archetype_id == ARCHETYPE_SECURITY_GUARD:
 		_frog_detected = (

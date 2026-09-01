@@ -97,7 +97,9 @@ const ROADBLOCK_ANCHORS := [
 		"size": Vector2(280, 52),
 	},
 ]
-const PURSUIT_TRAP_DEPLOY_DELAY := 6.0
+const PURSUIT_TRAP_DEPLOY_DELAY := (
+	PrototypePursuer.ANIMAL_CONTROL_TRAP_DEPLOY_DELAY
+)
 const PURSUIT_TRAP_MIN_DISTANCE := 180.0
 const PURSUIT_TRAP_MAX_DISTANCE := 700.0
 const PURSUIT_TRAP_ANCHORS := [
@@ -2714,6 +2716,11 @@ func performance_structure_snapshot() -> Dictionary:
 		),
 		"roadblocks": 1 if is_instance_valid(_roadblock) else 0,
 		"pursuit_traps": 1 if is_instance_valid(_pursuit_trap) else 0,
+		"pursuit_trap_variant": (
+			_pursuit_trap.variant_id
+			if is_instance_valid(_pursuit_trap)
+			else ""
+		),
 		"pursuer_deflecting": (
 			_pursuer.deflect_feedback_active()
 			if is_instance_valid(_pursuer)
@@ -3394,7 +3401,7 @@ func _spawn_pursuer(
 	_roadblock_deployed = not _pursuer.deploys_roadblock()
 	_clear_pursuit_trap()
 	_pursuit_trap_deploy_time = (
-		PURSUIT_TRAP_DEPLOY_DELAY
+		_pursuer.pursuit_trap_deploy_delay()
 		if _pursuer.deploys_pursuit_trap()
 		else 0.0
 	)
@@ -3556,15 +3563,37 @@ func _update_pursuit_trap(delta: float) -> void:
 			return
 		if _pursuit_trap_can_trigger() and (
 			_pursuit_trap.global_position.distance_to(_frog.global_position)
-			<= PrototypePursuitTrap.RADIUS + _frog.collision_radius()
+			<= _pursuit_trap.radius() + _frog.collision_radius()
 		):
-			var source_position := _pursuit_trap.global_position
+			var triggered_trap := _pursuit_trap
+			var source_position := triggered_trap.global_position
+			var variant_id := triggered_trap.variant_id
 			_pursuit_trap.dismiss(true)
-			_apply_damage(
-				source_position,
-				15,
-				"An Animal Control snare knocked the frog back!"
-			)
+			match variant_id:
+				PrototypePursuitTrap.VARIANT_MOTION_BEACON:
+					_pursuer.reveal_frog(
+						_frog.global_position,
+						PrototypePursuitTrap.BEACON_REVEAL_DURATION
+					)
+					_reset_crowd_hiding()
+					_show_status(
+						"The motion beacon revealed the frog to Security!"
+					)
+				PrototypePursuitTrap.VARIANT_STICKY_PATCH:
+					_tongue_recovery = maxf(
+						_tongue_recovery,
+						PrototypePursuitTrap.STICKY_TONGUE_RECOVERY
+					)
+					_show_status(
+						"Sticky scent paste tangled the frog's tongue!"
+					)
+				_:
+					_pursuer.cancel_active_attack()
+					_apply_damage(
+						source_position,
+						15,
+						"An Animal Control snare knocked the frog back!"
+					)
 		return
 	if (
 		_pursuit_trap_deployed
@@ -3585,7 +3614,10 @@ func _pursuit_trap_can_trigger() -> bool:
 	return (
 		is_instance_valid(_pursuit_trap)
 		and _pursuit_trap.is_armed()
-		and _damage_cooldown <= 0.0
+		and (
+			not _pursuit_trap.causes_damage()
+			or _damage_cooldown <= 0.0
+		)
 		and _growth_tier < 2
 		and not _frog.is_flying
 		and not _frog.knockback_active()
@@ -3603,12 +3635,15 @@ func _spawn_pursuit_trap() -> bool:
 	if position == Vector2.INF:
 		return false
 	var pursuit_trap := PURSUIT_TRAP_SCRIPT.new() as PrototypePursuitTrap
+	pursuit_trap.configure_variant(_pursuer.pursuit_trap_variant())
 	pursuit_trap.position = position
 	pursuit_trap.set_presentation_motion_scale(_motion_scale)
 	pursuit_trap.removed.connect(_on_pursuit_trap_removed)
 	_world.add_child(pursuit_trap)
 	_pursuit_trap = pursuit_trap
-	_show_status("Animal Control placed an arming snare nearby!")
+	_show_status(
+		pursuit_trap.deployment_status(_pursuer.display_name())
+	)
 	return true
 
 
@@ -3631,7 +3666,14 @@ func _select_pursuit_trap_anchor() -> Vector2:
 
 
 func _pursuit_trap_anchor_clear(position: Vector2) -> bool:
-	var radius := PrototypePursuitTrap.RADIUS + 18.0
+	var variant_id := (
+		_pursuer.pursuit_trap_variant()
+		if is_instance_valid(_pursuer)
+		else PrototypePursuitTrap.VARIANT_SNARE
+	)
+	var radius := (
+		PrototypePursuitTrap.radius_for_variant(variant_id) + 18.0
+	)
 	if not _navigation_rect_for_position(position).grow(-radius).has_point(
 		position
 	):
