@@ -10,7 +10,8 @@ Godot 4.7.2 touch-first iPad game. The repository retains its original
 - [Game stack decision guide](docs/game-stack-decision-guide.md)
 - [Development toolchain setup](docs/development-setup.md)
 - [Clean-room environment rebuild runbook](docs/environment-rebuild-runbook.md)
-- [iOS build and TestFlight setup](docs/ios-release.md)
+- [iOS build and App Store setup](docs/ios-release.md)
+- [Asset provenance and reproduction](assets/README.md)
 
 ## Quick start on Windows
 

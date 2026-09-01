@@ -878,9 +878,82 @@ default. Existing saves must migrate forward without losing profiles, scores,
 tutorial completion, Field Guide discoveries, accessibility settings, or audio
 settings.
 
-## Decisions still needed
+## Production direction
 
-The final visual art style, expanded audio direction beyond the approved soft
-arcade-like synth slice, remaining menu or onboarding polish, and possible
-additional camera assistance remain future publication decisions. Visual review
-is intentionally deferred until publication.
+The September 1, 2026 production checkpoint resolves the remaining publication
+direction. Visual review remains intentionally deferred until publication; the
+production pass must follow this direction without requesting iterative visual
+approval.
+
+### Art and tone
+
+- Use a hybrid original-asset system built from reviewable SVG source files,
+  with restrained shaders or draw overlays only where they improve weather,
+  lighting, interaction feedback, or transitions.
+- Use a layered storybook cut-paper style with rounded silhouettes and a tone
+  of whimsical, gentle mischief.
+- Use warm confectionery city colors, teal canals and parks, and violet-and-
+  amber nights. Informational states must remain contrast-safe and readable
+  without relying on color alone.
+- Use medium selective detail: keep navigation silhouettes clean while giving
+  interactive targets, characters, landmarks, and story clues richer detail.
+- Keep every asset original to the project. Record source, authorship, license,
+  and reproduction instructions in the repository asset ledger.
+
+### Animation
+
+Use snappy cutout-style animation with readable anticipation, squash and
+stretch, clear impacts, and subtle ambient loops. Movement, tongue use,
+swallowing, struggles, growth, damage, pursuit, weather, destruction, and
+transitions each require distinct feedback. Reduce Motion must retain the
+state change, label, silhouette, and timing while removing continuous travel,
+camera shake, pulsing, and decorative motion.
+
+### Music and sound
+
+- Expand the original score into a soft chamber-synth palette using marimba-
+  like tones, plucked voices, toy percussion, warm pads, and playful city
+  motifs.
+- Adapt music for the menu, day, night, pursuit, major growth, and end-game
+  summary without making music necessary for gameplay.
+- Use layered original synthesized or reproducibly authored cartoon foley,
+  creature sounds, and city ambience without spoken dialogue.
+- Preserve independent Master, Music & ambience, and Effects controls, bounded
+  reusable effect voices, deterministic variation, and gameplay-randomness
+  isolation.
+
+### Menu, onboarding, and ending
+
+Use an illustrated title scene, skippable contextual onboarding cards,
+journal-style clue postcards, and a score-summary end-game epilogue. Story
+presentation remains concise, child-friendly, optional for score-focused play,
+and free of required reading, cutscenes, or dialogue trees.
+
+### Accessibility additions
+
+In addition to the existing scalable text, contrast, Reduce Motion, touch
+targets, safe-area layout, independent audio, and readable status feedback,
+the production pass includes:
+
+- color-vision-safe icons, patterns, labels, and non-color state cues;
+- adjustable double-tap, rapid-tap struggle, and hold timing assistance;
+- camera sensitivity, auto-align assistance, and a one-touch camera reset;
+- independently controlled haptic feedback;
+- replayable onboarding and contextual help; and
+- left- or right-handed HUD action placement.
+
+All additions are stored per profile with documented defaults and migration
+behavior. Accessibility assistance must not change score formulas, target
+eligibility, world geometry, or progression ownership.
+
+### Distribution
+
+Prepare a normal public App Store release path. TestFlight is unavailable to
+the target device because its Apple Account is under 13; do not falsify age or
+attempt to bypass Apple's restriction. The App Store export path must not set
+`testFlightInternalTestingOnly`.
+
+Preparation does not authorize signing, uploading, submission, publication,
+release creation, or tag creation. Those operations require separate explicit
+approval after the production pass, metadata, device measurements, and release
+checklists are complete.

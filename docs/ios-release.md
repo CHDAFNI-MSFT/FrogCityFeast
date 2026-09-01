@@ -1,8 +1,28 @@
-# iOS Build and TestFlight Setup
+# iOS Build and App Store Setup
 
 SamuelIcecream uses Windows for normal development and a GitHub-hosted macOS
 runner only for Apple-specific Godot export, Xcode compilation, signing, and
 submission.
+
+## Production distribution decision
+
+The September 1, 2026 production decision selects a **normal public App Store
+release**. TestFlight is unavailable to the target device because its Apple
+Account is under 13. Do not falsify the account age, bypass the restriction, or
+use the existing internal TestFlight path as the target-device installation
+plan.
+
+The repository must add a separate protected App Store workflow and export
+options that omit `testFlightInternalTestingOnly`. The existing TestFlight
+workflow and internal group are retained only as historical protected
+infrastructure until a separately reviewed cleanup decision; they are not the
+selected distribution route.
+
+No signing, upload, App Store submission, publication, release, or tag is
+authorized by this decision. Public distribution remains blocked until the
+production pass, metadata, privacy disclosures, age-rating inputs, target-iPad
+measurements, and release checklist are complete and the repository owner gives
+explicit release authorization.
 
 ## Unsigned pipeline verification
 
@@ -97,7 +117,7 @@ The selected release identity is:
 | SKU | `FROGCITYFEAST-IOS-001` |
 | Primary language | English (U.S.) |
 | Apple Developer Team ID | `CV7JQ487YU` |
-| Initial testing | Internal TestFlight only |
+| Selected distribution | Normal public App Store release |
 | Non-exempt encryption | No; `ITSAppUsesNonExemptEncryption` is `false` |
 
 The bundle identifier uses reverse-DNS syntax but does not require ownership of
