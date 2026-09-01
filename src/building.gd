@@ -309,6 +309,16 @@ func part_body_rid(part_id: String) -> RID:
 	return RID()
 
 
+func structural_body_rids() -> Array[RID]:
+	var result: Array[RID] = []
+	for body in _structural_bodies:
+		if is_instance_valid(body):
+			var rid := body.get_rid()
+			if rid.is_valid():
+				result.append(rid)
+	return result
+
+
 func consume() -> void:
 	if consumed:
 		return

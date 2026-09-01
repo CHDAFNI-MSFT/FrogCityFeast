@@ -6753,6 +6753,7 @@ func _building_footprint_clear(building: PrototypeBuilding) -> bool:
 	query.shape = shape
 	query.transform = Transform2D(0.0, building.global_position)
 	query.collision_mask = 1
+	query.exclude = building.structural_body_rids()
 	if not get_world_2d().direct_space_state.intersect_shape(query, 16).is_empty():
 		return false
 	var footprint := building.footprint_rect()
