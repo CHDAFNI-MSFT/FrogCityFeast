@@ -42,6 +42,8 @@ run_checked secret-district-smoke --headless --path "$repo_root" \
   --script res://tests/secret_district_smoke.gd
 run_checked audio-smoke --headless --path "$repo_root" \
   --script res://tests/audio_smoke.gd
+run_checked production-art-smoke --headless --path "$repo_root" \
+  --script res://tests/production_art_smoke.gd
 run_checked progression-smoke --headless --path "$repo_root" \
   --script res://tests/progression_smoke.gd
 run_checked power-smoke --headless --path "$repo_root" \

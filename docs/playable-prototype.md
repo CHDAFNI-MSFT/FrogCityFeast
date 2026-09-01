@@ -361,7 +361,16 @@ The prototype includes:
 - opt-in, local-only developer performance instrumentation plus deterministic
   structural budgets and repeatable stress scenarios; and
 - a restrained original vector city-and-canal menu backdrop and compact
-  two-column player/accessibility layout.
+  two-column player/accessibility layout;
+- a first production-art foundation using original committed SVG sources for
+  the layered storybook frog, mirrored flight wing, and tintable food, living,
+  object, vehicle, and removable-building-part silhouettes;
+- snappy draw-only frog movement, flight, swallow, growth, and damage feedback,
+  target movement and state animation, a centralized confectionery/canal
+  palette, and a layered illustrated menu backdrop; and
+- reduced-motion production variants that freeze travel, bobbing, wing motion,
+  pulsing, and radius changes while retaining static silhouettes, labels,
+  warnings, and informational color feedback.
 
 ## Controls
 
@@ -697,9 +706,11 @@ The following parts of the full design are not implemented yet:
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
 - further fantasy events;
-- final art, authored animation, expanded audio content and target-device mix
-  validation, and any accessibility work beyond the implemented motion,
-  interface-size, contrast, touch-feedback, safe-area, and volume controls; and
+- remaining production art for environments, buildings, pursuers, overlays,
+  target-specific hero detail, and transitions; expanded authored animation,
+  audio content and target-device mix validation; and accessibility work beyond
+  the implemented motion, interface-size, contrast, touch-feedback, safe-area,
+  and volume controls; and
 - the first signed TestFlight upload, A16 iPad validation, and App Store
   release.
 

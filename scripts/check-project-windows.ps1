@@ -106,6 +106,9 @@ Invoke-GodotCheck `
     -Label "audio-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/audio_smoke.gd"
 Invoke-GodotCheck `
+    -Label "production-art-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/production_art_smoke.gd"
+Invoke-GodotCheck `
     -Label "progression-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/progression_smoke.gd"
 Invoke-GodotCheck `

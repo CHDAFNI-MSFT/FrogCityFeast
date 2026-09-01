@@ -19,6 +19,7 @@ signal start_requested(profile_id: String, display_name: String)
 @onready var _effects_volume_label: Label = %EffectsVolumeLabel
 @onready var _effects_volume_slider: HSlider = %EffectsVolumeSlider
 @onready var _center: CenterContainer = $Center
+@onready var _backdrop: MenuBackdrop = $Backdrop
 
 var _profile_store: ProfileStore
 var _preview_profile_id := ""
@@ -196,6 +197,9 @@ func _on_accessibility_toggled(_pressed: bool) -> void:
 		self,
 		_larger_ui_toggle.button_pressed
 	)
+	_backdrop.set_motion_scale(
+		0.0 if _reduce_motion_toggle.button_pressed else 1.0
+	)
 	AudioDirector.play_effect(FrogAudioDirector.UI_FEEDBACK)
 
 
@@ -211,6 +215,9 @@ func _show_accessibility_preferences(preferences: Dictionary) -> void:
 	AccessibilityPresentation.apply(
 		self,
 		_larger_ui_toggle.button_pressed
+	)
+	_backdrop.set_motion_scale(
+		0.0 if _reduce_motion_toggle.button_pressed else 1.0
 	)
 
 

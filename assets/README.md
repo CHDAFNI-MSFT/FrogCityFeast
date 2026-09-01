@@ -13,6 +13,8 @@ provenance.
 | Asset | Source and authorship | License | Reproduction |
 |---|---|---|---|
 | `icon.svg` | Original SVG authored for this repository by the repository owner in August 2026. It does not contain third-party artwork or trademarks. | Project-specific copyright belongs to the repository owner. The repository has no general open-source license; reuse outside the project requires permission. | The committed SVG is the editable source. Import it with Godot 4.7.2 to regenerate `icon.svg.import` and platform icon derivatives. |
+| `art/characters/*.svg` | Original Copilot-assisted character art authored for this repository in September 2026. | Project-specific copyright belongs to the repository owner; external reuse requires permission. | The committed SVGs are editable runtime sources. See `art/README.md`. |
+| `art/targets/*.svg` | Original Copilot-assisted tintable target-category art authored for this repository in September 2026. | Project-specific copyright belongs to the repository owner; external reuse requires permission. | The committed SVGs are editable runtime sources. See `art/README.md`. |
 
 ## Current audio assets
 

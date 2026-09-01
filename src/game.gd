@@ -2238,6 +2238,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	_targets.erase(target)
 	target.queue_free()
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
+	_frog.celebrate_swallow()
 	_effects.emit_swallow(effect_position, effect_color, swallowed_building)
 	if swallowed_building:
 		_trigger_camera_shake(6.0, 0.22)
@@ -4837,6 +4838,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	_clear_roadblock()
 	_clear_pursuit_trap()
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
+	_frog.celebrate_swallow()
 	_effects.emit_swallow(effect_position, item.target_color)
 	_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 	_update_hud()

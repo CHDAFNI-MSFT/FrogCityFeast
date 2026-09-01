@@ -4,6 +4,7 @@ extends CharacterBody2D
 signal move_reached(world_position: Vector2)
 
 const TUNING := preload("res://src/gameplay_tuning.gd")
+const ART := preload("res://src/production_art.gd")
 const TIER_SCALES := TUNING.FROG_TIER_SCALES
 const TIER_RADII := TUNING.FROG_TIER_RADII
 const TIER_SPEEDS := TUNING.FROG_TIER_SPEEDS
@@ -26,6 +27,9 @@ var _knockback_time := 0.0
 var _visual_scale := 1.0
 var _growth_celebration_time := 0.0
 var _growth_celebration_motion_scale := 1.0
+var _swallow_celebration_time := 0.0
+var _damage_feedback_time := 0.0
+var _animation_time := 0.0
 
 @onready var _collision_shape: CollisionShape2D = $CollisionShape2D
 
@@ -36,17 +40,39 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _growth_celebration_time <= 0.0:
-		return
-	_growth_celebration_time = maxf(0.0, _growth_celebration_time - delta)
-	var progress := 1.0 - _growth_celebration_time / 0.5
-	_visual_scale = (
-		1.0
-		+ sin(progress * PI) * 0.16 * _growth_celebration_motion_scale
-	)
-	if _growth_celebration_time <= 0.0:
-		_visual_scale = 1.0
-	queue_redraw()
+	var should_redraw := false
+	if (
+		_presentation_motion_scale() > 0.0
+		and (velocity.length_squared() > 1.0 or is_flying)
+	):
+		_animation_time = fmod(_animation_time + delta, TAU * 8.0)
+		should_redraw = true
+	if _growth_celebration_time > 0.0:
+		_growth_celebration_time = maxf(
+			0.0,
+			_growth_celebration_time - delta
+		)
+		var progress := 1.0 - _growth_celebration_time / 0.5
+		_visual_scale = (
+			1.0
+			+ sin(progress * PI)
+			* 0.16
+			* _growth_celebration_motion_scale
+		)
+		if _growth_celebration_time <= 0.0:
+			_visual_scale = 1.0
+		should_redraw = true
+	if _swallow_celebration_time > 0.0:
+		_swallow_celebration_time = maxf(
+			0.0,
+			_swallow_celebration_time - delta
+		)
+		should_redraw = true
+	if _damage_feedback_time > 0.0:
+		_damage_feedback_time = maxf(0.0, _damage_feedback_time - delta)
+		should_redraw = true
+	if should_redraw:
+		queue_redraw()
 
 
 func _physics_process(delta: float) -> void:
@@ -145,6 +171,7 @@ func knock_back_from(source_position: Vector2) -> void:
 		direction = Vector2.DOWN
 	_knockback_velocity = direction * 620.0
 	_knockback_time = 0.32
+	_damage_feedback_time = 0.32
 	stop_moving()
 
 
@@ -163,12 +190,21 @@ func celebrate_growth(motion_scale: float) -> void:
 	queue_redraw()
 
 
+func celebrate_swallow() -> void:
+	_swallow_celebration_time = 0.32
+	queue_redraw()
+
+
 func set_presentation_motion_scale(value: float) -> void:
 	_growth_celebration_motion_scale = clampf(value, 0.0, 1.0)
 	if _growth_celebration_motion_scale <= 0.0:
 		_growth_celebration_time = 0.0
 		_visual_scale = 1.0
 	queue_redraw()
+
+
+func _presentation_motion_scale() -> float:
+	return _growth_celebration_motion_scale
 
 
 func tongue_range() -> float:
@@ -214,37 +250,97 @@ func _finish_move() -> void:
 
 
 func _draw() -> void:
-	draw_set_transform(
-		Vector2.ZERO,
+	var movement_amount := clampf(
+		velocity.length() / maxf(TIER_SPEEDS[growth_tier], 1.0),
 		0.0,
-		Vector2.ONE * _visual_scale
+		1.0
 	)
+	var step_cycle := (
+		sin(_animation_time * 8.0)
+		* movement_amount
+		* _presentation_motion_scale()
+	)
+	var flight_cycle := (
+		sin(_animation_time * 11.0)
+		* _presentation_motion_scale()
+	)
+	var swallow_progress := (
+		1.0 - _swallow_celebration_time / 0.32
+		if _swallow_celebration_time > 0.0
+		else 1.0
+	)
+	var swallow_squash := (
+		sin(swallow_progress * PI)
+		* 0.13
+		* _presentation_motion_scale()
+		if _swallow_celebration_time > 0.0
+		else 0.0
+	)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_ellipse_shadow(Vector2(0, 34), Vector2(42, 15))
 	if is_flying:
-		draw_colored_polygon(
-			PackedVector2Array([
-				Vector2(-22, -2),
-				Vector2(-58, -30),
-				Vector2(-47, 15),
-				Vector2(-20, 25),
-			]),
-			Color(0.72, 0.94, 1.0, 0.85)
+		var wing_rotation := -0.22 + flight_cycle * 0.16
+		draw_set_transform(
+			Vector2(-31, -3),
+			-wing_rotation,
+			Vector2(0.72, 0.72)
 		)
-		draw_colored_polygon(
-			PackedVector2Array([
-				Vector2(22, -2),
-				Vector2(58, -30),
-				Vector2(47, 15),
-				Vector2(20, 25),
-			]),
-			Color(0.72, 0.94, 1.0, 0.85)
+		draw_texture_rect(
+			ART.WING_TEXTURE,
+			Rect2(-86, -35, 86, 70),
+			false
 		)
-	draw_circle(Vector2.ZERO, 28.0, Color("4fbd55"))
-	draw_circle(Vector2(-18, -17), 12.0, Color("64dc68"))
-	draw_circle(Vector2(18, -17), 12.0, Color("64dc68"))
-	draw_circle(Vector2(-18, -19), 5.5, Color.WHITE)
-	draw_circle(Vector2(18, -19), 5.5, Color.WHITE)
-	draw_circle(Vector2(-18, -20), 2.7, Color("17211c"))
-	draw_circle(Vector2(18, -20), 2.7, Color("17211c"))
-	draw_arc(Vector2(0, 4), 12.0, 0.15, PI - 0.15, 18, Color("17351f"), 3.0)
-	draw_circle(Vector2(-25, 17), 9.0, Color("3f9f49"))
-	draw_circle(Vector2(25, 17), 9.0, Color("3f9f49"))
+		draw_set_transform(
+			Vector2(31, -3),
+			wing_rotation,
+			Vector2(-0.72, 0.72)
+		)
+		draw_texture_rect(
+			ART.WING_TEXTURE,
+			Rect2(-86, -35, 86, 70),
+			false
+		)
+	draw_set_transform(
+		Vector2(0, step_cycle * 2.5),
+		step_cycle * 0.025,
+		Vector2(
+			1.0 + absf(step_cycle) * 0.045 + swallow_squash,
+			1.0 - absf(step_cycle) * 0.035 - swallow_squash * 0.7
+		) * _visual_scale
+	)
+	var frog_tint := (
+		Color("ffd1c7")
+		if _damage_feedback_time > 0.0
+		else Color.WHITE
+	)
+	draw_texture_rect(
+		ART.FROG_TEXTURE,
+		Rect2(-64, -64, 128, 128),
+		false,
+		frog_tint
+	)
+	if _swallow_celebration_time > 0.0:
+		var motion_scale := _presentation_motion_scale()
+		var sparkle_alpha := (
+			sin(swallow_progress * PI)
+			if motion_scale > 0.0
+			else 0.82
+		)
+		draw_arc(
+			Vector2.ZERO,
+			46.0 + swallow_progress * 4.0 * motion_scale,
+			-0.3,
+			PI + 0.3,
+			20,
+			Color(ART.MAGIC_AMBER, sparkle_alpha),
+			4.0
+		)
+
+
+func draw_ellipse_shadow(center: Vector2, radii: Vector2) -> void:
+	draw_set_transform(center, 0.0, Vector2(1.0, radii.y / radii.x))
+	draw_circle(
+		Vector2.ZERO,
+		radii.x,
+		Color(ART.INK, 0.2)
+	)
