@@ -293,6 +293,7 @@ func _run() -> void:
 	building_game._try_tongue_at_screen(building_screen_position)
 	for tap in building_target.taps_required:
 		building_game._register_struggle_tap()
+	await physics_frame
 	_check(market.consumed, "Swallowing the market removes the building.")
 	_check(
 		building_game._building_footprint_clear(market),
@@ -315,6 +316,7 @@ func _run() -> void:
 	)
 	building_game._targets.erase(footprint_blocker)
 	footprint_blocker.queue_free()
+	await physics_frame
 	building_game._spit_item(0)
 	_check(not market.consumed, "Spitting the market restores the structure.")
 	_check(market.weakness_count() == 3, "Restoring the market keeps removed parts absent.")
@@ -4839,6 +4841,7 @@ func _test_oddities_shop_sequence(game_scene: PackedScene) -> void:
 	)
 	for _tap in building_target.taps_required:
 		game._register_struggle_tap()
+	await physics_frame
 	_check(
 		shop.consumed
 		and game._building_footprint_clear(shop)
@@ -5378,6 +5381,7 @@ func _test_leap_cafe_sequence(game_scene: PackedScene) -> void:
 	)
 	for _tap in building_target.taps_required:
 		game._register_struggle_tap()
+	await physics_frame
 	_check(
 		cafe.consumed
 		and game._building_footprint_clear(cafe)
@@ -5407,7 +5411,9 @@ func _test_leap_cafe_sequence(game_scene: PackedScene) -> void:
 	)
 	game._targets.erase(footprint_blocker)
 	footprint_blocker.queue_free()
+	await physics_frame
 	game._spit_item(0)
+	await physics_frame
 	var restored_building_target := _find_target(
 		game,
 		"leap_cafe_building"
@@ -5701,6 +5707,7 @@ func _test_canal_apartments_sequence(
 	)
 	for _tap in building_target.taps_required:
 		game._register_struggle_tap()
+	await physics_frame
 	_check(
 		apartments.consumed
 		and game._building_footprint_clear(apartments)
@@ -5739,7 +5746,9 @@ func _test_canal_apartments_sequence(
 	)
 	game._targets.erase(footprint_blocker)
 	footprint_blocker.queue_free()
+	await physics_frame
 	game._spit_item(0)
+	await physics_frame
 	var restored_building_target := _find_target(
 		game,
 		"canal_apartments_building"
@@ -5989,6 +5998,7 @@ func _test_building_interiors(game_scene: PackedScene) -> void:
 	)
 
 	apartments.consume()
+	await physics_frame
 	_check(
 		game._circle_position_clear(
 			Vector2(-798, 1246),
@@ -5998,6 +6008,7 @@ func _test_building_interiors(game_scene: PackedScene) -> void:
 		"Consuming a furnished building disables its interior prop collision."
 	)
 	apartments.restore()
+	await physics_frame
 	_check(
 		not game._circle_position_clear(
 			Vector2(-798, 1246),
