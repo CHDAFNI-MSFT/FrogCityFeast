@@ -35,7 +35,7 @@ const MAX_AUDIO_EFFECT_VOICES := 4
 const MAX_NAVIGATION_OBSTACLES := NAVIGATION.MAX_OBSTACLES
 const MAX_NAVIGATION_QUERY_CELLS := NAVIGATION.MAX_TOTAL_QUERY_CELLS
 const MAX_NAVIGATION_PATH_POINTS := NAVIGATION.MAX_PATH_POINTS
-const FIELD_GUIDE_ROWS := 48
+const FIELD_GUIDE_ROWS := 49
 const MAX_LOADED_GENERATED_DISTRICTS := (
 	DISTRICT_GENERATOR.MAX_LOADED_GENERATED_DISTRICTS
 )
@@ -65,7 +65,7 @@ const GLOBAL_STRUCTURAL_LIMITS := {
 }
 const STRUCTURAL_LIMITS := {
 	"baseline": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -74,7 +74,7 @@ const STRUCTURAL_LIMITS := {
 		"active_effects": 0,
 	},
 	"stockroom": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -82,7 +82,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"upper_hall": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -90,7 +90,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"fire_escape": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -98,7 +98,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"sewer_tunnel": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -106,7 +106,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"pond_boardwalk": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -114,7 +114,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"crane_deck": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -122,7 +122,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"hidden_maintenance": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -130,7 +130,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"market_rooftop": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -138,7 +138,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"oddities_cellar": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -146,7 +146,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuers": 0,
 	},
 	"night_shop": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -155,49 +155,63 @@ const STRUCTURAL_LIMITS := {
 		"festival_lanterns": MAX_FESTIVAL_LANTERNS,
 	},
 	"busy_daytime": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
 		"active_city_actors": MAX_CITY_ACTORS,
 	},
 	"rainy_day": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
 		"rain_streaks": MAX_RAIN_STREAKS,
 	},
 	"pursuit": {
-		"game_nodes": 370,
+		"game_nodes": 371,
 		"collision_objects": 42,
 		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 	},
 	"security_pursuit": {
-		"game_nodes": 370,
+		"game_nodes": 371,
 		"collision_objects": 42,
 		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 	},
 	"security_flashlight": {
-		"game_nodes": 370,
+		"game_nodes": 371,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+	},
+	"watchdog_pursuit": {
+		"game_nodes": 371,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+	},
+	"watchdog_lunge": {
+		"game_nodes": 371,
 		"collision_objects": 42,
 		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 	},
 	"tongue_deflect": {
-		"game_nodes": 370,
+		"game_nodes": 371,
 		"collision_objects": 42,
 		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
 		"pursuers": MAX_PURSUERS,
 	},
 	"crowd_pursuit": {
-		"game_nodes": 370,
+		"game_nodes": 371,
 		"collision_objects": 42,
 		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
@@ -206,7 +220,7 @@ const STRUCTURAL_LIMITS := {
 		"active_crowd_members": MAX_CROWD_MEMBERS,
 	},
 	"roadblock": {
-		"game_nodes": 372,
+		"game_nodes": 373,
 		"collision_objects": 43,
 		"collision_shapes": 113,
 		"targets": MAX_TARGETS,
@@ -214,7 +228,7 @@ const STRUCTURAL_LIMITS := {
 		"roadblocks": MAX_ROADBLOCKS,
 	},
 	"pursuit_trap": {
-		"game_nodes": 371,
+		"game_nodes": 372,
 		"collision_objects": 42,
 		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
@@ -222,7 +236,7 @@ const STRUCTURAL_LIMITS := {
 		"pursuit_traps": MAX_PURSUIT_TRAPS,
 	},
 	"net_attack": {
-		"game_nodes": 370,
+		"game_nodes": 371,
 		"collision_objects": 42,
 		"collision_shapes": 112,
 		"targets": MAX_TARGETS,
@@ -230,14 +244,14 @@ const STRUCTURAL_LIMITS := {
 		"net_projectiles": MAX_NET_PROJECTILES,
 	},
 	"maximum_growth": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
 		"active_effects": MAX_VISUAL_EFFECTS,
 	},
 	"presentation_peak": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -245,7 +259,7 @@ const STRUCTURAL_LIMITS := {
 		"touch_feedback": MAX_TOUCH_FEEDBACK,
 	},
 	"belly_overlay": {
-		"game_nodes": 624,
+		"game_nodes": 625,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
@@ -253,21 +267,21 @@ const STRUCTURAL_LIMITS := {
 		"belly_rows": BELLY_STRESS_ITEMS,
 	},
 	"field_guide_overlay": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"accessibility_options": {
-		"game_nodes": 368,
+		"game_nodes": 369,
 		"collision_objects": 41,
 		"collision_shapes": 111,
 		"targets": MAX_TARGETS,
 		"guide_rows": FIELD_GUIDE_ROWS,
 	},
 	"gameplay_peak": {
-		"game_nodes": 373,
+		"game_nodes": 374,
 		"collision_objects": 43,
 		"collision_shapes": 113,
 		"targets": MAX_TARGETS,
@@ -280,7 +294,7 @@ const STRUCTURAL_LIMITS := {
 		"touch_feedback": MAX_TOUCH_FEEDBACK,
 	},
 	"generated_streaming": {
-		"game_nodes": 578,
+		"game_nodes": 579,
 		"collision_objects": 100,
 		"collision_shapes": 172,
 		"targets": MAX_TARGETS + MAX_GENERATED_TARGETS,

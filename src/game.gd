@@ -1987,6 +1987,8 @@ func _fail_struggle() -> void:
 
 
 func _pursuer_archetype_for_escape(target: EdibleTarget) -> String:
+	if is_instance_valid(target) and target.kind == "living":
+		return PrototypePursuer.ARCHETYPE_WATCHDOG
 	if is_instance_valid(target) and target.kind in [
 		"object",
 		"vehicle",
@@ -2727,6 +2729,11 @@ func performance_structure_snapshot() -> Dictionary:
 			if is_instance_valid(_pursuer)
 			else false
 		),
+		"watchdog_lunge": (
+			_pursuer.lunge_attack_active()
+			if is_instance_valid(_pursuer)
+			else false
+		),
 		"frog_netted": _net_escape_active,
 		"belly_items": _belly.size(),
 		"belly_rows": _belly_list.get_child_count(),
@@ -3353,9 +3360,13 @@ func _spawn_pursuer(
 		)
 		return
 	var pursuer_radius := (
-		PrototypePursuer.SECURITY_NAVIGATION_RADIUS
-		if archetype_id == PrototypePursuer.ARCHETYPE_SECURITY_GUARD
-		else PrototypePursuer.NAVIGATION_RADIUS
+		PrototypePursuer.WATCHDOG_NAVIGATION_RADIUS
+		if archetype_id == PrototypePursuer.ARCHETYPE_WATCHDOG
+		else (
+			PrototypePursuer.SECURITY_NAVIGATION_RADIUS
+			if archetype_id == PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+			else PrototypePursuer.NAVIGATION_RADIUS
+		)
 	)
 	var spawn_position := _find_pursuer_spawn_position(pursuer_radius)
 	if spawn_position == Vector2.INF:

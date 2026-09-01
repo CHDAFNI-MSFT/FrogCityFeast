@@ -8,11 +8,18 @@ signal attack_hit(source_position: Vector2, penalty: int, message: String)
 
 const ARCHETYPE_ANIMAL_CONTROL := "animal_control"
 const ARCHETYPE_SECURITY_GUARD := "security_guard"
+const ARCHETYPE_WATCHDOG := "watchdog"
 
 enum NetPhase {
 	IDLE,
 	WINDUP,
 	FLYING,
+}
+
+enum LungePhase {
+	IDLE,
+	WINDUP,
+	DASH,
 }
 
 const NET_INITIAL_COOLDOWN := 1.0
@@ -52,6 +59,25 @@ const SECURITY_PROTECTED_KINDS := [
 	"building_part",
 	"building",
 ]
+const WATCHDOG_DETECTION_RANGE := 860.0
+const WATCHDOG_LOST_ESCAPE_TIME := 1.4
+const WATCHDOG_MAX_CHASE_TIME := 22.0
+const WATCHDOG_SPEED := 320.0
+const WATCHDOG_NAVIGATION_RADIUS := 22.0
+const WATCHDOG_NAVIGATION_REPATH_INTERVAL := 0.22
+const WATCHDOG_NAVIGATION_TARGET_MOVEMENT := 48.0
+const WATCHDOG_LUNGE_INITIAL_COOLDOWN := 1.0
+const WATCHDOG_LUNGE_RETRY_COOLDOWN := 4.2
+const WATCHDOG_LUNGE_WINDUP_DURATION := 0.45
+const WATCHDOG_LUNGE_SPEED := 720.0
+const WATCHDOG_LUNGE_TRAVEL := 220.0
+const WATCHDOG_LUNGE_MIN_DISTANCE := 120.0
+const WATCHDOG_LUNGE_MAX_DISTANCE := 360.0
+const WATCHDOG_LUNGE_HIT_RADIUS := 22.0
+const WATCHDOG_PROTECTION_RADIUS := 210.0
+const WATCHDOG_CROWD_ESCAPE_DURATION := 0.8
+const WATCHDOG_CONTACT_PENALTY := 14
+const WATCHDOG_LUNGE_PENALTY := 16
 
 var frog: PlayerFrog
 var navigation: DeterministicNavigation2D
@@ -88,6 +114,12 @@ var _last_detected_frog_position := Vector2.INF
 var _flashlight_cooldown := SECURITY_FLASHLIGHT_INITIAL_COOLDOWN
 var _flashlight_windup_left := 0.0
 var _flashlight_target_position := Vector2.ZERO
+var _lunge_phase := LungePhase.IDLE
+var _lunge_cooldown := WATCHDOG_LUNGE_INITIAL_COOLDOWN
+var _lunge_target_position := Vector2.ZERO
+var _lunge_direction := Vector2.ZERO
+var _lunge_travel := 0.0
+var _lunge_windup_left := 0.0
 
 
 func _ready() -> void:
@@ -114,6 +146,9 @@ func configure_archetype(value: String) -> void:
 		ARCHETYPE_SECURITY_GUARD:
 			archetype_id = value
 			speed = SECURITY_SPEED
+		ARCHETYPE_WATCHDOG:
+			archetype_id = value
+			speed = WATCHDOG_SPEED
 		_:
 			push_error("Unknown pursuer archetype: %s." % value)
 			archetype_id = ARCHETYPE_ANIMAL_CONTROL
@@ -124,6 +159,8 @@ static func display_name_for(value: String) -> String:
 	match value:
 		ARCHETYPE_SECURITY_GUARD:
 			return "Security Guard"
+		ARCHETYPE_WATCHDOG:
+			return "Watchdog"
 		_:
 			return "Animal Control"
 
@@ -145,6 +182,14 @@ func belly_data() -> Dictionary:
 			"taps": 9,
 			"color": Color("c69a63"),
 		}
+	if archetype_id == ARCHETYPE_WATCHDOG:
+		return {
+			"id": ARCHETYPE_WATCHDOG,
+			"name": "Watchdog",
+			"value": 82,
+			"taps": 8,
+			"color": Color("9a6844"),
+		}
 	return {
 		"id": ARCHETYPE_ANIMAL_CONTROL,
 		"name": "Animal Control Officer",
@@ -155,31 +200,43 @@ func belly_data() -> Dictionary:
 
 
 func collision_radius() -> float:
-	return 30.0 if archetype_id == ARCHETYPE_SECURITY_GUARD else 28.0
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			return 30.0
+		ARCHETYPE_WATCHDOG:
+			return WATCHDOG_NAVIGATION_RADIUS
+		_:
+			return 28.0
 
 
 func navigation_radius() -> float:
-	return (
-		SECURITY_NAVIGATION_RADIUS
-		if archetype_id == ARCHETYPE_SECURITY_GUARD
-		else NAVIGATION_RADIUS
-	)
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			return SECURITY_NAVIGATION_RADIUS
+		ARCHETYPE_WATCHDOG:
+			return WATCHDOG_NAVIGATION_RADIUS
+		_:
+			return NAVIGATION_RADIUS
 
 
 func crowd_escape_duration() -> float:
-	return (
-		SECURITY_CROWD_ESCAPE_DURATION
-		if archetype_id == ARCHETYPE_SECURITY_GUARD
-		else 1.75
-	)
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			return SECURITY_CROWD_ESCAPE_DURATION
+		ARCHETYPE_WATCHDOG:
+			return WATCHDOG_CROWD_ESCAPE_DURATION
+		_:
+			return 1.75
 
 
 func contact_penalty() -> int:
-	return (
-		SECURITY_CONTACT_PENALTY
-		if archetype_id == ARCHETYPE_SECURITY_GUARD
-		else 25
-	)
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			return SECURITY_CONTACT_PENALTY
+		ARCHETYPE_WATCHDOG:
+			return WATCHDOG_CONTACT_PENALTY
+		_:
+			return 25
 
 
 func deploys_roadblock() -> bool:
@@ -193,19 +250,28 @@ func deploys_pursuit_trap() -> bool:
 func protects_target(target: EdibleTarget) -> bool:
 	if archetype_id == ARCHETYPE_ANIMAL_CONTROL:
 		return true
-	if archetype_id != ARCHETYPE_SECURITY_GUARD:
+	if not is_instance_valid(target):
 		return false
-	return (
-		is_instance_valid(target)
-		and target.kind in SECURITY_PROTECTED_KINDS
-		and target.global_position.distance_to(global_position)
-			<= SECURITY_PROTECTION_RADIUS
-	)
+	if archetype_id == ARCHETYPE_SECURITY_GUARD:
+		return (
+			target.kind in SECURITY_PROTECTED_KINDS
+			and target.global_position.distance_to(global_position)
+				<= SECURITY_PROTECTION_RADIUS
+		)
+	if archetype_id == ARCHETYPE_WATCHDOG:
+		return (
+			target.kind == "living"
+			and target.global_position.distance_to(global_position)
+				<= WATCHDOG_PROTECTION_RADIUS
+		)
+	return false
 
 
 func protection_status() -> String:
 	if archetype_id == ARCHETYPE_ANIMAL_CONTROL:
 		return "Animal Control deflected the tongue!"
+	if archetype_id == ARCHETYPE_WATCHDOG:
+		return "The Watchdog knocked the tongue aside!"
 	return "%s blocked the tongue!" % display_name()
 
 
@@ -217,6 +283,10 @@ func flashlight_attack_active() -> bool:
 	return _flashlight_windup_left > 0.0
 
 
+func lunge_attack_active() -> bool:
+	return _lunge_phase != LungePhase.IDLE
+
+
 func _physics_process(delta: float) -> void:
 	if not active or not is_instance_valid(frog):
 		velocity = Vector2.ZERO
@@ -225,6 +295,7 @@ func _physics_process(delta: float) -> void:
 	_catch_cooldown = maxf(0.0, _catch_cooldown - delta)
 	_net_cooldown = maxf(0.0, _net_cooldown - delta)
 	_flashlight_cooldown = maxf(0.0, _flashlight_cooldown - delta)
+	_lunge_cooldown = maxf(0.0, _lunge_cooldown - delta)
 	_net_tap_flash = maxf(0.0, _net_tap_flash - delta * 4.0)
 	if _deflect_feedback_left > 0.0:
 		_deflect_feedback_left = maxf(
@@ -240,25 +311,37 @@ func _physics_process(delta: float) -> void:
 	_chase_time += delta
 	_update_detection()
 	var offset := frog.global_position - global_position
-	if archetype_id == ARCHETYPE_SECURITY_GUARD:
-		if _frog_detected:
-			_far_time = 0.0
-		else:
-			_far_time += delta
-		if (
-			_far_time >= SECURITY_LOST_ESCAPE_TIME
-			or _chase_time >= SECURITY_MAX_CHASE_TIME
-		):
-			_escape()
-			return
-	else:
-		if offset.length() > 920.0:
-			_far_time += delta
-		else:
-			_far_time = maxf(0.0, _far_time - delta * 1.5)
-		if _far_time >= 4.0 or _chase_time >= 32.0:
-			_escape()
-			return
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			if _frog_detected:
+				_far_time = 0.0
+			else:
+				_far_time += delta
+			if (
+				_far_time >= SECURITY_LOST_ESCAPE_TIME
+				or _chase_time >= SECURITY_MAX_CHASE_TIME
+			):
+				_escape()
+				return
+		ARCHETYPE_WATCHDOG:
+			if _frog_detected:
+				_far_time = 0.0
+			else:
+				_far_time += delta
+			if (
+				_far_time >= WATCHDOG_LOST_ESCAPE_TIME
+				or _chase_time >= WATCHDOG_MAX_CHASE_TIME
+			):
+				_escape()
+				return
+		_:
+			if offset.length() > 920.0:
+				_far_time += delta
+			else:
+				_far_time = maxf(0.0, _far_time - delta * 1.5)
+			if _far_time >= 4.0 or _chase_time >= 32.0:
+				_escape()
+				return
 
 	if _net_phase != NetPhase.IDLE:
 		_advance_net_attack(delta)
@@ -271,6 +354,11 @@ func _physics_process(delta: float) -> void:
 		return
 	if flashlight_attack_active():
 		_advance_flashlight_attack(delta)
+		_last_position = global_position
+		queue_redraw()
+		return
+	if lunge_attack_active():
+		_advance_lunge_attack(delta)
 		_last_position = global_position
 		queue_redraw()
 		return
@@ -333,7 +421,7 @@ func _physics_process(delta: float) -> void:
 	):
 		_catch_cooldown = 2.0
 		_net_cooldown = maxf(_net_cooldown, NET_RETRY_COOLDOWN)
-		cancel_net_attack()
+		cancel_active_attack()
 		caught.emit(global_position)
 		return
 
@@ -342,6 +430,8 @@ func _physics_process(delta: float) -> void:
 		_begin_net_attack()
 	elif _can_start_flashlight_attack(distance_to_frog):
 		_begin_flashlight_attack()
+	elif _can_start_lunge_attack(distance_to_frog):
+		_begin_lunge_attack()
 
 
 func set_presentation_motion_scale(value: float) -> void:
@@ -363,6 +453,12 @@ func cancel_active_attack() -> void:
 	cancel_net_attack()
 	_flashlight_windup_left = 0.0
 	_flashlight_target_position = Vector2.ZERO
+	_lunge_phase = LungePhase.IDLE
+	_lunge_target_position = Vector2.ZERO
+	_lunge_direction = Vector2.ZERO
+	_lunge_travel = 0.0
+	_lunge_windup_left = 0.0
+	velocity = Vector2.ZERO
 	queue_redraw()
 
 
@@ -438,6 +534,12 @@ func _update_detection() -> void:
 				frog.global_position
 			)
 		)
+	elif archetype_id == ARCHETYPE_WATCHDOG:
+		_frog_detected = (
+			not frog.is_flying
+			and global_position.distance_to(frog.global_position)
+				<= WATCHDOG_DETECTION_RANGE
+		)
 	else:
 		_frog_detected = (
 			global_position.distance_to(frog.global_position) <= 920.0
@@ -468,19 +570,26 @@ func _navigation_needs_refresh() -> bool:
 	if _navigation_repath_left > 0.0:
 		return false
 	var chase_target := _chase_target_position()
+	var target_movement := (
+		WATCHDOG_NAVIGATION_TARGET_MOVEMENT
+		if archetype_id == ARCHETYPE_WATCHDOG
+		else NAVIGATION_TARGET_MOVEMENT
+	)
 	return (
 		_navigation_path.is_empty()
 		or _navigation_target_position.distance_to(chase_target)
-			>= NAVIGATION_TARGET_MOVEMENT
+			>= target_movement
 	)
 
 
 func _refresh_navigation_path() -> void:
-	_navigation_repath_left = (
-		SECURITY_NAVIGATION_REPATH_INTERVAL
-		if archetype_id == ARCHETYPE_SECURITY_GUARD
-		else NAVIGATION_REPATH_INTERVAL
-	)
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			_navigation_repath_left = SECURITY_NAVIGATION_REPATH_INTERVAL
+		ARCHETYPE_WATCHDOG:
+			_navigation_repath_left = WATCHDOG_NAVIGATION_REPATH_INTERVAL
+		_:
+			_navigation_repath_left = NAVIGATION_REPATH_INTERVAL
 	_navigation_target_position = _chase_target_position()
 	_navigation_repath_count += 1
 	var route := navigation.find_path(
@@ -535,6 +644,20 @@ func _can_start_flashlight_attack(distance_to_frog: float) -> bool:
 		and not frog.is_flying
 		and distance_to_frog >= SECURITY_FLASHLIGHT_MIN_DISTANCE
 		and distance_to_frog <= SECURITY_FLASHLIGHT_MAX_DISTANCE
+	)
+
+
+func _can_start_lunge_attack(distance_to_frog: float) -> bool:
+	return (
+		archetype_id == ARCHETYPE_WATCHDOG
+		and not lunge_attack_active()
+		and _lunge_cooldown <= 0.0
+		and _frog_detected
+		and frog.growth_tier < 2
+		and frog.movement_enabled
+		and not frog.is_flying
+		and distance_to_frog >= WATCHDOG_LUNGE_MIN_DISTANCE
+		and distance_to_frog <= WATCHDOG_LUNGE_MAX_DISTANCE
 	)
 
 
@@ -601,6 +724,96 @@ func _advance_flashlight_attack(delta: float) -> void:
 			SECURITY_FLASHLIGHT_PENALTY,
 			"A Security Guard's flashlight startled the frog!"
 		)
+	queue_redraw()
+
+
+func _begin_lunge_attack() -> void:
+	if (
+		archetype_id != ARCHETYPE_WATCHDOG
+		or not is_instance_valid(frog)
+	):
+		return
+	_lunge_phase = LungePhase.WINDUP
+	_lunge_windup_left = WATCHDOG_LUNGE_WINDUP_DURATION
+	_lunge_target_position = frog.global_position
+	_lunge_direction = Vector2.ZERO
+	_lunge_travel = 0.0
+	velocity = Vector2.ZERO
+	queue_redraw()
+
+
+func _advance_lunge_attack(delta: float) -> void:
+	if not lunge_attack_active() or delta <= 0.0:
+		return
+	if (
+		not is_instance_valid(frog)
+		or frog.growth_tier >= 2
+		or frog.is_flying
+	):
+		_finish_lunge_attack()
+		return
+	if _lunge_phase == LungePhase.WINDUP:
+		_lunge_windup_left = maxf(
+			0.0,
+			_lunge_windup_left - delta
+		)
+		if _lunge_windup_left > 0.0:
+			queue_redraw()
+			return
+		_lunge_direction = (
+			_lunge_target_position - global_position
+		).normalized()
+		if _lunge_direction == Vector2.ZERO:
+			_finish_lunge_attack()
+			return
+		_lunge_phase = LungePhase.DASH
+		velocity = _lunge_direction * WATCHDOG_LUNGE_SPEED
+		rotation = velocity.angle() + PI / 2.0
+		queue_redraw()
+		return
+
+	var remaining := WATCHDOG_LUNGE_TRAVEL - _lunge_travel
+	var step_distance := minf(
+		WATCHDOG_LUNGE_SPEED * delta,
+		remaining
+	)
+	var previous_position := global_position
+	var collision := move_and_collide(
+		_lunge_direction * step_distance
+	)
+	var actual_distance := previous_position.distance_to(global_position)
+	_lunge_travel += actual_distance
+	var closest_to_frog := Geometry2D.get_closest_point_to_segment(
+		frog.global_position,
+		previous_position,
+		global_position
+	)
+	if (
+		closest_to_frog.distance_to(frog.global_position)
+		<= WATCHDOG_LUNGE_HIT_RADIUS + frog.collision_radius()
+	):
+		_catch_cooldown = maxf(_catch_cooldown, 1.0)
+		attack_hit.emit(
+			global_position,
+			WATCHDOG_LUNGE_PENALTY,
+			"The Watchdog's lunge knocked the frog back!"
+		)
+		_finish_lunge_attack()
+		return
+	if collision != null or _lunge_travel >= WATCHDOG_LUNGE_TRAVEL:
+		_finish_lunge_attack()
+	else:
+		queue_redraw()
+
+
+func _finish_lunge_attack() -> void:
+	_lunge_phase = LungePhase.IDLE
+	_lunge_cooldown = WATCHDOG_LUNGE_RETRY_COOLDOWN
+	_lunge_target_position = Vector2.ZERO
+	_lunge_direction = Vector2.ZERO
+	_lunge_travel = 0.0
+	_lunge_windup_left = 0.0
+	velocity = Vector2.ZERO
 	queue_redraw()
 
 
@@ -716,10 +929,13 @@ func _escape() -> void:
 
 
 func _draw() -> void:
-	if archetype_id == ARCHETYPE_SECURITY_GUARD:
-		_draw_security_guard()
-	else:
-		_draw_animal_control()
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			_draw_security_guard()
+		ARCHETYPE_WATCHDOG:
+			_draw_watchdog()
+		_:
+			_draw_animal_control()
 	_draw_attack()
 	_draw_deflect_feedback()
 
@@ -765,11 +981,49 @@ func _draw_security_guard() -> void:
 	)
 
 
+func _draw_watchdog() -> void:
+	draw_circle(Vector2(0, 5), 24.0, Color("9a6844"))
+	draw_circle(Vector2(0, -18), 19.0, Color("b47b4e"))
+	draw_colored_polygon(
+		PackedVector2Array([
+			Vector2(-17, -29),
+			Vector2(-30, -43),
+			Vector2(-23, -18),
+		]),
+		Color("70452f")
+	)
+	draw_colored_polygon(
+		PackedVector2Array([
+			Vector2(17, -29),
+			Vector2(30, -43),
+			Vector2(23, -18),
+		]),
+		Color("70452f")
+	)
+	draw_circle(Vector2(-7, -20), 3.0, Color("1d2328"))
+	draw_circle(Vector2(7, -20), 3.0, Color("1d2328"))
+	draw_circle(Vector2(0, -10), 4.0, Color("33251f"))
+	draw_line(Vector2(-15, 24), Vector2(-20, 38), Color("70452f"), 7.0)
+	draw_line(Vector2(15, 24), Vector2(20, 38), Color("70452f"), 7.0)
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(-55, -52),
+		"Watchdog",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		110,
+		15,
+		Color.WHITE
+	)
+
+
 func _draw_attack() -> void:
-	if archetype_id == ARCHETYPE_SECURITY_GUARD:
-		_draw_flashlight_attack()
-	else:
-		_draw_net_attack()
+	match archetype_id:
+		ARCHETYPE_SECURITY_GUARD:
+			_draw_flashlight_attack()
+		ARCHETYPE_WATCHDOG:
+			_draw_lunge_attack()
+		_:
+			_draw_net_attack()
 
 
 func _draw_flashlight_attack() -> void:
@@ -812,6 +1066,44 @@ func _draw_flashlight_attack() -> void:
 		Color(1.0, 0.9, 0.42, 0.9),
 		4.0
 	)
+
+
+func _draw_lunge_attack() -> void:
+	if not lunge_attack_active():
+		return
+	if _lunge_phase == LungePhase.WINDUP:
+		var target := to_local(_lunge_target_position)
+		var progress := (
+			1.0
+			- _lunge_windup_left / WATCHDOG_LUNGE_WINDUP_DURATION
+		)
+		var pulse := (
+			sin(progress * TAU * 2.0)
+			* 4.0
+			* _presentation_motion_scale
+		)
+		draw_line(
+			Vector2.ZERO,
+			target,
+			Color(0.96, 0.48, 0.3, 0.66),
+			4.0
+		)
+		draw_arc(
+			target,
+			WATCHDOG_LUNGE_HIT_RADIUS + 12.0 + pulse,
+			0.0,
+			TAU,
+			24,
+			Color(1.0, 0.68, 0.38, 0.9),
+			4.0
+		)
+	elif _presentation_motion_scale > 0.0:
+		draw_line(
+			Vector2.ZERO,
+			-_lunge_direction * 38.0,
+			Color(0.92, 0.7, 0.48, 0.55),
+			8.0
+		)
 
 
 func _draw_deflect_feedback() -> void:

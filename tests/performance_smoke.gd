@@ -232,6 +232,18 @@ func _run() -> void:
 			"discoveries": PackedStringArray(),
 		},
 		{
+			"name": "watchdog_pursuit",
+			"setup": _setup_watchdog_pursuit,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "watchdog_lunge",
+			"setup": _setup_watchdog_lunge,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
 			"name": "tongue_deflect",
 			"setup": _setup_tongue_deflect,
 			"preferences": _default_preferences(),
@@ -532,6 +544,15 @@ func _setup_security_pursuit(game: FrogGame) -> void:
 func _setup_security_flashlight(game: FrogGame) -> void:
 	_setup_security_pursuit(game)
 	game._pursuer._begin_flashlight_attack()
+
+
+func _setup_watchdog_pursuit(game: FrogGame) -> void:
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_WATCHDOG)
+
+
+func _setup_watchdog_lunge(game: FrogGame) -> void:
+	_setup_watchdog_pursuit(game)
+	game._pursuer._begin_lunge_attack()
 
 
 func _setup_tongue_deflect(game: FrogGame) -> void:
@@ -843,6 +864,24 @@ func _check_scenario_expectations(
 					and int(snapshot["net_projectiles"]) == 0,
 				"Security flashlight stress remains a bounded draw-only pursuer state."
 			)
+		"watchdog_pursuit":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+					and str(snapshot["pursuer_archetype"])
+					== PrototypePursuer.ARCHETYPE_WATCHDOG
+					and int(snapshot["roadblocks"]) == 0
+					and int(snapshot["pursuit_traps"]) == 0,
+				"Watchdog stress contains one fast scent-based pursuer without stacked obstacles."
+			)
+		"watchdog_lunge":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+					and str(snapshot["pursuer_archetype"])
+					== PrototypePursuer.ARCHETYPE_WATCHDOG
+					and bool(snapshot["watchdog_lunge"])
+					and int(snapshot["net_projectiles"]) == 0,
+				"Watchdog lunge stress reuses its single physical pursuer body."
+			)
 		"tongue_deflect":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -990,6 +1029,9 @@ func _measure_scenario(
 	elif scenario_name == "security_flashlight":
 		game._pursuer._flashlight_cooldown = 0.0
 		game._pursuer._begin_flashlight_attack()
+	elif scenario_name == "watchdog_lunge":
+		game._pursuer._lunge_cooldown = 0.0
+		game._pursuer._begin_lunge_attack()
 	elif scenario_name == "crowd_pursuit":
 		game._day_clock = 0.5
 		game._update_day_night(0.0)

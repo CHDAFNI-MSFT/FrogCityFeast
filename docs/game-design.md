@@ -82,19 +82,19 @@ rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 10 draw-only festival
 lanterns, 1 draw-only Animal Control net projectile, 24 capped world effects,
 3 touch cues, and 6 fixed audio players including 4 reusable effect voices.
-Baseline and separate-room states permit up to 368 game-subtree nodes, 41
+Baseline and separate-room states permit up to 369 game-subtree nodes, 41
 collision objects, and 111 collision shapes; ordinary pursuit and net attack
-permit 370 nodes, 42 collision objects, and 112 collision shapes; a snare
-pursuit permits 371 nodes with the same physics structure; a roadblock pursuit
-permits 372 nodes, 43 collision objects, and 113 collision shapes; the
-reachable roadblock-and-snare gameplay peak permits 373 nodes with the same 43
+permit 371 nodes, 42 collision objects, and 112 collision shapes; a snare
+pursuit permits 372 nodes with the same physics structure; a roadblock pursuit
+permits 373 nodes, 43 collision objects, and 113 collision shapes; the
+reachable roadblock-and-snare gameplay peak permits 374 nodes with the same 43
 collision objects and 113 shapes. The performance Belly scenario renders 64
-item rows within 624 nodes without changing the belly's unlimited gameplay
-semantics. The populated Field Guide contains exactly 48 rows.
+item rows within 625 nodes without changing the belly's unlimited gameplay
+semantics. The populated Field Guide contains exactly 49 rows.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 578 game-subtree nodes, 100 collision objects, and 172
+structural ceiling is 579 game-subtree nodes, 100 collision objects, and 172
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
@@ -487,6 +487,21 @@ the one-pursuer cap cannot create stacked damage or obstruction loops. At
 maximum growth it can be swallowed into the Belly and discovered in the Field
 Guide like Animal Control. Reduce motion freezes beam decoration while
 preserving its warning and hit timing.
+
+Watchdog is the third bounded pursuer archetype. Resistant living targets can
+call one dog instead of Animal Control. Its 860-unit scent detection ignores
+walls while the frog remains on the ground, and its 22-unit navigation radius,
+320-unit speed, and shorter repath cadence let it use narrower generated-city
+routes than either person. It protects only nearby living targets and attacks
+with a 0.45-second warning followed by one 220-unit physical lunge using its
+existing collision body. Walls stop the lunge, moving out of its locked path
+dodges it, and a hit applies one 16-point capped knockback. Flight breaks scent
+and ends the chase after 1.4 seconds; crowd cover takes 0.8 seconds; the total
+chase is capped at 22 seconds. The dog deploys no Animal Control roadblock or
+snare, uses no projectile or gameplay random numbers, and remains edible at
+maximum growth with its own Belly and Field Guide record. Reduce motion
+suppresses decorative lunge pulses and trails without changing warning,
+movement, collision, or hit timing.
 
 The River Park meetup implements the first crowd-based pursuit escape. While
 the daytime meetup is active, pursuit changes its marked area to `HIDE HERE`

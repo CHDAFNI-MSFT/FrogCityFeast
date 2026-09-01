@@ -360,6 +360,7 @@ func _run() -> void:
 	await _test_crowd_pursuit_escape(game_scene)
 	await _test_pursuer_tongue_deflection(game_scene)
 	await _test_security_guard_pursuer(game_scene)
+	await _test_watchdog_pursuer(game_scene)
 	await _test_pursuer_roadblock(game_scene)
 	await _test_pursuer_snare(game_scene)
 	await _test_pursuer_net_escape(game_scene)
@@ -1146,7 +1147,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	_check(
 		game._targets.size() == 36
 			and DiscoveryCatalog.count()
-			== 38 + DistrictGenerator.discovery_ids().size(),
+			== 39 + DistrictGenerator.discovery_ids().size(),
 		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
@@ -1713,7 +1714,7 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 370
+		and int(net_snapshot["game_nodes"]) == 371
 		and int(net_snapshot["collision_objects"]) == 42,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
@@ -2162,6 +2163,230 @@ func _test_security_guard_pursuer(game_scene: PackedScene) -> void:
 	await process_frame
 
 
+func _test_watchdog_pursuer(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("watchdog_test", "Watchdog Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	game._frog.global_position = Vector2(0, 320)
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_WATCHDOG)
+	var watchdog := game._pursuer
+	_check(
+		is_instance_valid(watchdog)
+			and watchdog.archetype_id
+			== PrototypePursuer.ARCHETYPE_WATCHDOG
+			and is_equal_approx(
+				watchdog.speed,
+				PrototypePursuer.WATCHDOG_SPEED
+			)
+			and is_equal_approx(
+				watchdog.navigation_radius(),
+				PrototypePursuer.WATCHDOG_NAVIGATION_RADIUS
+			)
+			and is_equal_approx(
+				watchdog.crowd_escape_duration(),
+				PrototypePursuer.WATCHDOG_CROWD_ESCAPE_DURATION
+			)
+			and not watchdog.deploys_roadblock()
+			and not watchdog.deploys_pursuit_trap(),
+		"Watchdog uses the fastest small-radius pursuit profile without stacked obstacles."
+	)
+	if not is_instance_valid(watchdog):
+		game.queue_free()
+		await process_frame
+		return
+	watchdog.set_physics_process(false)
+	watchdog.global_position = Vector2(100, 320)
+
+	var protected_living := EdibleTarget.new()
+	protected_living.target_id = "watchdog_test_living"
+	protected_living.display_name = "Test Pedestrian"
+	protected_living.kind = "living"
+	protected_living.pick_radius = 28.0
+	protected_living.position = Vector2(220, 320)
+	game._world.add_child(protected_living)
+	game._targets.append(protected_living)
+	var donut := _find_target(game, "street_donut")
+	donut.global_position = Vector2(520, 320)
+
+	var scent_blocker := StaticBody2D.new()
+	scent_blocker.position = Vector2(50, 320)
+	scent_blocker.collision_layer = 1
+	var blocker_collision := CollisionShape2D.new()
+	var blocker_shape := CircleShape2D.new()
+	blocker_shape.radius = 34.0
+	blocker_collision.shape = blocker_shape
+	scent_blocker.add_child(blocker_collision)
+	game._world.add_child(scent_blocker)
+	await physics_frame
+	watchdog._update_detection()
+	_check(
+		watchdog.frog_detected()
+			and watchdog.protects_target(protected_living)
+			and not watchdog.protects_target(donut)
+			and game._pursuer_archetype_for_escape(protected_living)
+			== PrototypePursuer.ARCHETYPE_WATCHDOG,
+		"Watchdog scent crosses walls and its protection is limited to nearby living targets."
+	)
+
+	scent_blocker.position = Vector2(500, 320)
+	await physics_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* protected_living.global_position
+	)
+	_check(
+		game._belly.is_empty()
+			and is_instance_valid(protected_living)
+			and watchdog.deflect_feedback_active()
+			and game._status_label.text.contains("Watchdog"),
+		"Watchdog intercepts the tongue for a living target in its guarded radius."
+	)
+
+	game._tongue_recovery = 0.0
+	watchdog._deflect_feedback_left = 0.0
+	protected_living.global_position = Vector2(520, 320)
+	donut.global_position = Vector2(220, 320)
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* donut.global_position
+	)
+	_check(
+		not is_instance_valid(_find_target(game, "street_donut"))
+			and game._belly.size() == 1
+			and not watchdog.deflect_feedback_active(),
+		"Watchdog does not protect food with its living-target interception profile."
+	)
+
+	game._frog.global_position = Vector2(300, 320)
+	watchdog.global_position = Vector2(0, 320)
+	scent_blocker.position = Vector2(150, 320)
+	await physics_frame
+	watchdog._update_detection()
+	watchdog._lunge_cooldown = 0.0
+	var score_before := game._score
+	watchdog._begin_lunge_attack()
+	watchdog._advance_lunge_attack(
+		PrototypePursuer.WATCHDOG_LUNGE_WINDUP_DURATION
+	)
+	watchdog._advance_lunge_attack(0.5)
+	_check(
+		not watchdog.lunge_attack_active()
+			and watchdog.global_position.x < scent_blocker.global_position.x
+			and game._score == score_before,
+		"Solid city geometry stops the Watchdog's physical lunge before damage."
+	)
+
+	scent_blocker.queue_free()
+	await physics_frame
+	watchdog.global_position = Vector2(0, 320)
+	game._frog.global_position = Vector2(300, 320)
+	watchdog._lunge_cooldown = 0.0
+	watchdog._begin_lunge_attack()
+	game._frog.global_position += Vector2(0, 160)
+	watchdog._advance_lunge_attack(
+		PrototypePursuer.WATCHDOG_LUNGE_WINDUP_DURATION
+	)
+	for _step in 8:
+		watchdog._advance_lunge_attack(0.05)
+		if not watchdog.lunge_attack_active():
+			break
+	_check(
+		not watchdog.lunge_attack_active()
+			and game._score == score_before,
+		"Moving out of the locked lunge path dodges the Watchdog."
+	)
+
+	watchdog.global_position = Vector2(0, 320)
+	game._frog.global_position = Vector2(180, 320)
+	game._score = 30
+	game._damage_cooldown = 0.0
+	watchdog._lunge_cooldown = 0.0
+	watchdog._begin_lunge_attack()
+	watchdog._advance_lunge_attack(
+		PrototypePursuer.WATCHDOG_LUNGE_WINDUP_DURATION
+	)
+	watchdog._advance_lunge_attack(0.25)
+	_check(
+		game._score == 14
+			and game._frog.knockback_active()
+			and not watchdog.lunge_attack_active()
+			and game._status_label.text.contains("lunge")
+			and not game._net_escape_active,
+		"Watchdog lunge applies one capped knockback hit without a repeated damage loop."
+	)
+
+	game.set_motion_scale(0.0)
+	game._frog._knockback_time = 0.0
+	game._frog.movement_enabled = true
+	game._damage_cooldown = 0.0
+	watchdog.global_position = Vector2(0, 320)
+	game._frog.global_position = Vector2(180, 320)
+	watchdog._lunge_cooldown = 0.0
+	watchdog._begin_lunge_attack()
+	var reduced_motion_time := watchdog._lunge_windup_left
+	watchdog._advance_lunge_attack(reduced_motion_time * 0.5)
+	_check(
+		watchdog.lunge_attack_active()
+			and is_zero_approx(watchdog._presentation_motion_scale)
+			and is_equal_approx(
+				watchdog._lunge_windup_left,
+				reduced_motion_time * 0.5
+			),
+		"Reduce motion suppresses lunge decoration without changing warning timing."
+	)
+	watchdog.cancel_active_attack()
+
+	game.set_motion_scale(1.0)
+	game._growth_tier = 2
+	game._frog.set_growth_tier(2)
+	game._frog.global_position = Vector2(0, 320)
+	watchdog.global_position = Vector2(90, 320)
+	game._tongue_recovery = 0.0
+	await physics_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* watchdog.global_position
+	)
+	_check(
+		not is_instance_valid(game._pursuer)
+			and game._belly.size() == 2
+			and game._belly[1].target_id
+			== PrototypePursuer.ARCHETYPE_WATCHDOG
+			and game._discoveries.has(
+				PrototypePursuer.ARCHETYPE_WATCHDOG
+			),
+		"Maximum growth can swallow Watchdog into the Belly and Field Guide."
+	)
+
+	game._growth_tier = 0
+	game._frog.set_growth_tier(0)
+	game._frog.global_position = Vector2(0, 320)
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_WATCHDOG)
+	watchdog = game._pursuer
+	if is_instance_valid(watchdog):
+		watchdog.set_physics_process(false)
+		game._frog.set_flying(true)
+		watchdog._physics_process(
+			PrototypePursuer.WATCHDOG_LOST_ESCAPE_TIME
+		)
+		await process_frame
+	_check(
+		not is_instance_valid(game._pursuer)
+			and not is_instance_valid(game._roadblock)
+			and not is_instance_valid(game._pursuit_trap),
+		"Flight breaks Watchdog scent and its short lost-scent timer cleans up pursuit."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
 func _test_pursuer_roadblock(game_scene: PackedScene) -> void:
 	var game := game_scene.instantiate() as FrogGame
 	game.set_motion_scale(1.0)
@@ -2567,6 +2792,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 		startup_ids[target.target_id] = true
 	startup_ids["animal_control"] = true
 	startup_ids["security_guard"] = true
+	startup_ids["watchdog"] = true
 	for target_id in DistrictGenerator.discovery_ids():
 		startup_ids[target_id] = true
 	var catalog_ids := {}

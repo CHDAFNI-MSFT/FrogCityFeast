@@ -193,6 +193,11 @@ const ENTRIES := [
 		"hint": "At maximum size, let a secured object or building fixture escape, then eat its guard.",
 	},
 	{
+		"id": "watchdog",
+		"name": "Watchdog",
+		"hint": "At maximum size, let a resistant living target escape, then follow the barking.",
+	},
+	{
 		"id": "generated_downtown_lunch",
 		"name": "Downtown Find",
 		"hint": "Explore a generated downtown district.",
