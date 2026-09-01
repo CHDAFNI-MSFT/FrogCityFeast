@@ -205,6 +205,19 @@ The prototype includes:
 - a passive challenge panel that allows touches through to the city, begins
   only after the tutorial is completed or skipped, and gives no score, growth,
   power, or persistent reward;
+- a scoped achievement model that keeps session goals, one-time profile
+  achievements, and one-time device milestones separate and rejects duplicate
+  unlocks;
+- four one-time profile event goals tied to the deterministic bazaar, kite
+  festival, water-main repair, and wind-squall windows, plus an Event Explorer
+  completion achievement;
+- nine concise profile story clues earned through unique discoveries,
+  digestion, generated-district exploration, event goals, and a whole-building
+  swallow, with the secret-fantasy path permanently revealed at six clues;
+- a scrollable Guide & Journal that labels each ownership scope, shows found
+  clue captions, and keeps unknown clues and powers unspoiled;
+- menu summaries for Field Guide, profile achievement, clue, power, secret,
+  and device-milestone progress;
 - four enterable building shells with collision walls and doorway openings;
 - furnished Leap Café and Canal Apartments interiors with collision-safe,
   wall-hugging counters, booths, lockers, stairs, and lobby seating;
@@ -401,8 +414,10 @@ simultaneous attack windows, maximum-size deflection immunity, rapid-tap escape
 and timeout damage, flight and growth immunity,
 profile persistence, Field Guide catalog and overlay behavior,
 legacy discovery saves, per-profile accessibility persistence and legacy
-defaults, touch-target sizing, safe-area layout, touch feedback, reduced-motion
-transitions, deterministic session challenges,
+defaults, scoped achievement idempotency, derived-progress save repair,
+deterministic event-goal windows, visible water-main goal gating, story-clue
+mapping and secret-path thresholds, touch-target sizing, safe-area layout,
+touch feedback, reduced-motion transitions, deterministic session challenges,
 original audio resources and provenance, audio buses and semantic event wiring,
 bounded player/cooldown behavior, per-profile audio persistence and legacy
 defaults, loop lifecycle, gameplay RNG isolation, performance structure and
@@ -667,8 +682,7 @@ The following parts of the full design are not implemented yet:
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
 - further fantasy events;
-- achievements, story clues, and secrets beyond the Field Guide;
-- additional temporary powers;
+- the generated secret-fantasy district reached by the unlocked path;
 - final art, authored animation, expanded audio content and target-device mix
   validation, and any accessibility work beyond the implemented motion,
   interface-size, contrast, touch-feedback, safe-area, and volume controls; and

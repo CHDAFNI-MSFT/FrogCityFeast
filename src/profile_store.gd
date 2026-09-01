@@ -16,6 +16,7 @@ func _init(save_path: String = SAVE_PATH) -> void:
 	_load()
 	if list_profiles().is_empty():
 		ensure_profile(DEFAULT_PROFILE_NAME)
+	_reconcile_progression()
 
 
 func list_profiles() -> Array[Dictionary]:
@@ -107,14 +108,36 @@ func get_secret_unlocks(profile_id: String) -> PackedStringArray:
 
 func mark_profile_achievement(
 	profile_id: String,
-	achievement_id: String
+	achievement_id: String,
+	derived_clue_id: String = ""
 ) -> bool:
-	return _mark_profile_id(
+	if not _config.has_section_key("profiles", profile_id):
+		push_warning("Cannot save progression for an unknown profile.")
+		return false
+	var normalized_achievement_id := achievement_id.strip_edges()
+	if (
+		normalized_achievement_id.is_empty()
+		or not ProgressionCatalog.profile_achievement_ids().has(
+			normalized_achievement_id
+		)
+	):
+		return false
+	var changed := _store_id(
 		"profile_achievements",
 		profile_id,
-		achievement_id,
+		normalized_achievement_id,
 		ProgressionCatalog.profile_achievement_ids()
 	)
+	if not derived_clue_id.is_empty():
+		changed = _store_id(
+			"story_clues",
+			profile_id,
+			derived_clue_id,
+			ProgressionCatalog.story_clue_ids()
+		) or changed
+	if changed:
+		_save()
+	return changed
 
 
 func mark_device_achievement(achievement_id: String) -> bool:
@@ -383,6 +406,18 @@ func _mark_id(
 	entry_id: String,
 	allowed_ids: PackedStringArray
 ) -> bool:
+	if not _store_id(section, key, entry_id, allowed_ids):
+		return false
+	_save()
+	return true
+
+
+func _store_id(
+	section: String,
+	key: String,
+	entry_id: String,
+	allowed_ids: PackedStringArray
+) -> bool:
 	var normalized_id := entry_id.strip_edges()
 	if normalized_id.is_empty() or not allowed_ids.has(normalized_id):
 		return false
@@ -392,8 +427,169 @@ func _mark_id(
 	stored.append(normalized_id)
 	stored.sort()
 	_config.set_value(section, key, stored)
-	_save()
 	return true
+
+
+func _reconcile_progression() -> void:
+	var changed := false
+	if get_device_best() >= ProgressionCatalog.DEVICE_SCORE_MILESTONE_THRESHOLD:
+		changed = _store_id(
+			"device_achievements",
+			"unlocked",
+			"device_score_2500",
+			ProgressionCatalog.device_achievement_ids()
+		) or changed
+
+	for profile in list_profiles():
+		var profile_id := str(profile["id"])
+		var discoveries := get_discoveries(profile_id)
+		var power_discoveries := get_power_discoveries(profile_id)
+		if discoveries.size() >= 12:
+			changed = _store_id(
+				"profile_achievements",
+				profile_id,
+				"city_gourmet",
+				ProgressionCatalog.profile_achievement_ids()
+			) or changed
+		if (
+			power_discoveries.size()
+			== ProgressionCatalog.power_ids().size()
+		):
+			changed = _store_id(
+				"profile_achievements",
+				profile_id,
+				"power_sampler",
+				ProgressionCatalog.profile_achievement_ids()
+			) or changed
+		if _contains_any_id(
+			discoveries,
+			ProgressionCatalog.whole_building_discovery_ids()
+		):
+			changed = _store_id(
+				"profile_achievements",
+				profile_id,
+				"building_banquet",
+				ProgressionCatalog.profile_achievement_ids()
+			) or changed
+
+		for discovery_id in discoveries:
+			var clue_id := ProgressionCatalog.story_clue_for_discovery(
+				discovery_id
+			)
+			if not clue_id.is_empty():
+				changed = _store_id(
+					"story_clues",
+					profile_id,
+					clue_id,
+					ProgressionCatalog.story_clue_ids()
+				) or changed
+		for power_id in power_discoveries:
+			var clue_id := ProgressionCatalog.story_clue_for_power(
+				power_id
+			)
+			if not clue_id.is_empty():
+				changed = _store_id(
+					"story_clues",
+					profile_id,
+					clue_id,
+					ProgressionCatalog.story_clue_ids()
+				) or changed
+		if _contains_all_ids(
+			discoveries,
+			ProgressionCatalog.generated_archetype_discovery_ids()
+		):
+			changed = _store_id(
+				"story_clues",
+				profile_id,
+				"district_glyph",
+				ProgressionCatalog.story_clue_ids()
+			) or changed
+
+		var achievements := get_profile_achievements(profile_id)
+		for achievement_id in achievements:
+			var clue_id := (
+				ProgressionCatalog.story_clue_for_profile_achievement(
+					achievement_id
+				)
+			)
+			if not clue_id.is_empty():
+				changed = _store_id(
+					"story_clues",
+					profile_id,
+					clue_id,
+					ProgressionCatalog.story_clue_ids()
+				) or changed
+		if _contains_all_ids(
+			achievements,
+			ProgressionCatalog.event_profile_achievement_ids()
+		):
+			changed = _store_id(
+				"profile_achievements",
+				profile_id,
+				"event_explorer",
+				ProgressionCatalog.profile_achievement_ids()
+			) or changed
+
+		achievements = get_profile_achievements(profile_id)
+		var story_clues := get_story_clues(profile_id)
+		if (
+			not power_discoveries.is_empty()
+			or _contains_any_id(
+				discoveries,
+				ProgressionCatalog.first_growth_evidence_discovery_ids()
+			)
+			or _contains_any_id(
+				achievements,
+				ProgressionCatalog.first_growth_evidence_achievement_ids()
+			)
+			or _contains_any_id(
+				story_clues,
+				ProgressionCatalog.first_growth_evidence_clue_ids()
+			)
+		):
+			changed = _store_id(
+				"profile_achievements",
+				profile_id,
+				"growth_spurt",
+				ProgressionCatalog.profile_achievement_ids()
+			) or changed
+
+		if story_clues.size() >= ProgressionCatalog.SECRET_CLUE_REQUIREMENT:
+			changed = _store_id(
+				"profile_achievements",
+				profile_id,
+				"clue_collector",
+				ProgressionCatalog.profile_achievement_ids()
+			) or changed
+			changed = _store_id(
+				"secret_unlocks",
+				profile_id,
+				ProgressionCatalog.SECRET_FANTASY_DISTRICT,
+				ProgressionCatalog.secret_unlock_ids()
+			) or changed
+
+	if changed:
+		_save()
+
+
+func _contains_all_ids(
+	stored_ids: PackedStringArray,
+	required_ids: PackedStringArray
+) -> bool:
+	for required_id in required_ids:
+		if not stored_ids.has(required_id):
+			return false
+	return true
+
+
+func _contains_any_id(
+	stored_ids: PackedStringArray,
+	candidate_ids: PackedStringArray
+) -> bool:
+	for candidate_id in candidate_ids:
+		if stored_ids.has(candidate_id):
+			return true
+	return false
 
 
 func _stored_ids(

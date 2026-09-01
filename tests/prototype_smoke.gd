@@ -435,8 +435,16 @@ func _run() -> void:
 		"Field Guide: 1 / %d" % DiscoveryCatalog.count()
 	)
 	_check(
-		menu._guide_label.text == one_discovery_text,
-		"Main menu shows the selected profile's Field Guide progress."
+		menu._guide_label.text.begins_with(one_discovery_text)
+		and menu._guide_label.text.contains(
+			"Profile: 0 / %d achievements"
+			% ProgressionCatalog.profile_achievement_ids().size()
+		)
+		and menu._guide_label.text.contains(
+			"Device: 0 / %d milestones"
+			% ProgressionCatalog.device_achievement_ids().size()
+		),
+		"Main menu separates Field Guide, profile, and device progress."
 	)
 	_check(
 		menu._reduce_motion_toggle.button_pressed
@@ -445,7 +453,7 @@ func _run() -> void:
 	)
 	menu._on_new_name_changed("frog one")
 	_check(
-		menu._guide_label.text == one_discovery_text
+		menu._guide_label.text.begins_with(one_discovery_text)
 		and menu._start_button.text == "Start New Game",
 		"Typing an existing profile name previews its real saved state."
 	)

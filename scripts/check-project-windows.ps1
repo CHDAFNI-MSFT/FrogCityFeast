@@ -109,6 +109,9 @@ Invoke-GodotCheck `
     -Label "power-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/power_smoke.gd"
 Invoke-GodotCheck `
+    -Label "achievement-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/achievement_smoke.gd"
+Invoke-GodotCheck `
     -Label "prototype-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/prototype_smoke.gd"
 Invoke-GodotCheck `

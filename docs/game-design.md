@@ -258,6 +258,16 @@ Unknown future versions and unreadable files retain the existing preservation
 behavior. If the original file cannot be preserved, saving is disabled rather
 than overwriting it.
 
+Every version 2 load also performs an idempotent derived-progress repair before
+the menu is shown. It backfills achievements implied by device best score,
+unique Field Guide discoveries, whole-building discoveries, all power
+discoveries, or all event goals;
+backfills clues implied by saved discoveries or achievements; and restores the
+Golden Crumb from a saved Flight discovery. It also restores the clue-threshold
+achievement and secret-path unlock when six clues are present. This recovery
+uses the same stable IDs and does not change score, growth, session state, or
+the fresh-city rule.
+
 ## Growth and powers
 
 Growth is a central form of progression within play.
@@ -745,6 +755,36 @@ child-friendly captions in a separate journal section, imply rather than fully
 explain the mystery, and do not require cutscenes, dialogue trees, accounts, or
 personal information. Collecting enough clues reveals the secret-district
 path, but reading story text is never required for score-focused free play.
+
+The Guide & Journal now presents progression under explicit ownership
+headings:
+
+- **Session goals** are the three existing challenges and reset on every Start
+  New Game. They never grant score, growth, powers, or permanent rewards.
+- **Profile achievements** are stable one-time IDs. They cover first growth,
+  twelve unique Field Guide entries, a whole weakened building, all five
+  unique power discoveries, six unique clues, all four event goals, and the
+  future secret-district and enormous-growth milestones.
+- **Device milestones** are separate stable one-time IDs for a 2,500 device
+  best score and the future first secret-district and enormous-growth events.
+
+Achievement triggers use unique or monotonic state. Re-eating a restocked
+target, repeating a completed event action, recollecting a known power, or
+swallowing another building cannot add duplicate permanent progress. The four
+event achievements require any successful swallow during the deterministic
+Moonlight Market bazaar, Canal Kite Festival, active water-main repair, or
+wind-squall windows, including an eligible pursuer swallow. Completing all four
+unlocks Event Explorer.
+
+The nine persistent clues are Golden Crumb from digesting Golden Cake, Sewer
+Stamp from the hidden pump handle, Moonlit Receipt from the bazaar goal,
+Silver Kite Thread from the kite goal, Folded Blueprint from the repair goal,
+Oddities Label from the cellar music box, Crane Operator's Map from the crane
+toolbox, District Glyph from finding all six normal generated archetypes, and
+Giant Shadow from swallowing a whole weakened building. Six unique clues
+permanently reveal the secret-fantasy path for that profile. The path unlock
+persists, while its generated city placement and contents remain fresh session
+state.
 
 ## Progression milestone decisions
 

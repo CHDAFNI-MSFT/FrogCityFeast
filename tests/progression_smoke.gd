@@ -87,6 +87,21 @@ func _run() -> void:
 		"Profile achievements accept known IDs exactly once."
 	)
 	_check(
+		store.mark_profile_achievement(
+			"frog_two",
+			"event_moonlight_bazaar",
+			"moonlit_receipt"
+		)
+		and not store.mark_profile_achievement(
+			"frog_two",
+			"event_moonlight_bazaar",
+			"moonlit_receipt"
+		)
+		and store.get_story_clues("frog_two")
+			== PackedStringArray(["moonlit_receipt"]),
+		"Mapped profile achievements and clues persist atomically."
+	)
+	_check(
 		store.mark_device_achievement("device_secret_found")
 		and not store.mark_device_achievement("device_secret_found")
 		and not store.mark_device_achievement("unknown"),
@@ -116,11 +131,14 @@ func _run() -> void:
 	_check(
 		reloaded.get_profile_achievements("frog_one")
 			== PackedStringArray(["growth_spurt"])
-		and reloaded.get_profile_achievements("frog_two").is_empty()
+		and reloaded.get_profile_achievements("frog_two")
+			== PackedStringArray(["event_moonlight_bazaar"])
 		and reloaded.get_device_achievements()
 			== PackedStringArray(["device_secret_found"])
 		and reloaded.get_story_clues("frog_one")
 			== PackedStringArray(["golden_crumb"])
+		and reloaded.get_story_clues("frog_two")
+			== PackedStringArray(["moonlit_receipt"])
 		and reloaded.get_power_discoveries("frog_one")
 			== PackedStringArray(["flight"])
 		and reloaded.get_secret_unlocks("frog_one")
@@ -128,6 +146,74 @@ func _run() -> void:
 				ProgressionCatalog.SECRET_FANTASY_DISTRICT,
 			]),
 		"Version 2 progression survives reload with profile and device scope intact."
+	)
+
+	var reconciled_discoveries := PackedStringArray()
+	for discovery_id in ProgressionCatalog.generated_archetype_discovery_ids():
+		reconciled_discoveries.append(discovery_id)
+	for discovery_id in [
+		"river_hidden_pump_handle",
+		"oddities_cellar_music_box",
+		"construction_crane_toolbox",
+		"leap_cafe_building",
+		"golden_cake",
+		"street_donut",
+		"market_apple",
+	]:
+		reconciled_discoveries.append(discovery_id)
+	reloaded._config.set_value("device", "best_score", 2500)
+	reloaded._config.set_value(
+		"discoveries",
+		"frog_two",
+		reconciled_discoveries
+	)
+	reloaded._config.set_value(
+		"power_discoveries",
+		"frog_two",
+		ProgressionCatalog.power_ids()
+	)
+	reloaded._config.set_value(
+		"profile_achievements",
+		"frog_two",
+		PackedStringArray([
+			"building_banquet",
+			"event_moonlight_bazaar",
+			"event_kite_festival",
+			"event_water_main",
+			"event_wind_squall",
+		])
+	)
+	reloaded._save()
+
+	var reconciled := ProfileStore.new(save_path)
+	_check(
+		reconciled.get_device_achievements().has("device_score_2500")
+		and reconciled.get_profile_achievements("frog_two").has(
+			"city_gourmet"
+		)
+		and reconciled.get_profile_achievements("frog_two").has(
+			"power_sampler"
+		)
+		and reconciled.get_profile_achievements("frog_two").has(
+			"growth_spurt"
+		)
+		and reconciled.get_profile_achievements("frog_two").has(
+			"building_banquet"
+		)
+		and reconciled.get_profile_achievements("frog_two").has(
+			"event_explorer"
+		)
+		and reconciled.get_profile_achievements("frog_two").has(
+			"clue_collector"
+		)
+		and reconciled.get_story_clues("frog_two").has("sewer_stamp")
+		and reconciled.get_story_clues("frog_two").has("golden_crumb")
+		and reconciled.get_story_clues("frog_two").has("giant_shadow")
+		and reconciled.has_secret_unlocked(
+			"frog_two",
+			ProgressionCatalog.SECRET_FANTASY_DISTRICT
+		),
+		"Save loading repairs derived progression before the first menu."
 	)
 
 	_remove_save_and_backups(save_path)

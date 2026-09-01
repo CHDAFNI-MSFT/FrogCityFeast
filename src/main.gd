@@ -33,7 +33,11 @@ func _start_game(profile_id: String, display_name: String) -> void:
 		_profile_store.get_accessibility_preferences(profile_id),
 		_profile_store.get_audio_preferences(profile_id),
 		0,
-		_profile_store.get_power_discoveries(profile_id)
+		_profile_store.get_power_discoveries(profile_id),
+		_profile_store.get_profile_achievements(profile_id),
+		_profile_store.get_device_achievements(),
+		_profile_store.get_story_clues(profile_id),
+		_profile_store.get_secret_unlocks(profile_id)
 	)
 	game.score_changed.connect(_on_score_changed.bind(profile_id))
 	game.end_requested.connect(_on_game_ended.bind(profile_id))
@@ -44,6 +48,14 @@ func _start_game(profile_id: String, display_name: String) -> void:
 	)
 	game.audio_changed.connect(_on_audio_changed.bind(profile_id))
 	game.power_discovered.connect(_on_power_discovered.bind(profile_id))
+	game.profile_achievement_unlocked.connect(
+		_on_profile_achievement_unlocked.bind(profile_id)
+	)
+	game.device_achievement_unlocked.connect(
+		_on_device_achievement_unlocked
+	)
+	game.story_clue_found.connect(_on_story_clue_found.bind(profile_id))
+	game.secret_unlocked.connect(_on_secret_unlocked.bind(profile_id))
 	_replace_screen(game)
 	game.activate_audio_context()
 
@@ -87,6 +99,30 @@ func _on_audio_changed(
 
 func _on_power_discovered(power_id: String, profile_id: String) -> void:
 	_profile_store.mark_power_discovered(profile_id, power_id)
+
+
+func _on_profile_achievement_unlocked(
+	achievement_id: String,
+	derived_clue_id: String,
+	profile_id: String
+) -> void:
+	_profile_store.mark_profile_achievement(
+		profile_id,
+		achievement_id,
+		derived_clue_id
+	)
+
+
+func _on_device_achievement_unlocked(achievement_id: String) -> void:
+	_profile_store.mark_device_achievement(achievement_id)
+
+
+func _on_story_clue_found(clue_id: String, profile_id: String) -> void:
+	_profile_store.mark_story_clue(profile_id, clue_id)
+
+
+func _on_secret_unlocked(secret_id: String, profile_id: String) -> void:
+	_profile_store.mark_secret_unlocked(profile_id, secret_id)
 
 
 func _replace_screen(next_screen: Node) -> void:

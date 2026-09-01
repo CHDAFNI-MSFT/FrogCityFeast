@@ -81,10 +81,7 @@ func _on_profile_selected(index: int) -> void:
 func _show_profile_preview(profile_id: String) -> void:
 	_preview_profile_id = profile_id
 	_best_label.text = "Player best: %d" % _profile_store.get_profile_best(profile_id)
-	_guide_label.text = "Field Guide: %d / %d" % [
-		_profile_store.get_discovery_count(profile_id),
-		DiscoveryCatalog.count(),
-	]
+	_guide_label.text = _profile_progress_text(profile_id)
 	_start_button.text = (
 		"Start New Game"
 		if _profile_store.is_tutorial_complete(profile_id)
@@ -114,9 +111,44 @@ func _on_new_name_changed(new_text: String) -> void:
 	_preview_profile_id = ""
 	_best_label.text = "Player best: 0"
 	_start_button.text = "Start Tutorial"
-	_guide_label.text = "Field Guide: 0 / %d" % DiscoveryCatalog.count()
+	_guide_label.text = (
+		"Field Guide: 0 / %d\n"
+		+ "Profile: 0 / %d achievements | 0 / %d clues\n"
+		+ "Powers: 0 / %d | Secrets: 0 / %d\n"
+		+ "Device: %d / %d milestones"
+	) % [
+		DiscoveryCatalog.count(),
+		ProgressionCatalog.profile_achievement_ids().size(),
+		ProgressionCatalog.story_clue_ids().size(),
+		ProgressionCatalog.power_ids().size(),
+		ProgressionCatalog.secret_unlock_ids().size(),
+		_profile_store.get_device_achievements().size(),
+		ProgressionCatalog.device_achievement_ids().size(),
+	]
 	_show_accessibility_preferences(_new_profile_preferences)
 	_show_audio_preferences(_new_profile_audio_preferences)
+
+
+func _profile_progress_text(profile_id: String) -> String:
+	return (
+		"Field Guide: %d / %d\n"
+		+ "Profile: %d / %d achievements | %d / %d clues\n"
+		+ "Powers: %d / %d | Secrets: %d / %d\n"
+		+ "Device: %d / %d milestones"
+	) % [
+		_profile_store.get_discovery_count(profile_id),
+		DiscoveryCatalog.count(),
+		_profile_store.get_profile_achievements(profile_id).size(),
+		ProgressionCatalog.profile_achievement_ids().size(),
+		_profile_store.get_story_clues(profile_id).size(),
+		ProgressionCatalog.story_clue_ids().size(),
+		_profile_store.get_power_discoveries(profile_id).size(),
+		ProgressionCatalog.power_ids().size(),
+		_profile_store.get_secret_unlocks(profile_id).size(),
+		ProgressionCatalog.secret_unlock_ids().size(),
+		_profile_store.get_device_achievements().size(),
+		ProgressionCatalog.device_achievement_ids().size(),
+	]
 
 
 func _on_start_pressed() -> void:

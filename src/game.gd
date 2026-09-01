@@ -11,6 +11,13 @@ signal target_discovered(target_id: String)
 signal item_digested(target_id: String)
 signal growth_tier_applied(tier: int)
 signal power_discovered(power_id: String)
+signal profile_achievement_unlocked(
+	achievement_id: String,
+	derived_clue_id: String
+)
+signal device_achievement_unlocked(achievement_id: String)
+signal story_clue_found(clue_id: String)
+signal secret_unlocked(secret_id: String)
 signal accessibility_changed(
 	reduce_motion: bool,
 	larger_text_controls: bool
@@ -28,6 +35,7 @@ const PURSUIT_TRAP_SCRIPT := preload("res://src/pursuit_trap.gd")
 const CITY_DETOUR_SCRIPT := preload("res://src/city_detour.gd")
 const NAVIGATION_SCRIPT := preload("res://src/deterministic_navigation.gd")
 const POWER_STATE_SCRIPT := preload("res://src/temporary_power_state.gd")
+const ACHIEVEMENT_MODEL_SCRIPT := preload("res://src/achievement_model.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
 )
@@ -509,6 +517,9 @@ var _damage_cooldown := 0.0
 var _status_time := 0.0
 var _power_state: TemporaryPowerState = POWER_STATE_SCRIPT.new()
 var _power_discoveries: Dictionary = {}
+var _achievement_model = ACHIEVEMENT_MODEL_SCRIPT.new()
+var _story_clues: Dictionary = {}
+var _secret_unlocks: Dictionary = {}
 var _day_clock := 0.23
 var _current_daylight := 0.0
 var _current_rain_intensity := 0.0
@@ -636,6 +647,7 @@ func _ready() -> void:
 	_update_audio_controls()
 	_last_safe_ground_position = _frog.global_position
 	_profile_label.text = _display_name
+	_evaluate_persisted_progression()
 	_rebuild_guide()
 	if _tutorial_required:
 		_challenge_panel.visible = false
@@ -660,7 +672,11 @@ func configure(
 	accessibility_preferences: Dictionary = {},
 	audio_preferences: Dictionary = {},
 	session_seed: int = 0,
-	power_discoveries: PackedStringArray = PackedStringArray()
+	power_discoveries: PackedStringArray = PackedStringArray(),
+	profile_achievements: PackedStringArray = PackedStringArray(),
+	device_achievements: PackedStringArray = PackedStringArray(),
+	story_clues: PackedStringArray = PackedStringArray(),
+	secret_unlocks: PackedStringArray = PackedStringArray()
 ) -> void:
 	_profile_id = profile_id
 	_display_name = display_name
@@ -691,6 +707,20 @@ func configure(
 		var normalized_id := str(power_id).strip_edges()
 		if not ProgressionCatalog.power_entry(normalized_id).is_empty():
 			_power_discoveries[normalized_id] = true
+	_achievement_model.configure(
+		profile_achievements,
+		device_achievements
+	)
+	_story_clues.clear()
+	for clue_id in story_clues:
+		var normalized_id := str(clue_id).strip_edges()
+		if not ProgressionCatalog.story_clue_entry(normalized_id).is_empty():
+			_story_clues[normalized_id] = true
+	_secret_unlocks.clear()
+	for secret_id in secret_unlocks:
+		var normalized_id := str(secret_id).strip_edges()
+		if ProgressionCatalog.secret_unlock_ids().has(normalized_id):
+			_secret_unlocks[normalized_id] = true
 	_session_seed = (
 		session_seed
 		if session_seed != 0
@@ -2078,6 +2108,9 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	_record_discovery(item.target_id, item.display_name)
 	_challenges.record_swallow(item.target_id, item.accuracy)
 	_update_challenge_hud()
+	_record_event_goals_for_swallow()
+	if swallowed_building:
+		_unlock_profile_achievement("building_banquet")
 	var building := _building_by_id.get(target.building_id) as PrototypeBuilding
 	var building_was_weakened := false
 	if is_instance_valid(building):
@@ -2263,10 +2296,24 @@ func _rebuild_guide() -> void:
 		child.queue_free()
 
 	var discovered_count := _known_discovery_count()
-	_guide_progress.text = "Discovered %d / %d" % [
+	_guide_progress.text = (
+		"Field Guide %d / %d | Profile achievements %d / %d\n"
+		+ "Story clues %d / %d | Device milestones %d / %d"
+	) % [
 		discovered_count,
 		DiscoveryCatalog.count(),
+		_achievement_model.unlocked_count(
+			ProgressionCatalog.SCOPE_PROFILE
+		),
+		ProgressionCatalog.profile_achievement_ids().size(),
+		_story_clues.size(),
+		ProgressionCatalog.story_clue_ids().size(),
+		_achievement_model.unlocked_count(
+			ProgressionCatalog.SCOPE_DEVICE
+		),
+		ProgressionCatalog.device_achievement_ids().size(),
 	]
+	var first_entry := true
 	for entry in DiscoveryCatalog.entries():
 		var target_id := str(entry["id"])
 		var discovered := _discoveries.has(target_id)
@@ -2281,16 +2328,130 @@ func _rebuild_guide() -> void:
 			if discovered
 			else Color(0.76, 0.8, 0.82)
 		)
-		row.text = (
+		var entry_text := (
 			"FOUND: %s - %s" % [entry["name"], entry["hint"]]
 			if discovered
 			else "UNKNOWN - Hint: %s" % entry["hint"]
 		)
+		row.text = (
+			"%s\n\nFIELD GUIDE\n%s" % [
+				_meta_journal_text(),
+				entry_text,
+			]
+			if first_entry
+			else entry_text
+		)
+		first_entry = false
 		_guide_list.add_child(row)
 		AccessibilityPresentation.apply(
 			row,
 			_larger_text_controls_enabled
 		)
+
+
+func _meta_journal_text() -> String:
+	var lines: Array[String] = [
+		"SESSION GOALS - reset with every Start New Game",
+	]
+	for entry in ProgressionCatalog.session_goal_entries():
+		var goal_id := str(entry["id"])
+		var definition := SessionChallenges.definition_for(goal_id)
+		lines.append(
+			"%s %s (%d / %d) - %s" % [
+				(
+					"[DONE]"
+					if _achievement_model.is_unlocked(
+						ProgressionCatalog.SCOPE_SESSION,
+						goal_id
+					)
+					else "[ ]"
+				),
+				entry["name"],
+				_challenges.progress(goal_id),
+				int(definition.get("goal", 1)),
+				entry["description"],
+			]
+		)
+
+	lines.append("")
+	lines.append("PROFILE ACHIEVEMENTS - saved for %s" % _display_name)
+	for entry in ProgressionCatalog.profile_achievement_entries():
+		var achievement_id := str(entry["id"])
+		lines.append(
+			"%s %s - %s" % [
+				(
+					"[UNLOCKED]"
+					if _achievement_model.is_unlocked(
+						ProgressionCatalog.SCOPE_PROFILE,
+						achievement_id
+					)
+					else "[ ]"
+				),
+				entry["name"],
+				entry["description"],
+			]
+		)
+
+	lines.append("")
+	lines.append("DEVICE MILESTONES - shared on this device")
+	for entry in ProgressionCatalog.device_achievement_entries():
+		var achievement_id := str(entry["id"])
+		lines.append(
+			"%s %s - %s" % [
+				(
+					"[UNLOCKED]"
+					if _achievement_model.is_unlocked(
+						ProgressionCatalog.SCOPE_DEVICE,
+						achievement_id
+					)
+					else "[ ]"
+				),
+				entry["name"],
+				entry["description"],
+			]
+		)
+
+	lines.append("")
+	lines.append("STORY CLUES - saved for %s" % _display_name)
+	for entry in ProgressionCatalog.story_clue_entries():
+		var clue_id := str(entry["id"])
+		lines.append(
+			(
+				"[FOUND] %s - %s" % [
+					entry["name"],
+					entry["text"],
+				]
+				if _story_clues.has(clue_id)
+				else "[?] Undiscovered clue"
+			)
+		)
+
+	lines.append("")
+	lines.append("POWER DISCOVERIES - saved for %s" % _display_name)
+	for entry in ProgressionCatalog.power_entries():
+		var power_id := str(entry["id"])
+		lines.append(
+			(
+				"[FOUND] %s" % entry["name"]
+				if _power_discoveries.has(power_id)
+				else "[?] Undiscovered power"
+			)
+		)
+
+	lines.append("")
+	lines.append(
+		(
+			"[UNLOCKED] Secret path revealed"
+			if _secret_unlocks.has(
+				ProgressionCatalog.SECRET_FANTASY_DISTRICT
+			)
+			else "[LOCKED] Secret path - %d / %d clues" % [
+				_story_clues.size(),
+				ProgressionCatalog.SECRET_CLUE_REQUIREMENT,
+			]
+		)
+	)
+	return "\n".join(lines)
 
 
 func _known_discovery_count() -> int:
@@ -2302,6 +2463,7 @@ func _known_discovery_count() -> int:
 
 
 func _begin_session_challenges() -> void:
+	_achievement_model.reset_session()
 	_challenges.begin()
 	_challenge_pulse_times.clear()
 	_challenge_panel.visible = true
@@ -2346,9 +2508,11 @@ func _update_challenge_row(label: Label, challenge_id: String) -> void:
 	)
 
 
-func _on_challenge_completed(_challenge_id: String) -> void:
-	_challenge_pulse_times[_challenge_id] = HUD_PULSE_DURATION
+func _on_challenge_completed(challenge_id: String) -> void:
+	_achievement_model.unlock_session(challenge_id)
+	_challenge_pulse_times[challenge_id] = HUD_PULSE_DURATION
 	_update_challenge_hud()
+	_rebuild_guide()
 	AudioDirector.play_effect(FrogAudioDirector.CHALLENGE_COMPLETE)
 
 
@@ -2362,11 +2526,20 @@ func _record_discovery(
 	if entry.is_empty():
 		return
 	_discoveries[target_id] = true
+	target_discovered.emit(target_id)
+	var clue_id := ProgressionCatalog.story_clue_for_discovery(target_id)
+	if not clue_id.is_empty():
+		_record_story_clue(clue_id)
+	if _all_ids_known(
+		ProgressionCatalog.generated_archetype_discovery_ids(),
+		_discoveries
+	):
+		_record_story_clue("district_glyph")
+	_evaluate_profile_achievements()
 	_sync_progression_portals()
 	AudioDirector.play_effect(FrogAudioDirector.DISCOVERY)
 	_rebuild_guide()
 	_update_hud()
-	target_discovered.emit(target_id)
 	if _tutorial != null and _tutorial.active:
 		return
 	var display_name := str(entry.get("name", fallback_name))
@@ -2387,6 +2560,202 @@ func _record_discovery(
 	_discovery_banner.visible = true
 	_discovery_banner.modulate = Color.WHITE
 	_discovery_banner_time = DISCOVERY_BANNER_DURATION
+
+
+func _evaluate_persisted_progression() -> void:
+	for discovery_id in _discoveries:
+		var clue_id := ProgressionCatalog.story_clue_for_discovery(
+			str(discovery_id)
+		)
+		if not clue_id.is_empty():
+			_record_story_clue(clue_id)
+	for power_id in _power_discoveries:
+		var clue_id := ProgressionCatalog.story_clue_for_power(
+			str(power_id)
+		)
+		if not clue_id.is_empty():
+			_record_story_clue(clue_id)
+	if _any_id_known(
+		ProgressionCatalog.whole_building_discovery_ids(),
+		_discoveries
+	):
+		_unlock_profile_achievement("building_banquet")
+	for achievement_id in _achievement_model.unlocked_ids(
+		ProgressionCatalog.SCOPE_PROFILE
+	):
+		var clue_id := (
+			ProgressionCatalog.story_clue_for_profile_achievement(
+				achievement_id
+			)
+		)
+		if not clue_id.is_empty():
+			_record_story_clue(clue_id)
+	if _all_ids_known(
+		ProgressionCatalog.generated_archetype_discovery_ids(),
+		_discoveries
+	):
+		_record_story_clue("district_glyph")
+	_evaluate_profile_achievements()
+	_evaluate_device_achievements()
+
+
+func _evaluate_profile_achievements() -> void:
+	if _has_first_growth_evidence():
+		_unlock_profile_achievement("growth_spurt")
+	if _known_discovery_count() >= 12:
+		_unlock_profile_achievement("city_gourmet")
+	if _power_discoveries.size() == ProgressionCatalog.power_ids().size():
+		_unlock_profile_achievement("power_sampler")
+	if _story_clues.size() >= ProgressionCatalog.SECRET_CLUE_REQUIREMENT:
+		_unlock_profile_achievement("clue_collector")
+		_unlock_secret_path()
+	_evaluate_event_explorer()
+
+
+func _evaluate_device_achievements() -> void:
+	if _score >= ProgressionCatalog.DEVICE_SCORE_MILESTONE_THRESHOLD:
+		_unlock_device_achievement("device_score_2500")
+
+
+func _unlock_profile_achievement(achievement_id: String) -> bool:
+	if not _achievement_model.unlock_profile(achievement_id):
+		return false
+	var clue_id := (
+		ProgressionCatalog.story_clue_for_profile_achievement(
+			achievement_id
+		)
+	)
+	var clue_was_added := false
+	if not clue_id.is_empty():
+		clue_was_added = _accept_story_clue(clue_id)
+	profile_achievement_unlocked.emit(achievement_id, clue_id)
+	if clue_was_added:
+		story_clue_found.emit(clue_id)
+		_apply_story_clue_thresholds()
+	if ProgressionCatalog.event_profile_achievement_ids().has(
+		achievement_id
+	):
+		_evaluate_event_explorer()
+	return true
+
+
+func _unlock_device_achievement(achievement_id: String) -> bool:
+	if not _achievement_model.unlock_device(achievement_id):
+		return false
+	device_achievement_unlocked.emit(achievement_id)
+	return true
+
+
+func _record_story_clue(clue_id: String) -> bool:
+	var normalized_id := clue_id.strip_edges()
+	if not _accept_story_clue(normalized_id):
+		return false
+	story_clue_found.emit(normalized_id)
+	_apply_story_clue_thresholds()
+	return true
+
+
+func _accept_story_clue(clue_id: String) -> bool:
+	if (
+		clue_id.is_empty()
+		or _story_clues.has(clue_id)
+		or ProgressionCatalog.story_clue_entry(clue_id).is_empty()
+	):
+		return false
+	_story_clues[clue_id] = true
+	return true
+
+
+func _apply_story_clue_thresholds() -> void:
+	if _story_clues.size() >= ProgressionCatalog.SECRET_CLUE_REQUIREMENT:
+		_unlock_profile_achievement("clue_collector")
+		_unlock_secret_path()
+
+
+func _unlock_secret_path() -> bool:
+	var secret_id := ProgressionCatalog.SECRET_FANTASY_DISTRICT
+	if _secret_unlocks.has(secret_id):
+		return false
+	_secret_unlocks[secret_id] = true
+	secret_unlocked.emit(secret_id)
+	return true
+
+
+func _evaluate_event_explorer() -> void:
+	for achievement_id in ProgressionCatalog.event_profile_achievement_ids():
+		if not _achievement_model.is_unlocked(
+			ProgressionCatalog.SCOPE_PROFILE,
+			achievement_id
+		):
+			return
+	_unlock_profile_achievement("event_explorer")
+
+
+func _record_event_goals_for_swallow() -> void:
+	if festival_intensity_for_clock(_day_clock) > 0.0:
+		_unlock_profile_achievement("event_moonlight_bazaar")
+	if kite_festival_intensity_for_clock(_day_clock) > 0.0:
+		_unlock_profile_achievement("event_kite_festival")
+	if (
+		city_detour_active_for_clock(_day_clock)
+		and is_instance_valid(_city_detour)
+	):
+		_unlock_profile_achievement("event_water_main")
+	if wind_squall_intensity_for_clock(_day_clock) > 0.0:
+		_unlock_profile_achievement("event_wind_squall")
+
+
+func _record_secret_district_entered() -> void:
+	_unlock_profile_achievement("secret_finder")
+	_unlock_device_achievement("device_secret_found")
+
+
+func _record_enormous_growth() -> void:
+	_unlock_profile_achievement("enormous_appetite")
+	_unlock_device_achievement("device_enormous_growth")
+
+
+func _all_ids_known(ids: PackedStringArray, known_ids: Dictionary) -> bool:
+	for item_id in ids:
+		if not known_ids.has(item_id):
+			return false
+	return true
+
+
+func _any_id_known(ids: PackedStringArray, known_ids: Dictionary) -> bool:
+	for item_id in ids:
+		if known_ids.has(item_id):
+			return true
+	return false
+
+
+func _has_first_growth_evidence() -> bool:
+	return (
+		not _power_discoveries.is_empty()
+		or _any_id_known(
+			ProgressionCatalog.first_growth_evidence_discovery_ids(),
+			_discoveries
+		)
+		or _any_profile_achievement_unlocked(
+			ProgressionCatalog.first_growth_evidence_achievement_ids()
+		)
+		or _any_id_known(
+			ProgressionCatalog.first_growth_evidence_clue_ids(),
+			_story_clues
+		)
+	)
+
+
+func _any_profile_achievement_unlocked(
+	achievement_ids: PackedStringArray
+) -> bool:
+	for achievement_id in achievement_ids:
+		if _achievement_model.is_unlocked(
+			ProgressionCatalog.SCOPE_PROFILE,
+			achievement_id
+		):
+			return true
+	return false
 
 
 func _rebuild_belly_list() -> void:
@@ -2471,6 +2840,7 @@ func _digest_item(index: int) -> void:
 	item_digested.emit(item.target_id)
 	_apply_growth_thresholds()
 	score_changed.emit(_score)
+	_evaluate_device_achievements()
 	_show_status("Digested %s for %d points!" % [item.display_name, points])
 	_update_hud()
 	_show_digest_reward(points, growth_gain)
@@ -2499,6 +2869,7 @@ func _digest_all() -> void:
 		_apply_digest_effects(item)
 	_apply_growth_thresholds()
 	score_changed.emit(_score)
+	_evaluate_device_achievements()
 	_show_status("Everything was digested. The frog feels bigger!")
 	_update_hud()
 	if total_points > 0:
@@ -2678,6 +3049,10 @@ func _apply_growth_tier(tier: int) -> void:
 	_effects.emit_growth(_frog.global_position)
 	AudioDirector.play_effect(FrogAudioDirector.GROWTH)
 	_show_status("Growth tier %d! The frog and tongue are larger." % (_growth_tier + 1))
+	if _growth_tier >= 1:
+		_unlock_profile_achievement("growth_spurt")
+	if _growth_tier >= 3:
+		_record_enormous_growth()
 	growth_tier_applied.emit(_growth_tier)
 
 
@@ -4226,6 +4601,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	_record_discovery(item.target_id, item.display_name)
 	_challenges.record_swallow(item.target_id, item.accuracy)
 	_update_challenge_hud()
+	_record_event_goals_for_swallow()
 	_belly.append(item)
 	pursuer.active = false
 	pursuer.queue_free()
@@ -4409,6 +4785,10 @@ func _activate_power(power_id: String, duration: float = -1.0) -> void:
 	if not _power_discoveries.has(power_id):
 		_power_discoveries[power_id] = true
 		power_discovered.emit(power_id)
+		_evaluate_profile_achievements()
+	var clue_id := ProgressionCatalog.story_clue_for_power(power_id)
+	if not clue_id.is_empty():
+		_record_story_clue(clue_id)
 	if power_id == TemporaryPowerState.FLIGHT:
 		_start_flight()
 	_apply_power_effects()

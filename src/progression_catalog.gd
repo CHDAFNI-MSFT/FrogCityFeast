@@ -6,6 +6,95 @@ const SCOPE_PROFILE := "profile"
 const SCOPE_DEVICE := "device"
 
 const SECRET_FANTASY_DISTRICT := "secret_fantasy_district"
+const DEVICE_SCORE_MILESTONE_THRESHOLD := 2500
+
+const EVENT_PROFILE_ACHIEVEMENT_IDS := [
+	"event_moonlight_bazaar",
+	"event_kite_festival",
+	"event_water_main",
+	"event_wind_squall",
+]
+
+const GENERATED_ARCHETYPE_DISCOVERY_IDS := [
+	"generated_downtown_lunch",
+	"generated_residential_gnome",
+	"generated_industrial_toolbox",
+	"generated_waterfront_crate",
+	"generated_shopping_bag",
+	"generated_park_picnic",
+]
+
+const WHOLE_BUILDING_DISCOVERY_IDS := [
+	"leap_cafe_building",
+	"canal_apartments_building",
+	"moonlight_market_building",
+	"oddities_shop_building",
+	"generated_building",
+]
+
+const FIRST_GROWTH_EVIDENCE_DISCOVERY_IDS := [
+	"moonlight_market_door",
+	"moonlight_market_counter",
+	"oddities_shop_counter",
+	"oddities_shop_sign",
+	"leap_cafe_espresso_counter",
+	"leap_cafe_awning",
+	"canal_apartments_lobby_bench",
+	"canal_apartments_entry_canopy",
+	"generated_building_awning",
+	"generated_building_fixture",
+	"generated_building",
+	"shop_phone",
+	"park_chair",
+	"golden_cake",
+	"delivery_van",
+	"market_vendor",
+	"market_rooftop_beehive",
+	"oddities_cellar_music_box",
+	"canal_tenant_cat",
+	"canal_upper_hall_vacuum",
+	"canal_fire_escape_laundry",
+	"river_subway_signal",
+	"river_pond_lily_planter",
+	"construction_crane_toolbox",
+	"river_hidden_pump_handle",
+	"animal_control",
+	"security_guard",
+	"watchdog",
+]
+
+const FIRST_GROWTH_EVIDENCE_ACHIEVEMENT_IDS := [
+	"building_banquet",
+	"power_sampler",
+	"enormous_appetite",
+]
+
+const FIRST_GROWTH_EVIDENCE_CLUE_IDS := [
+	"golden_crumb",
+	"sewer_stamp",
+	"oddities_label",
+	"crane_map",
+	"giant_shadow",
+]
+
+const STORY_CLUE_BY_DISCOVERY_ID := {
+	"river_hidden_pump_handle": "sewer_stamp",
+	"oddities_cellar_music_box": "oddities_label",
+	"construction_crane_toolbox": "crane_map",
+}
+
+const STORY_CLUE_BY_POWER_ID := {
+	"flight": "golden_crumb",
+	"long_tongue": "oddities_label",
+	"camouflage": "sewer_stamp",
+}
+
+const STORY_CLUE_BY_PROFILE_ACHIEVEMENT_ID := {
+	"building_banquet": "giant_shadow",
+	"event_moonlight_bazaar": "moonlit_receipt",
+	"event_kite_festival": "kite_thread",
+	"event_water_main": "repair_blueprint",
+}
 
 const SESSION_GOALS := [
 	{
@@ -229,6 +318,10 @@ static func power_entries() -> Array[Dictionary]:
 	return _duplicate_entries(POWERS)
 
 
+static func session_goal_ids() -> PackedStringArray:
+	return _entry_ids(SESSION_GOALS)
+
+
 static func profile_achievement_ids() -> PackedStringArray:
 	return _entry_ids(PROFILE_ACHIEVEMENTS)
 
@@ -247,6 +340,10 @@ static func power_ids() -> PackedStringArray:
 
 static func secret_unlock_ids() -> PackedStringArray:
 	return _entry_ids(SECRET_UNLOCKS)
+
+
+static func session_goal_entry(goal_id: String) -> Dictionary:
+	return _entry_for(SESSION_GOALS, goal_id)
 
 
 static func profile_achievement_entry(achievement_id: String) -> Dictionary:
@@ -270,6 +367,64 @@ static func power_for_target(target_id: String) -> Dictionary:
 		if str(entry["target_id"]) == target_id:
 			return (entry as Dictionary).duplicate(true)
 	return {}
+
+
+static func event_profile_achievement_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for achievement_id in EVENT_PROFILE_ACHIEVEMENT_IDS:
+		result.append(str(achievement_id))
+	return result
+
+
+static func generated_archetype_discovery_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for discovery_id in GENERATED_ARCHETYPE_DISCOVERY_IDS:
+		result.append(str(discovery_id))
+	return result
+
+
+static func whole_building_discovery_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for discovery_id in WHOLE_BUILDING_DISCOVERY_IDS:
+		result.append(str(discovery_id))
+	return result
+
+
+static func first_growth_evidence_discovery_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for discovery_id in FIRST_GROWTH_EVIDENCE_DISCOVERY_IDS:
+		result.append(str(discovery_id))
+	return result
+
+
+static func first_growth_evidence_achievement_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for achievement_id in FIRST_GROWTH_EVIDENCE_ACHIEVEMENT_IDS:
+		result.append(str(achievement_id))
+	return result
+
+
+static func first_growth_evidence_clue_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for clue_id in FIRST_GROWTH_EVIDENCE_CLUE_IDS:
+		result.append(str(clue_id))
+	return result
+
+
+static func story_clue_for_discovery(discovery_id: String) -> String:
+	return str(STORY_CLUE_BY_DISCOVERY_ID.get(discovery_id, ""))
+
+
+static func story_clue_for_power(power_id: String) -> String:
+	return str(STORY_CLUE_BY_POWER_ID.get(power_id, ""))
+
+
+static func story_clue_for_profile_achievement(
+	achievement_id: String
+) -> String:
+	return str(
+		STORY_CLUE_BY_PROFILE_ACHIEVEMENT_ID.get(achievement_id, "")
+	)
 
 
 static func _duplicate_entries(source: Array) -> Array[Dictionary]:
