@@ -359,6 +359,7 @@ func _run() -> void:
 	await _test_city_activity(game_scene)
 	await _test_crowd_pursuit_escape(game_scene)
 	await _test_pursuer_tongue_deflection(game_scene)
+	await _test_security_guard_pursuer(game_scene)
 	await _test_pursuer_roadblock(game_scene)
 	await _test_pursuer_snare(game_scene)
 	await _test_pursuer_net_escape(game_scene)
@@ -1145,7 +1146,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	_check(
 		game._targets.size() == 36
 			and DiscoveryCatalog.count()
-			== 37 + DistrictGenerator.discovery_ids().size(),
+			== 38 + DistrictGenerator.discovery_ids().size(),
 		"Ambient city life adds no targets; procedural discoveries stay finitely cataloged."
 	)
 	var expected_daylight := (
@@ -1712,7 +1713,7 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		pursuer._net_phase == PrototypePursuer.NetPhase.FLYING
 		and pursuer.active_net_projectile_count() == 1
 		and int(net_snapshot["net_projectiles"]) == 1
-		and int(net_snapshot["game_nodes"]) == 369
+		and int(net_snapshot["game_nodes"]) == 370
 		and int(net_snapshot["collision_objects"]) == 42,
 		"The flying net is a bounded draw-only state with no added scene or physics nodes."
 	)
@@ -1949,6 +1950,212 @@ func _test_pursuer_tongue_deflection(game_scene: PackedScene) -> void:
 		and is_instance_valid(game._pursuer)
 		and not pursuer.deflect_feedback_active(),
 		"Maximum growth shoots through Animal Control's block to swallow the intended target."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
+func _test_security_guard_pursuer(game_scene: PackedScene) -> void:
+	var game := game_scene.instantiate() as FrogGame
+	game.set_motion_scale(1.0)
+	game.configure("security_test", "Security Tester", false)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	game.set_process(false)
+	game._frog.set_physics_process(false)
+	game._frog.global_position = Vector2(0, 320)
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_SECURITY_GUARD)
+	var guard := game._pursuer
+	_check(
+		is_instance_valid(guard)
+			and guard.archetype_id
+			== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+			and is_equal_approx(
+				guard.speed,
+				PrototypePursuer.SECURITY_SPEED
+			)
+			and is_equal_approx(
+				guard.navigation_radius(),
+				PrototypePursuer.SECURITY_NAVIGATION_RADIUS
+			)
+			and not guard.deploys_roadblock()
+			and not guard.deploys_pursuit_trap()
+			and game._roadblock_deployed
+			and game._pursuit_trap_deployed,
+		"Security Guard uses its slower search profile without stacking Animal Control obstacles."
+	)
+	if not is_instance_valid(guard):
+		game.queue_free()
+		await process_frame
+		return
+	guard.set_physics_process(false)
+	guard.global_position = Vector2(100, 320)
+	await physics_frame
+
+	var park_chair := _find_target(game, "park_chair")
+	var donut := _find_target(game, "street_donut")
+	park_chair.global_position = Vector2(220, 320)
+	donut.global_position = Vector2(520, 320)
+	guard._update_detection()
+	_check(
+		guard.frog_detected()
+			and guard.protects_target(park_chair)
+			and not guard.protects_target(donut)
+			and game._pursuer_archetype_for_escape(park_chair)
+			== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+			and game._pursuer_archetype_for_escape(donut)
+			== PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL,
+		"Security uses line-of-sight detection and protects valuables rather than every target."
+	)
+
+	var score_before := game._score
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* park_chair.global_position
+	)
+	_check(
+		is_instance_valid(_find_target(game, "park_chair"))
+			and game._belly.is_empty()
+			and game._score == score_before
+			and guard.deflect_feedback_active()
+			and game._status_label.text.contains("Security Guard"),
+		"Security Guard intercepts a tongue only for a nearby protected valuable."
+	)
+
+	game._tongue_recovery = 0.0
+	guard._deflect_feedback_left = 0.0
+	park_chair.global_position = Vector2(520, 320)
+	donut.global_position = Vector2(220, 320)
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* donut.global_position
+	)
+	_check(
+		not is_instance_valid(_find_target(game, "street_donut"))
+			and game._belly.size() == 1
+			and game._belly[0].target_id == "street_donut"
+			and not guard.deflect_feedback_active(),
+		"Security Guard does not provide Animal Control's universal tongue shield."
+	)
+
+	var blocker := StaticBody2D.new()
+	blocker.position = Vector2(50, 320)
+	blocker.collision_layer = 1
+	var blocker_collision := CollisionShape2D.new()
+	var blocker_shape := CircleShape2D.new()
+	blocker_shape.radius = 34.0
+	blocker_collision.shape = blocker_shape
+	blocker.add_child(blocker_collision)
+	game._world.add_child(blocker)
+	await physics_frame
+	guard._update_detection()
+	_check(
+		not guard.frog_detected(),
+		"Solid city geometry breaks the Security Guard's line-of-sight detection."
+	)
+	blocker.queue_free()
+	await physics_frame
+
+	game._frog.global_position = Vector2(300, 320)
+	guard.global_position = Vector2(0, 320)
+	guard._update_detection()
+	guard._flashlight_cooldown = 0.0
+	var attack_nodes_before := int(
+		game.performance_structure_snapshot()["game_nodes"]
+	)
+	guard._begin_flashlight_attack()
+	game._frog.global_position += Vector2(0, 150)
+	guard._advance_flashlight_attack(
+		PrototypePursuer.SECURITY_FLASHLIGHT_WINDUP_DURATION
+	)
+	_check(
+		not guard.flashlight_attack_active()
+			and game._score == score_before
+			and int(
+				game.performance_structure_snapshot()["game_nodes"]
+			) == attack_nodes_before,
+		"The telegraphed flashlight strike is draw-only and can be dodged."
+	)
+
+	game._frog.global_position = Vector2(300, 320)
+	guard._update_detection()
+	guard._flashlight_cooldown = 0.0
+	game._score = 30
+	game._damage_cooldown = 0.0
+	guard._begin_flashlight_attack()
+	guard._advance_flashlight_attack(
+		PrototypePursuer.SECURITY_FLASHLIGHT_WINDUP_DURATION
+	)
+	_check(
+		game._score == 18
+			and game._frog.knockback_active()
+			and game._status_label.text.contains("flashlight")
+			and not game._net_escape_active,
+		"Security Guard's flashlight applies one capped knockback hit without a net escape loop."
+	)
+
+	game.set_motion_scale(0.0)
+	game._frog._knockback_time = 0.0
+	game._frog.movement_enabled = true
+	game._damage_cooldown = 0.0
+	guard._flashlight_cooldown = 0.0
+	guard._begin_flashlight_attack()
+	var reduced_motion_time := guard._flashlight_windup_left
+	guard._advance_flashlight_attack(reduced_motion_time * 0.5)
+	_check(
+		guard.flashlight_attack_active()
+			and is_zero_approx(guard._presentation_motion_scale)
+			and is_equal_approx(
+				guard._flashlight_windup_left,
+				reduced_motion_time * 0.5
+			),
+		"Reduce motion freezes flashlight decoration without changing attack timing."
+	)
+	guard._flashlight_windup_left = 0.0
+	guard._flashlight_target_position = Vector2.ZERO
+
+	game.set_motion_scale(1.0)
+	game._growth_tier = 2
+	game._frog.set_growth_tier(2)
+	game._frog.global_position = Vector2(0, 320)
+	guard.global_position = Vector2(90, 320)
+	game._tongue_recovery = 0.0
+	await physics_frame
+	game._try_tongue_at_screen(
+		game.get_viewport().get_canvas_transform()
+		* guard.global_position
+	)
+	_check(
+		not is_instance_valid(game._pursuer)
+			and game._belly.size() == 2
+			and game._belly[1].target_id
+			== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+			and game._discoveries.has(
+				PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+			),
+		"Maximum growth can swallow Security Guard into the Belly and Field Guide."
+	)
+
+	game._growth_tier = 0
+	game._frog.set_growth_tier(0)
+	game._frog.global_position = Vector2(0, 320)
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_SECURITY_GUARD)
+	guard = game._pursuer
+	if is_instance_valid(guard):
+		guard.set_physics_process(false)
+		game._frog.set_flying(true)
+		guard._physics_process(
+			PrototypePursuer.SECURITY_LOST_ESCAPE_TIME
+		)
+		await process_frame
+	_check(
+		not is_instance_valid(game._pursuer)
+			and not is_instance_valid(game._roadblock)
+			and not is_instance_valid(game._pursuit_trap),
+		"Flight breaks Security Guard detection and bounded cleanup ends the pursuit."
 	)
 
 	game.queue_free()
@@ -2359,6 +2566,7 @@ func _test_discovery_collection(game_scene: PackedScene) -> void:
 	for target in game._targets:
 		startup_ids[target.target_id] = true
 	startup_ids["animal_control"] = true
+	startup_ids["security_guard"] = true
 	for target_id in DistrictGenerator.discovery_ids():
 		startup_ids[target_id] = true
 	var catalog_ids := {}

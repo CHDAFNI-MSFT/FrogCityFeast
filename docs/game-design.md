@@ -82,19 +82,19 @@ rooms, 1 pursuer, 1 temporary physical roadblock, 1 draw-only pursuit snare, 20
 draw-only city actors, 84 draw-only rain streaks, 10 draw-only festival
 lanterns, 1 draw-only Animal Control net projectile, 24 capped world effects,
 3 touch cues, and 6 fixed audio players including 4 reusable effect voices.
-Baseline and separate-room states permit up to 367 game-subtree nodes, 41
+Baseline and separate-room states permit up to 368 game-subtree nodes, 41
 collision objects, and 111 collision shapes; ordinary pursuit and net attack
-permit 369 nodes, 42 collision objects, and 112 collision shapes; a snare
-pursuit permits 370 nodes with the same physics structure; a roadblock pursuit
-permits 371 nodes, 43 collision objects, and 113 collision shapes; the
-reachable roadblock-and-snare gameplay peak permits 372 nodes with the same 43
+permit 370 nodes, 42 collision objects, and 112 collision shapes; a snare
+pursuit permits 371 nodes with the same physics structure; a roadblock pursuit
+permits 372 nodes, 43 collision objects, and 113 collision shapes; the
+reachable roadblock-and-snare gameplay peak permits 373 nodes with the same 43
 collision objects and 113 shapes. The performance Belly scenario renders 64
-item rows within 623 nodes without changing the belly's unlimited gameplay
-semantics. The populated Field Guide contains exactly 47 rows.
+item rows within 624 nodes without changing the belly's unlimited gameplay
+semantics. The populated Field Guide contains exactly 48 rows.
 
 The generated-city stress state holds a maximum 3x3 ring of 9 generated
 districts, with 9 generated buildings and 72 generated targets. Its measured
-structural ceiling is 577 game-subtree nodes, 100 collision objects, and 172
+structural ceiling is 578 game-subtree nodes, 100 collision objects, and 172
 collision shapes, including the always-resident authored core. Untouched
 district definitions are regenerated instead of retained after unloading;
 only compact state for changed districts remains in session memory.
@@ -471,6 +471,22 @@ direct hit can swallow Animal Control through the existing discovery path.
 Reduce motion keeps the static flash while suppressing its expansion. The
 deflection adds no scene nodes, collision, saves, or gameplay random-number
 use.
+
+Security Guard is the second bounded pursuer archetype. Secured objects,
+vehicles, building parts, and whole-building struggles can call one guard
+instead of Animal Control. The guard is slower and searches the last visible
+frog position using the same deterministic generated-district navigation, but
+solid city geometry breaks its 760-unit line of sight and three uninterrupted
+seconds without detection ends the chase. It protects only nearby valuables,
+not food or living targets, and uses a 0.65-second draw-only flashlight warning
+instead of a net. Remaining in the locked beam applies one 12-point capped
+knockback; stepping out of the beam, moving behind a wall, flying, or reaching
+maximum growth prevents the strike. Crowd cover loses the sight-based guard in
+1.1 seconds. The guard deploys neither Animal Control roadblocks nor snares, so
+the one-pursuer cap cannot create stacked damage or obstruction loops. At
+maximum growth it can be swallowed into the Belly and discovered in the Field
+Guide like Animal Control. Reduce motion freezes beam decoration while
+preserving its warning and hit timing.
 
 The River Park meetup implements the first crowd-based pursuit escape. While
 the daytime meetup is active, pursuit changes its marked area to `HIDE HERE`

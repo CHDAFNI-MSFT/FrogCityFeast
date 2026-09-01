@@ -4,6 +4,10 @@ extends CharacterBody2D
 signal caught(source_position: Vector2)
 signal escaped
 signal netted(source_position: Vector2)
+signal attack_hit(source_position: Vector2, penalty: int, message: String)
+
+const ARCHETYPE_ANIMAL_CONTROL := "animal_control"
+const ARCHETYPE_SECURITY_GUARD := "security_guard"
 
 enum NetPhase {
 	IDLE,
@@ -26,9 +30,32 @@ const NAVIGATION_TARGET_MOVEMENT := 72.0
 const NAVIGATION_WAYPOINT_TOLERANCE := 1.0
 const NAVIGATION_STUCK_REPATH_TIME := 0.75
 const NAVIGATION_STUCK_ESCAPE_TIME := 6.0
+const SECURITY_DETECTION_RANGE := 760.0
+const SECURITY_LOST_ESCAPE_TIME := 3.2
+const SECURITY_MAX_CHASE_TIME := 26.0
+const SECURITY_SPEED := 205.0
+const SECURITY_NAVIGATION_RADIUS := 30.0
+const SECURITY_NAVIGATION_REPATH_INTERVAL := 0.45
+const SECURITY_FLASHLIGHT_INITIAL_COOLDOWN := 1.4
+const SECURITY_FLASHLIGHT_RETRY_COOLDOWN := 4.5
+const SECURITY_FLASHLIGHT_WINDUP_DURATION := 0.65
+const SECURITY_FLASHLIGHT_MIN_DISTANCE := 140.0
+const SECURITY_FLASHLIGHT_MAX_DISTANCE := 430.0
+const SECURITY_FLASHLIGHT_RADIUS := 24.0
+const SECURITY_PROTECTION_RADIUS := 260.0
+const SECURITY_CROWD_ESCAPE_DURATION := 1.1
+const SECURITY_CONTACT_PENALTY := 18
+const SECURITY_FLASHLIGHT_PENALTY := 12
+const SECURITY_PROTECTED_KINDS := [
+	"object",
+	"vehicle",
+	"building_part",
+	"building",
+]
 
 var frog: PlayerFrog
 var navigation: DeterministicNavigation2D
+var archetype_id := ARCHETYPE_ANIMAL_CONTROL
 var active := true
 var speed := 250.0
 var _catch_cooldown := 0.0
@@ -56,6 +83,11 @@ var _navigation_target_position := Vector2.INF
 var _navigation_repath_count := 0
 var _navigation_failure_count := 0
 var _navigation_reaches_frog := false
+var _frog_detected := true
+var _last_detected_frog_position := Vector2.INF
+var _flashlight_cooldown := SECURITY_FLASHLIGHT_INITIAL_COOLDOWN
+var _flashlight_windup_left := 0.0
+var _flashlight_target_position := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -64,12 +96,125 @@ func _ready() -> void:
 	collision_mask = 1
 	var collision := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
-	shape.radius = 28.0
+	shape.radius = collision_radius()
 	collision.shape = shape
 	add_child(collision)
 	_net_collision_shape.radius = NET_RADIUS
 	_last_position = global_position
+	if is_instance_valid(frog):
+		_last_detected_frog_position = frog.global_position
 	queue_redraw()
+
+
+func configure_archetype(value: String) -> void:
+	match value:
+		ARCHETYPE_ANIMAL_CONTROL:
+			archetype_id = value
+			speed = 250.0
+		ARCHETYPE_SECURITY_GUARD:
+			archetype_id = value
+			speed = SECURITY_SPEED
+		_:
+			push_error("Unknown pursuer archetype: %s." % value)
+			archetype_id = ARCHETYPE_ANIMAL_CONTROL
+			speed = 250.0
+
+
+static func display_name_for(value: String) -> String:
+	match value:
+		ARCHETYPE_SECURITY_GUARD:
+			return "Security Guard"
+		_:
+			return "Animal Control"
+
+
+func display_name() -> String:
+	return display_name_for(archetype_id)
+
+
+func discovery_id() -> String:
+	return archetype_id
+
+
+func belly_data() -> Dictionary:
+	if archetype_id == ARCHETYPE_SECURITY_GUARD:
+		return {
+			"id": ARCHETYPE_SECURITY_GUARD,
+			"name": "Security Guard",
+			"value": 88,
+			"taps": 9,
+			"color": Color("c69a63"),
+		}
+	return {
+		"id": ARCHETYPE_ANIMAL_CONTROL,
+		"name": "Animal Control Officer",
+		"value": 95,
+		"taps": 10,
+		"color": Color("da7462"),
+	}
+
+
+func collision_radius() -> float:
+	return 30.0 if archetype_id == ARCHETYPE_SECURITY_GUARD else 28.0
+
+
+func navigation_radius() -> float:
+	return (
+		SECURITY_NAVIGATION_RADIUS
+		if archetype_id == ARCHETYPE_SECURITY_GUARD
+		else NAVIGATION_RADIUS
+	)
+
+
+func crowd_escape_duration() -> float:
+	return (
+		SECURITY_CROWD_ESCAPE_DURATION
+		if archetype_id == ARCHETYPE_SECURITY_GUARD
+		else 1.75
+	)
+
+
+func contact_penalty() -> int:
+	return (
+		SECURITY_CONTACT_PENALTY
+		if archetype_id == ARCHETYPE_SECURITY_GUARD
+		else 25
+	)
+
+
+func deploys_roadblock() -> bool:
+	return archetype_id == ARCHETYPE_ANIMAL_CONTROL
+
+
+func deploys_pursuit_trap() -> bool:
+	return archetype_id == ARCHETYPE_ANIMAL_CONTROL
+
+
+func protects_target(target: EdibleTarget) -> bool:
+	if archetype_id == ARCHETYPE_ANIMAL_CONTROL:
+		return true
+	if archetype_id != ARCHETYPE_SECURITY_GUARD:
+		return false
+	return (
+		is_instance_valid(target)
+		and target.kind in SECURITY_PROTECTED_KINDS
+		and target.global_position.distance_to(global_position)
+			<= SECURITY_PROTECTION_RADIUS
+	)
+
+
+func protection_status() -> String:
+	if archetype_id == ARCHETYPE_ANIMAL_CONTROL:
+		return "Animal Control deflected the tongue!"
+	return "%s blocked the tongue!" % display_name()
+
+
+func frog_detected() -> bool:
+	return _frog_detected
+
+
+func flashlight_attack_active() -> bool:
+	return _flashlight_windup_left > 0.0
 
 
 func _physics_process(delta: float) -> void:
@@ -79,6 +224,7 @@ func _physics_process(delta: float) -> void:
 
 	_catch_cooldown = maxf(0.0, _catch_cooldown - delta)
 	_net_cooldown = maxf(0.0, _net_cooldown - delta)
+	_flashlight_cooldown = maxf(0.0, _flashlight_cooldown - delta)
 	_net_tap_flash = maxf(0.0, _net_tap_flash - delta * 4.0)
 	if _deflect_feedback_left > 0.0:
 		_deflect_feedback_left = maxf(
@@ -92,14 +238,27 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_chase_time += delta
+	_update_detection()
 	var offset := frog.global_position - global_position
-	if offset.length() > 920.0:
-		_far_time += delta
+	if archetype_id == ARCHETYPE_SECURITY_GUARD:
+		if _frog_detected:
+			_far_time = 0.0
+		else:
+			_far_time += delta
+		if (
+			_far_time >= SECURITY_LOST_ESCAPE_TIME
+			or _chase_time >= SECURITY_MAX_CHASE_TIME
+		):
+			_escape()
+			return
 	else:
-		_far_time = maxf(0.0, _far_time - delta * 1.5)
-	if _far_time >= 4.0 or _chase_time >= 32.0:
-		_escape()
-		return
+		if offset.length() > 920.0:
+			_far_time += delta
+		else:
+			_far_time = maxf(0.0, _far_time - delta * 1.5)
+		if _far_time >= 4.0 or _chase_time >= 32.0:
+			_escape()
+			return
 
 	if _net_phase != NetPhase.IDLE:
 		_advance_net_attack(delta)
@@ -107,6 +266,11 @@ func _physics_process(delta: float) -> void:
 			return
 	if _net_phase == NetPhase.WINDUP:
 		velocity = Vector2.ZERO
+		_last_position = global_position
+		queue_redraw()
+		return
+	if flashlight_attack_active():
+		_advance_flashlight_attack(delta)
 		_last_position = global_position
 		queue_redraw()
 		return
@@ -160,9 +324,10 @@ func _physics_process(delta: float) -> void:
 		_escape()
 		return
 
-	var catch_distance := 28.0 + frog.collision_radius() + 6.0
+	var catch_distance := collision_radius() + frog.collision_radius() + 6.0
 	if (
 		frog.growth_tier < 2
+		and not frog.is_flying
 		and _catch_cooldown <= 0.0
 		and global_position.distance_to(frog.global_position) < catch_distance
 	):
@@ -175,6 +340,8 @@ func _physics_process(delta: float) -> void:
 	var distance_to_frog := global_position.distance_to(frog.global_position)
 	if _can_start_net_attack(distance_to_frog):
 		_begin_net_attack()
+	elif _can_start_flashlight_attack(distance_to_frog):
+		_begin_flashlight_attack()
 
 
 func set_presentation_motion_scale(value: float) -> void:
@@ -190,6 +357,13 @@ func invalidate_navigation() -> void:
 	_navigation_target_position = Vector2.INF
 	_navigation_reaches_frog = false
 	velocity = Vector2.ZERO
+
+
+func cancel_active_attack() -> void:
+	cancel_net_attack()
+	_flashlight_windup_left = 0.0
+	_flashlight_target_position = Vector2.ZERO
+	queue_redraw()
 
 
 func active_navigation_point_count() -> int:
@@ -250,6 +424,42 @@ func cancel_net_attack() -> void:
 	queue_redraw()
 
 
+func _update_detection() -> void:
+	if not is_instance_valid(frog):
+		_frog_detected = false
+		return
+	if archetype_id == ARCHETYPE_SECURITY_GUARD:
+		_frog_detected = (
+			not frog.is_flying
+			and global_position.distance_to(frog.global_position)
+				<= SECURITY_DETECTION_RANGE
+			and _line_of_sight_clear(
+				global_position,
+				frog.global_position
+			)
+		)
+	else:
+		_frog_detected = (
+			global_position.distance_to(frog.global_position) <= 920.0
+		)
+	if _frog_detected:
+		_last_detected_frog_position = frog.global_position
+
+
+func _line_of_sight_clear(from: Vector2, to: Vector2) -> bool:
+	if not is_inside_tree() or not is_instance_valid(frog):
+		return false
+	var ray := PhysicsRayQueryParameters2D.create(from, to, 1)
+	ray.exclude = [get_rid(), frog.get_rid()]
+	return get_world_2d().direct_space_state.intersect_ray(ray).is_empty()
+
+
+func _chase_target_position() -> Vector2:
+	if _frog_detected or _last_detected_frog_position == Vector2.INF:
+		return frog.global_position
+	return _last_detected_frog_position
+
+
 func _navigation_needs_refresh() -> bool:
 	if navigation == null or not is_instance_valid(frog):
 		return false
@@ -257,21 +467,26 @@ func _navigation_needs_refresh() -> bool:
 		return true
 	if _navigation_repath_left > 0.0:
 		return false
+	var chase_target := _chase_target_position()
 	return (
 		_navigation_path.is_empty()
-		or _navigation_target_position.distance_to(frog.global_position)
+		or _navigation_target_position.distance_to(chase_target)
 			>= NAVIGATION_TARGET_MOVEMENT
 	)
 
 
 func _refresh_navigation_path() -> void:
-	_navigation_repath_left = NAVIGATION_REPATH_INTERVAL
-	_navigation_target_position = frog.global_position
+	_navigation_repath_left = (
+		SECURITY_NAVIGATION_REPATH_INTERVAL
+		if archetype_id == ARCHETYPE_SECURITY_GUARD
+		else NAVIGATION_REPATH_INTERVAL
+	)
+	_navigation_target_position = _chase_target_position()
 	_navigation_repath_count += 1
 	var route := navigation.find_path(
 		global_position,
 		_navigation_target_position,
-		NAVIGATION_RADIUS
+		navigation_radius()
 	)
 	var points := route["points"] as PackedVector2Array
 	_navigation_revision = int(route["revision"])
@@ -296,8 +511,10 @@ func _current_navigation_waypoint() -> Vector2:
 
 func _can_start_net_attack(distance_to_frog: float) -> bool:
 	return (
-		_net_phase == NetPhase.IDLE
+		archetype_id == ARCHETYPE_ANIMAL_CONTROL
+		and _net_phase == NetPhase.IDLE
 		and _net_cooldown <= 0.0
+		and _frog_detected
 		and frog.growth_tier < 2
 		and frog.movement_enabled
 		and not frog.is_flying
@@ -307,8 +524,25 @@ func _can_start_net_attack(distance_to_frog: float) -> bool:
 	)
 
 
+func _can_start_flashlight_attack(distance_to_frog: float) -> bool:
+	return (
+		archetype_id == ARCHETYPE_SECURITY_GUARD
+		and not flashlight_attack_active()
+		and _flashlight_cooldown <= 0.0
+		and _frog_detected
+		and frog.growth_tier < 2
+		and frog.movement_enabled
+		and not frog.is_flying
+		and distance_to_frog >= SECURITY_FLASHLIGHT_MIN_DISTANCE
+		and distance_to_frog <= SECURITY_FLASHLIGHT_MAX_DISTANCE
+	)
+
+
 func _begin_net_attack() -> void:
-	if not is_instance_valid(frog):
+	if (
+		archetype_id != ARCHETYPE_ANIMAL_CONTROL
+		or not is_instance_valid(frog)
+	):
 		return
 	_net_phase = NetPhase.WINDUP
 	_net_windup_left = NET_WINDUP_DURATION
@@ -317,8 +551,64 @@ func _begin_net_attack() -> void:
 	queue_redraw()
 
 
+func _begin_flashlight_attack() -> void:
+	if (
+		archetype_id != ARCHETYPE_SECURITY_GUARD
+		or not is_instance_valid(frog)
+	):
+		return
+	_flashlight_windup_left = SECURITY_FLASHLIGHT_WINDUP_DURATION
+	_flashlight_target_position = frog.global_position
+	velocity = Vector2.ZERO
+	queue_redraw()
+
+
+func _advance_flashlight_attack(delta: float) -> void:
+	if not flashlight_attack_active() or delta <= 0.0:
+		return
+	if (
+		not is_instance_valid(frog)
+		or frog.growth_tier >= 2
+		or frog.is_flying
+	):
+		_flashlight_windup_left = 0.0
+		_flashlight_target_position = Vector2.ZERO
+		queue_redraw()
+		return
+	_flashlight_windup_left = maxf(
+		0.0,
+		_flashlight_windup_left - delta
+	)
+	if _flashlight_windup_left > 0.0:
+		queue_redraw()
+		return
+	var closest_to_frog := Geometry2D.get_closest_point_to_segment(
+		frog.global_position,
+		global_position,
+		_flashlight_target_position
+	)
+	var hits_frog := (
+		closest_to_frog.distance_to(frog.global_position)
+		<= SECURITY_FLASHLIGHT_RADIUS + frog.collision_radius()
+		and _line_of_sight_clear(global_position, closest_to_frog)
+	)
+	_flashlight_target_position = Vector2.ZERO
+	_flashlight_cooldown = SECURITY_FLASHLIGHT_RETRY_COOLDOWN
+	if hits_frog:
+		_catch_cooldown = maxf(_catch_cooldown, 1.0)
+		attack_hit.emit(
+			global_position,
+			SECURITY_FLASHLIGHT_PENALTY,
+			"A Security Guard's flashlight startled the frog!"
+		)
+	queue_redraw()
+
+
 func _advance_net_attack(delta: float) -> void:
 	if delta <= 0.0 or _net_phase == NetPhase.IDLE:
+		return
+	if archetype_id != ARCHETYPE_ANIMAL_CONTROL:
+		cancel_net_attack()
 		return
 	if (
 		not is_instance_valid(frog)
@@ -420,12 +710,21 @@ func _first_net_obstruction(from: Vector2, to: Vector2) -> Dictionary:
 
 func _escape() -> void:
 	active = false
-	cancel_net_attack()
+	cancel_active_attack()
 	escaped.emit()
 	queue_free()
 
 
 func _draw() -> void:
+	if archetype_id == ARCHETYPE_SECURITY_GUARD:
+		_draw_security_guard()
+	else:
+		_draw_animal_control()
+	_draw_attack()
+	_draw_deflect_feedback()
+
+
+func _draw_animal_control() -> void:
 	draw_circle(Vector2.ZERO, 31.0, Color("da7462"))
 	draw_rect(Rect2(-20, -37, 40, 30), Color("416c9a"))
 	draw_circle(Vector2(-11, -25), 4.0, Color.WHITE)
@@ -443,8 +742,76 @@ func _draw() -> void:
 		15,
 		Color.WHITE
 	)
-	_draw_net_attack()
-	_draw_deflect_feedback()
+
+
+func _draw_security_guard() -> void:
+	draw_circle(Vector2.ZERO, 32.0, Color("c69a63"))
+	draw_rect(Rect2(-21, -38, 42, 31), Color("3f435a"))
+	draw_rect(Rect2(-25, -42, 50, 8), Color("292c3d"))
+	draw_circle(Vector2(-11, -25), 4.0, Color.WHITE)
+	draw_circle(Vector2(11, -25), 4.0, Color.WHITE)
+	draw_circle(Vector2(-11, -25), 2.0, Color("1d2328"))
+	draw_circle(Vector2(11, -25), 2.0, Color("1d2328"))
+	draw_line(Vector2(-18, 30), Vector2(-25, 47), Color("282b39"), 8.0)
+	draw_line(Vector2(18, 30), Vector2(25, 47), Color("282b39"), 8.0)
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(-55, -54),
+		"Security Guard",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		110,
+		15,
+		Color.WHITE
+	)
+
+
+func _draw_attack() -> void:
+	if archetype_id == ARCHETYPE_SECURITY_GUARD:
+		_draw_flashlight_attack()
+	else:
+		_draw_net_attack()
+
+
+func _draw_flashlight_attack() -> void:
+	if not flashlight_attack_active():
+		return
+	var target := to_local(_flashlight_target_position)
+	var progress := (
+		1.0
+		- _flashlight_windup_left
+			/ SECURITY_FLASHLIGHT_WINDUP_DURATION
+	)
+	var pulse := (
+		sin(progress * TAU * 2.0)
+		* 5.0
+		* _presentation_motion_scale
+	)
+	var direction := target.normalized()
+	var perpendicular := direction.orthogonal()
+	var beam_half_width := SECURITY_FLASHLIGHT_RADIUS + 6.0 + pulse
+	var beam_color := Color(1.0, 0.92, 0.52, 0.18)
+	var beam_points := PackedVector2Array([
+		perpendicular * 8.0,
+		target + perpendicular * beam_half_width,
+		target - perpendicular * beam_half_width,
+		-perpendicular * 8.0,
+	])
+	draw_colored_polygon(beam_points, beam_color)
+	draw_line(
+		Vector2.ZERO,
+		target,
+		Color(1.0, 0.94, 0.68, 0.72),
+		3.0
+	)
+	draw_arc(
+		target,
+		SECURITY_FLASHLIGHT_RADIUS + 10.0 + pulse,
+		0.0,
+		TAU,
+		24,
+		Color(1.0, 0.9, 0.42, 0.9),
+		4.0
+	)
 
 
 func _draw_deflect_feedback() -> void:

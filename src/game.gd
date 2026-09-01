@@ -1848,7 +1848,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 			pursuer_hit.pulse_deflect()
 			_show_tongue(world_position)
 			_tongue_recovery = TONGUE_RECOVERY
-			_show_status("Animal Control deflected the tongue!")
+			_show_status(pursuer_hit.protection_status())
 		else:
 			_show_tongue(world_position)
 			_swallow_pursuer(pursuer_hit, pursuer_hit.hit_accuracy(world_position))
@@ -1960,22 +1960,41 @@ func _fail_struggle() -> void:
 	):
 		escaped_target.flee_from(_frog.global_position)
 	_tongue_recovery = TONGUE_RECOVERY * 1.5
+	var pursuer_archetype := _pursuer_archetype_for_escape(escaped_target)
+	var response_name := PrototypePursuer.display_name_for(
+		pursuer_archetype
+	)
 	if building_repelled:
 		_show_status(
-			"%s shook the frog off and called Animal Control!"
-			% escaped_target.display_name
+			"%s shook the frog off and called %s!"
+			% [escaped_target.display_name, response_name]
 		)
 	elif interior_building != null:
 		_show_status(
-			"%s hid inside %s and called Animal Control!"
-			% [escaped_target.display_name, interior_building.display_name]
+			"%s hid inside %s and called %s!"
+			% [
+				escaped_target.display_name,
+				interior_building.display_name,
+				response_name,
+			]
 		)
 	else:
 		_show_status(
-			"%s escaped and called Animal Control!"
-			% escaped_target.display_name
+			"%s escaped and called %s!"
+			% [escaped_target.display_name, response_name]
 		)
-	_spawn_pursuer()
+	_spawn_pursuer(pursuer_archetype)
+
+
+func _pursuer_archetype_for_escape(target: EdibleTarget) -> String:
+	if is_instance_valid(target) and target.kind in [
+		"object",
+		"vehicle",
+		"building_part",
+		"building",
+	]:
+		return PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+	return PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL
 
 
 func _clear_struggle() -> void:
@@ -2681,6 +2700,16 @@ func performance_structure_snapshot() -> Dictionary:
 		"active_interior": _active_interior_id,
 		"oddities_shop_scheduled_open": _oddities_shop_scheduled_open,
 		"pursuers": 1 if is_instance_valid(_pursuer) else 0,
+		"pursuer_archetype": (
+			_pursuer.archetype_id
+			if is_instance_valid(_pursuer)
+			else ""
+		),
+		"pursuer_detects_frog": (
+			_pursuer.frog_detected()
+			if is_instance_valid(_pursuer)
+			else false
+		),
 		"roadblocks": 1 if is_instance_valid(_roadblock) else 0,
 		"pursuit_traps": 1 if is_instance_valid(_pursuit_trap) else 0,
 		"pursuer_deflecting": (
@@ -2692,6 +2721,11 @@ func performance_structure_snapshot() -> Dictionary:
 			_pursuer.active_net_projectile_count()
 			if is_instance_valid(_pursuer)
 			else 0
+		),
+		"flashlight_attack": (
+			_pursuer.flashlight_attack_active()
+			if is_instance_valid(_pursuer)
+			else false
 		),
 		"frog_netted": _net_escape_active,
 		"belly_items": _belly.size(),
@@ -2720,7 +2754,9 @@ func performance_structure_snapshot() -> Dictionary:
 		"festival_lanterns": festival_lanterns,
 		"crowd_intensity": _current_crowd_intensity,
 		"crowd_hide_progress": (
-			_crowd_hide_time / CROWD_HIDE_DURATION
+			_crowd_hide_time / _pursuer.crowd_escape_duration()
+			if is_instance_valid(_pursuer)
+			else 0.0
 		),
 		"active_effects": (
 			_effects.active_effect_count()
@@ -3105,7 +3141,10 @@ func _first_tongue_obstruction(
 		1
 	)
 	var excluded_rids: Array[RID] = [_frog.get_rid()]
-	if exclude_pursuer and is_instance_valid(_pursuer):
+	if is_instance_valid(_pursuer) and (
+		exclude_pursuer
+		or not _pursuer.protects_target(selected_target)
+	):
 		excluded_rids.append(_pursuer.get_rid())
 	if (
 		is_instance_valid(selected_target)
@@ -3302,36 +3341,60 @@ func _apply_damage(source_position: Vector2, penalty: int, message: String) -> v
 	_show_status(message)
 
 
-func _spawn_pursuer() -> void:
+func _spawn_pursuer(
+	archetype_id: String = PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL
+) -> void:
 	if is_instance_valid(_pursuer):
 		return
 	if not _active_interior_id.is_empty():
-		_show_status("Animal Control cannot find the frog in here.")
+		_show_status(
+			"%s cannot find the frog in here."
+			% PrototypePursuer.display_name_for(archetype_id)
+		)
 		return
-	var spawn_position := _find_pursuer_spawn_position()
+	var pursuer_radius := (
+		PrototypePursuer.SECURITY_NAVIGATION_RADIUS
+		if archetype_id == PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+		else PrototypePursuer.NAVIGATION_RADIUS
+	)
+	var spawn_position := _find_pursuer_spawn_position(pursuer_radius)
 	if spawn_position == Vector2.INF:
-		_show_status("Animal Control was called, but could not reach this area.")
+		_show_status(
+			"%s was called, but could not reach this area."
+			% PrototypePursuer.display_name_for(archetype_id)
+		)
 		return
 	_refresh_navigation_geometry()
 	_pursuer = PURSUER_SCRIPT.new() as PrototypePursuer
+	_pursuer.configure_archetype(archetype_id)
 	_pursuer.frog = _frog
 	_pursuer.navigation = _navigation
 	_pursuer.position = spawn_position
 	_pursuer.set_presentation_motion_scale(_motion_scale)
 	_pursuer.caught.connect(_on_pursuer_caught)
 	_pursuer.netted.connect(_on_pursuer_netted)
+	_pursuer.attack_hit.connect(_on_pursuer_attack_hit)
 	_pursuer.escaped.connect(_on_pursuer_escaped)
 	_world.add_child(_pursuer)
 	_clear_roadblock()
-	_roadblock_deploy_time = ROADBLOCK_DEPLOY_DELAY
-	_roadblock_deployed = false
+	_roadblock_deploy_time = (
+		ROADBLOCK_DEPLOY_DELAY if _pursuer.deploys_roadblock() else 0.0
+	)
+	_roadblock_deployed = not _pursuer.deploys_roadblock()
 	_clear_pursuit_trap()
-	_pursuit_trap_deploy_time = PURSUIT_TRAP_DEPLOY_DELAY
-	_pursuit_trap_deployed = false
+	_pursuit_trap_deploy_time = (
+		PURSUIT_TRAP_DEPLOY_DELAY
+		if _pursuer.deploys_pursuit_trap()
+		else 0.0
+	)
+	_pursuit_trap_deployed = not _pursuer.deploys_pursuit_trap()
 
 
 func _update_pursuit_roadblock(delta: float) -> void:
 	if not is_instance_valid(_pursuer):
+		_clear_roadblock()
+		return
+	if not _pursuer.deploys_roadblock():
 		_clear_roadblock()
 		return
 	if (
@@ -3434,7 +3497,7 @@ func _handle_tongue_obstruction(
 	if is_instance_valid(_pursuer) and collider == _pursuer:
 		_pursuer.pulse_deflect()
 		AudioDirector.play_effect(FrogAudioDirector.TONGUE_HIT)
-		_show_status("Animal Control deflected the tongue!")
+		_show_status(_pursuer.protection_status())
 		return
 	if is_instance_valid(_roadblock) and collider == _roadblock:
 		var roadblock := _roadblock
@@ -3470,6 +3533,9 @@ func _on_roadblock_removed(
 
 func _update_pursuit_trap(delta: float) -> void:
 	if not is_instance_valid(_pursuer):
+		_clear_pursuit_trap()
+		return
+	if not _pursuer.deploys_pursuit_trap():
 		_clear_pursuit_trap()
 		return
 	if is_instance_valid(_pursuit_trap):
@@ -3603,7 +3669,7 @@ func _on_pursuit_trap_removed(
 		_pursuit_trap = null
 
 
-func _find_pursuer_spawn_position() -> Vector2:
+func _find_pursuer_spawn_position(radius: float = 28.0) -> Vector2:
 	var directions := [
 		Vector2.RIGHT,
 		Vector2.LEFT,
@@ -3620,10 +3686,10 @@ func _find_pursuer_spawn_position() -> Vector2:
 			var candidate := _clamp_to_world(
 				_frog.global_position + direction.rotated(_camera.rotation) * distance
 			)
-			candidate = _clamp_circle_to_world(candidate, 28.0)
+			candidate = _clamp_circle_to_world(candidate, radius)
 			if _position_inside_building(candidate):
 				continue
-			if not _circle_position_clear(candidate, 28.0, false):
+			if not _circle_position_clear(candidate, radius, false):
 				continue
 			if fallback == Vector2.INF:
 				fallback = candidate
@@ -3697,7 +3763,22 @@ func _activate_next_ordered_building_part(
 func _on_pursuer_caught(source_position: Vector2) -> void:
 	if _net_escape_active:
 		_clear_net_escape()
-	_apply_damage(source_position, 25, "Animal Control caught you! You lost some points.")
+	if not is_instance_valid(_pursuer):
+		return
+	_apply_damage(
+		source_position,
+		_pursuer.contact_penalty(),
+		"%s caught you! You lost some points."
+		% _pursuer.display_name()
+	)
+
+
+func _on_pursuer_attack_hit(
+	source_position: Vector2,
+	penalty: int,
+	message: String
+) -> void:
+	_apply_damage(source_position, penalty, message)
 
 
 func _on_pursuer_netted(source_position: Vector2) -> void:
@@ -3775,11 +3856,16 @@ func _clear_net_escape() -> void:
 func _on_pursuer_escaped() -> void:
 	if _net_escape_active:
 		_clear_net_escape()
+	var pursuer_name := (
+		_pursuer.display_name()
+		if is_instance_valid(_pursuer)
+		else "The pursuer"
+	)
 	_pursuer = null
 	_clear_roadblock()
 	_clear_pursuit_trap()
 	_reset_crowd_hiding()
-	_show_status("You escaped Animal Control!")
+	_show_status("You escaped %s!" % pursuer_name)
 
 
 func _is_actively_chased() -> bool:
@@ -3795,18 +3881,19 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 		_clear_net_escape()
 	_reset_crowd_hiding()
 	var effect_position := pursuer.global_position
+	var belly_data := pursuer.belly_data()
 	var item := BellyItem.new()
-	item.target_id = "animal_control"
-	item.display_name = "Animal Control Officer"
+	item.target_id = str(belly_data["id"])
+	item.display_name = str(belly_data["name"])
 	item.kind = "living"
-	item.base_value = 95
+	item.base_value = int(belly_data["value"])
 	item.size_tier = 2
 	item.resistant = true
-	item.taps_required = 10
+	item.taps_required = int(belly_data["taps"])
 	item.pick_radius = 40.0
 	item.accuracy = accuracy
 	item.captured_while_chased = true
-	item.target_color = Color("da7462")
+	item.target_color = belly_data["color"] as Color
 	item.movement_bounds = DISTRICT_GENERATOR_SCRIPT.bounds_for_coordinate(
 		_current_district_coordinate
 	).grow(-100)
@@ -3825,7 +3912,10 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	_effects.emit_swallow(effect_position, item.target_color)
 	_tongue_recovery = TONGUE_RECOVERY
 	_update_hud()
-	_show_status("You swallowed Animal Control! Digest or return them safely.")
+	_show_status(
+		"You swallowed %s! Digest or return them safely."
+		% item.display_name
+	)
 
 
 func _start_pull(target: EdibleTarget, hit_offset: Vector2) -> void:
@@ -4158,7 +4248,7 @@ func _oddities_shop_doorway_occupied(
 		shop.contains_world_point(_pursuer.global_position)
 		or _circle_overlaps_rect(
 			_pursuer.global_position,
-			28.0,
+			_pursuer.collision_radius(),
 			doorway
 		)
 	)
@@ -4210,20 +4300,25 @@ func _update_crowd_hiding(delta: float) -> void:
 		_reset_crowd_hide_progress()
 		return
 	if _crowd_hide_time <= 0.0:
-		_show_status("Stay in the River Park crowd to lose Animal Control.")
+		_show_status(
+			"Stay in the River Park crowd to lose %s."
+			% _pursuer.display_name()
+		)
+	var hide_duration := _pursuer.crowd_escape_duration()
 	_crowd_hide_time = minf(
-		CROWD_HIDE_DURATION,
+		hide_duration,
 		_crowd_hide_time + maxf(0.0, delta)
 	)
 	_city_activity.set_crowd_hide_progress(
-		_crowd_hide_time / CROWD_HIDE_DURATION
+		_crowd_hide_time / hide_duration
 	)
-	if _crowd_hide_time < CROWD_HIDE_DURATION:
+	if _crowd_hide_time < hide_duration:
 		return
 	var pursuer := _pursuer
+	var pursuer_name := pursuer.display_name()
 	_reset_crowd_hiding()
 	pursuer._escape()
-	_show_status("Animal Control lost you in the River Park crowd!")
+	_show_status("%s lost you in the River Park crowd!" % pursuer_name)
 
 
 func _reset_crowd_hiding() -> void:

@@ -220,6 +220,18 @@ func _run() -> void:
 			"discoveries": PackedStringArray(),
 		},
 		{
+			"name": "security_pursuit",
+			"setup": _setup_security_pursuit,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "security_flashlight",
+			"setup": _setup_security_flashlight,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
 			"name": "tongue_deflect",
 			"setup": _setup_tongue_deflect,
 			"preferences": _default_preferences(),
@@ -513,6 +525,15 @@ func _setup_pursuit(game: FrogGame) -> void:
 	game._spawn_pursuer()
 
 
+func _setup_security_pursuit(game: FrogGame) -> void:
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_SECURITY_GUARD)
+
+
+func _setup_security_flashlight(game: FrogGame) -> void:
+	_setup_security_pursuit(game)
+	game._pursuer._begin_flashlight_attack()
+
+
 func _setup_tongue_deflect(game: FrogGame) -> void:
 	game._spawn_pursuer()
 	game._pursuer.pulse_deflect()
@@ -804,6 +825,24 @@ func _check_scenario_expectations(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS,
 				"Pursuit stress contains one Animal Control pursuer."
 			)
+		"security_pursuit":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+					and str(snapshot["pursuer_archetype"])
+					== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+					and int(snapshot["roadblocks"]) == 0
+					and int(snapshot["pursuit_traps"]) == 0,
+				"Security stress contains one slower sight-based pursuer without stacked obstacles."
+			)
+		"security_flashlight":
+			_check(
+				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+					and str(snapshot["pursuer_archetype"])
+					== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+					and bool(snapshot["flashlight_attack"])
+					and int(snapshot["net_projectiles"]) == 0,
+				"Security flashlight stress remains a bounded draw-only pursuer state."
+			)
 		"tongue_deflect":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
@@ -948,6 +987,9 @@ func _measure_scenario(
 		game._pursuer._advance_net_attack(
 			PrototypePursuer.NET_WINDUP_DURATION
 		)
+	elif scenario_name == "security_flashlight":
+		game._pursuer._flashlight_cooldown = 0.0
+		game._pursuer._begin_flashlight_attack()
 	elif scenario_name == "crowd_pursuit":
 		game._day_clock = 0.5
 		game._update_day_night(0.0)

@@ -19,6 +19,7 @@ func _run() -> void:
 	_test_dynamic_geometry_revision()
 	await _test_game_navigation_invalidation()
 	await _test_generated_pursuer_navigation()
+	await _test_generated_security_navigation()
 	await _finish()
 
 
@@ -534,6 +535,74 @@ func _test_generated_pursuer_navigation() -> void:
 			and pursuer.navigation_repath_count()
 			== repaths_after_initial_request,
 		"Empty pursuer routes respect the bounded repath interval."
+	)
+
+	game.queue_free()
+	await process_frame
+
+
+func _test_generated_security_navigation() -> void:
+	var game := GAME_SCENE.instantiate() as FrogGame
+	game.configure(
+		"generated_security_navigation",
+		"Generated Security Navigation",
+		false,
+		PackedStringArray(),
+		{"reduce_motion": true, "larger_text_controls": false},
+		{},
+		0x53454355
+	)
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+
+	var coordinate := Vector2i(1, 0)
+	game._frog.global_position = DistrictGenerator.bounds_for_coordinate(
+		coordinate
+	).get_center()
+	game._update_district_streaming()
+	await process_frame
+	await physics_frame
+	var building: PrototypeBuilding
+	for candidate in game._buildings:
+		if (
+			is_instance_valid(candidate)
+			and candidate.has_meta("district_coordinate")
+			and candidate.get_meta("district_coordinate") == coordinate
+		):
+			building = candidate
+			break
+	_check(
+		is_instance_valid(building),
+		"Generated security navigation finds streamed building geometry."
+	)
+	if not is_instance_valid(building):
+		game.queue_free()
+		await process_frame
+		return
+
+	var offset := Vector2(building.building_size.x * 0.5 + 150.0, 0)
+	game._frog.global_position = building.global_position + offset
+	game._invalidate_navigation()
+	game._refresh_navigation_geometry()
+	game._spawn_pursuer(PrototypePursuer.ARCHETYPE_SECURITY_GUARD)
+	var guard := game._pursuer
+	guard.set_physics_process(false)
+	guard.global_position = building.global_position - offset
+	guard._frog_detected = false
+	guard._last_detected_frog_position = game._frog.global_position
+	guard.invalidate_navigation()
+	guard._refresh_navigation_path()
+	_check(
+		guard.active_navigation_point_count() >= 4
+			and game._navigation.path_is_clear(
+				guard._navigation_path,
+				guard.navigation_radius()
+			)
+			and guard.speed < 250.0
+			and not guard.deploys_roadblock()
+			and not guard.deploys_pursuit_trap(),
+		"Security Guard searches around generated collision with its own bounded navigation profile."
 	)
 
 	game.queue_free()

@@ -188,6 +188,11 @@ const ENTRIES := [
 		"hint": "At maximum size, let a resistant target escape, then eat what comes looking.",
 	},
 	{
+		"id": "security_guard",
+		"name": "Security Guard",
+		"hint": "At maximum size, let a secured object or building fixture escape, then eat its guard.",
+	},
+	{
 		"id": "generated_downtown_lunch",
 		"name": "Downtown Find",
 		"hint": "Explore a generated downtown district.",
