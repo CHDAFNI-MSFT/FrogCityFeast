@@ -14,6 +14,7 @@ const WIND_LOOP_DURATION := 6.0
 const WIND_TRAVEL_SPEED := 520.0
 const WIND_RIBBON_VECTOR := Vector2(58, -9)
 const FESTIVAL_SWAY_DURATION := 4.0
+const KITE_FESTIVAL_SWAY_DURATION := 6.0
 const CROWD_CENTER := Vector2(950, 430)
 const CROWD_COVER_RADIUS := 145.0
 const CROWD_MEMBER_OFFSETS := [
@@ -49,6 +50,21 @@ const FESTIVAL_LANTERN_COLORS := [
 	Color("8fc7a1"),
 	Color("c18bd4"),
 	Color("ef9d55"),
+]
+const KITE_FESTIVAL_CENTER := Vector2(950, 430)
+const KITE_FESTIVAL_OFFSETS := [
+	Vector2(-210, -190),
+	Vector2(-140, -150),
+	Vector2(-70, -220),
+	Vector2(10, -165),
+	Vector2(60, -290),
+	Vector2(100, -235),
+	Vector2(170, -130),
+	Vector2(240, -210),
+]
+const KITE_FESTIVAL_COLORS := [
+	Color("e76f51"),
+	Color("2a9d8f"),
 ]
 const WET_PATCHES := [
 	Vector2(-1480, -70),
@@ -226,6 +242,7 @@ var rain_intensity := 0.0
 var wind_intensity := 0.0
 var crowd_intensity := 0.0
 var festival_intensity := 0.0
+var kite_festival_intensity := 0.0
 var crowd_hide_progress := 0.0
 var crowd_cover_chase_active := false
 var motion_scale := 1.0
@@ -278,6 +295,14 @@ func set_festival_intensity(value: float) -> void:
 	if is_equal_approx(festival_intensity, next_intensity):
 		return
 	festival_intensity = next_intensity
+	queue_redraw()
+
+
+func set_kite_festival_intensity(value: float) -> void:
+	var next_intensity := clampf(value, 0.0, 1.0)
+	if is_equal_approx(kite_festival_intensity, next_intensity):
+		return
+	kite_festival_intensity = next_intensity
 	queue_redraw()
 
 
@@ -353,6 +378,14 @@ func visible_festival_lantern_count() -> int:
 	)
 
 
+func visible_kite_festival_count() -> int:
+	return (
+		KITE_FESTIVAL_OFFSETS.size()
+		if kite_festival_intensity > 0.01
+		else 0
+	)
+
+
 func crowd_cover_available() -> bool:
 	return crowd_intensity >= 0.8
 
@@ -403,6 +436,32 @@ func festival_signature() -> PackedVector2Array:
 	var result := PackedVector2Array()
 	for index in FESTIVAL_LANTERN_OFFSETS.size():
 		result.append(festival_lantern_position(index))
+	return result
+
+
+func kite_festival_position_at(
+	index: int,
+	animation_time: float
+) -> Vector2:
+	if index < 0 or index >= KITE_FESTIVAL_OFFSETS.size():
+		return Vector2.INF
+	var phase := (
+		animation_time / KITE_FESTIVAL_SWAY_DURATION
+		+ float(index) / float(KITE_FESTIVAL_OFFSETS.size())
+	)
+	return (
+		KITE_FESTIVAL_CENTER
+		+ KITE_FESTIVAL_OFFSETS[index]
+		+ Vector2(sin(phase * TAU) * 5.0, cos(phase * TAU) * 3.0)
+	)
+
+
+func kite_festival_signature() -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for index in KITE_FESTIVAL_OFFSETS.size():
+		result.append(
+			kite_festival_position_at(index, _animation_time)
+		)
 	return result
 
 
@@ -511,6 +570,8 @@ func activity_signature() -> PackedVector2Array:
 		result.append(crowd_member_position(index))
 	for position in festival_signature():
 		result.append(position)
+	for position in kite_festival_signature():
+		result.append(position)
 	for position in wind_signature():
 		result.append(position)
 	return result
@@ -529,6 +590,7 @@ func _advance_animation(delta: float) -> void:
 func _draw() -> void:
 	_draw_streetlights()
 	_draw_night_bazaar()
+	_draw_kite_festival()
 	for index in VEHICLE_ROUTES.size():
 		var alpha := (
 			_actor_alpha(
@@ -599,6 +661,53 @@ func _draw_night_bazaar() -> void:
 		260,
 		20,
 		Color(1.0, 0.88, 0.56, 0.94 * festival_intensity)
+	)
+
+
+func _draw_kite_festival() -> void:
+	if kite_festival_intensity <= 0.01:
+		return
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	for color_index in KITE_FESTIVAL_COLORS.size():
+		var segments := PackedVector2Array()
+		var kite_index := color_index
+		while kite_index < KITE_FESTIVAL_OFFSETS.size():
+			var center := kite_festival_position_at(
+				kite_index,
+				_animation_time
+			)
+			var points := [
+				center + Vector2(0, -14),
+				center + Vector2(11, 0),
+				center + Vector2(0, 14),
+				center + Vector2(-11, 0),
+			]
+			for point_index in points.size():
+				segments.append(points[point_index])
+				segments.append(
+					points[(point_index + 1) % points.size()]
+				)
+			segments.append(center + Vector2(0, 14))
+			segments.append(center + Vector2(-8, 28))
+			segments.append(center + Vector2(-8, 28))
+			segments.append(center + Vector2(3, 39))
+			kite_index += KITE_FESTIVAL_COLORS.size()
+		draw_multiline(
+			segments,
+			Color(
+				KITE_FESTIVAL_COLORS[color_index],
+				0.9 * kite_festival_intensity
+			),
+			3.0
+		)
+	draw_string(
+		ThemeDB.fallback_font,
+		KITE_FESTIVAL_CENTER + Vector2(-140, -320),
+		"CANAL KITE FESTIVAL",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		280,
+		18,
+		Color(0.16, 0.25, 0.3, 0.9 * kite_festival_intensity)
 	)
 
 

@@ -1179,6 +1179,13 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		"The game forwards the initial night-bazaar intensity to city activity."
 	)
 	_check(
+		is_equal_approx(
+			activity.kite_festival_intensity,
+			FrogGame.kite_festival_intensity_for_clock(game._day_clock)
+		),
+		"The game forwards the initial kite-festival intensity to city activity."
+	)
+	_check(
 		is_zero_approx(FrogGame.rain_intensity_for_clock(0.57))
 		and is_zero_approx(FrogGame.rain_intensity_for_clock(0.58))
 		and is_equal_approx(
@@ -1232,6 +1239,38 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 			0.5
 		),
 		"The wind squall follows one bounded deterministic daytime window with smooth fades."
+	)
+	_check(
+		is_zero_approx(
+			FrogGame.kite_festival_intensity_for_clock(0.45)
+		)
+		and is_zero_approx(
+			FrogGame.kite_festival_intensity_for_clock(0.46)
+		)
+		and is_equal_approx(
+			FrogGame.kite_festival_intensity_for_clock(0.47),
+			0.5
+		)
+		and is_equal_approx(
+			FrogGame.kite_festival_intensity_for_clock(0.48),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.kite_festival_intensity_for_clock(0.54),
+			1.0
+		)
+		and is_equal_approx(
+			FrogGame.kite_festival_intensity_for_clock(0.55),
+			0.5
+		)
+		and is_zero_approx(
+			FrogGame.kite_festival_intensity_for_clock(0.56)
+		)
+		and is_equal_approx(
+			FrogGame.kite_festival_intensity_for_clock(1.47),
+			0.5
+		),
+		"The Canal Kite Festival follows one bounded deterministic daytime window with smooth fades."
 	)
 	_check(
 		is_zero_approx(FrogGame.crowd_intensity_for_clock(0.17))
@@ -1302,6 +1341,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	var day_crowd_members := activity.active_crowd_member_count()
 	var day_lights := activity.streetlight_intensity()
 	var day_lanterns := activity.visible_festival_lantern_count()
+	var day_kites := activity.visible_kite_festival_count()
 	game._day_clock = 0.0
 	game._update_day_night(0.0)
 	var night_pedestrians := activity.active_pedestrian_count()
@@ -1309,6 +1349,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	var night_crowd_members := activity.active_crowd_member_count()
 	var night_lights := activity.streetlight_intensity()
 	var night_lanterns := activity.visible_festival_lantern_count()
+	var night_kites := activity.visible_kite_festival_count()
 	_check(
 		day_pedestrians == CityActivity.PEDESTRIAN_ROUTES.size()
 		and night_pedestrians == 5
@@ -1339,6 +1380,11 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and is_equal_approx(activity.festival_intensity, 1.0),
 		"The fixed Moonlight Market lantern set appears only during the night bazaar."
 	)
+	_check(
+		day_kites == CityActivity.KITE_FESTIVAL_OFFSETS.size()
+		and night_kites == 0,
+		"The Canal Kite Festival is distinct from the Moonlight Market night bazaar."
+	)
 	game._day_clock = 0.68
 	game._update_day_night(0.0)
 	var rainy_snapshot := game.performance_structure_snapshot()
@@ -1348,6 +1394,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and activity.active_vehicle_count() == 3
 		and activity.active_crowd_member_count() == 0
 		and activity.visible_festival_lantern_count() == 0
+		and activity.visible_kite_festival_count() == 0
 		and activity.visible_rain_streak_count()
 		== CityActivity.RAIN_STREAK_COUNT,
 		"Peak rain reduces the decorative crowd and traffic while retaining a bounded visual shower."
@@ -1383,6 +1430,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		== CityActivity.CROWD_MEMBER_OFFSETS.size()
 		and activity.visible_wind_ribbon_count()
 		== CityActivity.WIND_RIBBON_COUNT
+		and activity.visible_kite_festival_count() == 0
 		and int(wind_snapshot["targets"]) == 36
 		and int(wind_snapshot["buildings"]) == 4
 		and int(wind_snapshot["collision_objects"]) == 41
@@ -1402,6 +1450,31 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		],
 		"Wind event boundaries do not change score, growth, Belly, discoveries, or challenges."
 	)
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	var kite_snapshot := game.performance_structure_snapshot()
+	_check(
+		is_equal_approx(activity.kite_festival_intensity, 1.0)
+		and activity.visible_kite_festival_count()
+		== CityActivity.KITE_FESTIVAL_OFFSETS.size()
+		and is_zero_approx(activity.wind_intensity)
+		and is_zero_approx(activity.rain_intensity)
+		and int(kite_snapshot["targets"]) == 36
+		and int(kite_snapshot["buildings"]) == 4
+		and int(kite_snapshot["collision_objects"]) == 41
+		and int(kite_snapshot["collision_shapes"]) == 111
+		and game._score == score_before_wind
+		and game._growth_points == growth_before_wind
+		and game._belly.size() == belly_before_wind
+		and game._known_discovery_count() == discoveries_before_wind
+		and challenge_progress_before_wind == [
+			game._challenges.progress(SessionChallenges.SHARP_AIM),
+			game._challenges.progress(SessionChallenges.HOLD_ON),
+			game._challenges.progress(SessionChallenges.CITY_TOUR),
+			game._challenges.completed_count(),
+		],
+		"The kite festival adds no gameplay structure or progression side effects."
+	)
 
 	var single_step := CityActivity.new()
 	var many_steps := CityActivity.new()
@@ -1413,6 +1486,8 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	many_steps.set_wind_intensity(1.0)
 	single_step.set_festival_intensity(1.0)
 	many_steps.set_festival_intensity(1.0)
+	single_step.set_kite_festival_intensity(1.0)
+	many_steps.set_kite_festival_intensity(1.0)
 	single_step._advance_animation(12.0)
 	for step in 120:
 		many_steps._advance_animation(0.1)
@@ -1445,15 +1520,27 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		):
 			deterministic_positions = false
 			break
+	var single_kite_signature := single_step.kite_festival_signature()
+	var many_kite_signature := many_steps.kite_festival_signature()
+	for index in single_kite_signature.size():
+		if (
+			single_kite_signature[index].distance_to(
+				many_kite_signature[index]
+			)
+			> 0.001
+		):
+			deterministic_positions = false
+			break
 	_check(
 		deterministic_positions,
-		"City actors, rain, and wind depend on absolute deterministic time, not frame size."
+		"City actors, weather, and festivals depend on absolute deterministic time, not frame size."
 	)
 
 	var frozen_position := single_step.pedestrian_position(0)
 	var frozen_rain := single_step.rain_signature()
 	var frozen_wind := single_step.wind_signature()
 	var frozen_festival := single_step.festival_signature()
+	var frozen_kites := single_step.kite_festival_signature()
 	single_step.set_crowd_intensity(1.0)
 	var frozen_crowd_member := single_step.crowd_member_position(0)
 	single_step.set_motion_scale(0.0)
@@ -1464,6 +1551,7 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		and single_step.rain_signature() == frozen_rain
 		and single_step.wind_signature() == frozen_wind
 		and single_step.festival_signature() == frozen_festival
+		and single_step.kite_festival_signature() == frozen_kites
 		and single_step.crowd_member_position(0) == frozen_crowd_member
 		and single_step.active_pedestrian_count() == 4
 		and single_step.active_vehicle_count() == 2
@@ -1473,8 +1561,10 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		== CityActivity.WIND_RIBBON_COUNT
 		and single_step.visible_festival_lantern_count()
 		== CityActivity.FESTIVAL_LANTERN_OFFSETS.size()
+		and single_step.visible_kite_festival_count()
+		== CityActivity.KITE_FESTIVAL_OFFSETS.size()
 		and single_step.streetlight_intensity() > 0.99,
-		"Reduced motion freezes actors, rain, wind, and lanterns while event timing and lighting still update."
+		"Reduced motion freezes actors, weather, lanterns, and kites while event timing and lighting still update."
 	)
 	seed(20260830)
 	var expected_random := randf()
@@ -1483,9 +1573,11 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 	single_step.set_wind_intensity(0.5)
 	single_step.set_crowd_intensity(0.5)
 	single_step.set_festival_intensity(0.5)
+	single_step.set_kite_festival_intensity(0.5)
 	single_step.rain_signature()
 	single_step.wind_signature()
 	single_step.festival_signature()
+	single_step.kite_festival_signature()
 	single_step.activity_signature()
 	var actual_random := randf()
 	_check(
@@ -1571,6 +1663,18 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 			> 0.001
 		):
 			loop_is_seamless = false
+	for index in CityActivity.KITE_FESTIVAL_OFFSETS.size():
+		if (
+			single_step.kite_festival_position_at(index, 17.25)
+			.distance_to(
+				single_step.kite_festival_position_at(
+					index,
+					17.25 + CityActivity.LOOP_DURATION
+				)
+			)
+			> 0.001
+		):
+			loop_is_seamless = false
 	_check(
 		loop_is_seamless,
 		"Every authored activity route, weather mark, and lantern loops seamlessly."
@@ -1641,20 +1745,29 @@ func _test_city_activity(game_scene: PackedScene) -> void:
 		== CityActivity.WIND_RIBBON_COUNT
 	)
 	game._begin_interior_transition("city")
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+	var kites_survived_room_exit := (
+		game._city_activity.visible_kite_festival_count()
+		== CityActivity.KITE_FESTIVAL_OFFSETS.size()
+	)
 	game._frog.global_position = DistrictGenerator.bounds_for_coordinate(
 		Vector2i(2, 2)
 	).get_center()
 	game._update_district_streaming()
 	_check(
 		wind_survived_room_entry
+		and kites_survived_room_exit
 		and game._active_interior_id.is_empty()
 		and game._city_activity.get_instance_id()
 		== city_activity_instance_id
 		and game.find_children("*", "CityActivity", true, false).size()
 		== 1
 		and game._city_activity.visible_wind_ribbon_count()
-		== CityActivity.WIND_RIBBON_COUNT,
-		"Room travel and district streaming retain one global wind presentation without duplication."
+		== 0
+		and game._city_activity.visible_kite_festival_count()
+		== CityActivity.KITE_FESTIVAL_OFFSETS.size(),
+		"Room travel and district streaming retain one global weather-and-festival layer without duplication."
 	)
 
 	single_step.free()

@@ -123,6 +123,10 @@ The prototype includes:
 - a deterministic Moonlight Market night bazaar with ten fixed draw-only
   lanterns that fade in during late evening, remain active through midnight,
   fade out before the daytime meetup, and freeze their sway with Reduce motion;
+- a distinct deterministic 18-second Canal Kite Festival that starts when the
+  wind squall ends, uses eight fixed draw-only kites and one static label,
+  overlaps daytime routes and the River Park meetup, and freezes kite sway with
+  Reduce motion;
 - one deterministic 36-second daytime rain shower per 180-second cycle, with
   smooth fades, wet-road sheen, puddle highlights, and 84 capped draw-only rain
   streaks;
@@ -355,10 +359,11 @@ The smoke tests check the core belly, scoring, growth, touch-camera, gameplay
 traffic, deterministic city-activity levels and routes, Oddities Shop hours and
 safe deferred closure through connected-cellar travel, growth- and
 destruction-gated room transitions, the bounded night-bazaar schedule,
-frame-step-independent lantern motion, the bounded rain schedule and density
-change, the bounded wind-squall schedule and density, frame-step-independent
-weather marks, static reduced-motion weather, room and district weather-layer
-stability, pursuit, net windup
+the bounded kite-festival schedule and fixed decoration count,
+frame-step-independent festival motion, the bounded rain schedule and density
+change, the bounded wind-squall schedule and density,
+frame-step-independent weather marks, static reduced-motion weather and
+festivals, room and district event-layer stability, pursuit, net windup
 and wall clearance, dodging, tongue interruption and deflection, Security
 Guard sight loss, valuables-only protection, flashlight dodging and damage,
 Watchdog scent, living-target protection, lunge wall stopping and dodging,
@@ -452,6 +457,9 @@ The deterministic structural budgets are enforced in CI:
 | Populated Belly sample | 64 items and rows, 625 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
 | Moonlight Market night bazaar | 10 fixed draw-only lanterns; structural counts remain at the baseline ceiling |
+| Canal Kite Festival | 8 fixed draw-only kites over daytime activity; structural counts remain at the baseline ceiling |
+| Kite festival with Security or Watchdog | One pursuer-specific draw-only trap, 20 city actors, 8 kites, and 24 presentation effects; 372 nodes, 42 collision objects, and 112 collision shapes |
+| Kite festival gameplay peak | Animal Control, one draw-only snare, the two-segment staggered roadblock, 20 city actors, 8 kites, and 24 presentation effects; 375 nodes, 43 collision objects, and 114 collision shapes |
 | Peak rainy daytime | 4 pedestrians, 3 secondary vehicles, and 84 rain streaks, all draw-only; structural counts remain at the baseline ceiling |
 | Peak wind squall | 10 pedestrians, 5 meetup visitors, 5 secondary vehicles, and 40 batched draw-only directional ribbons; structural counts remain at the baseline ceiling |
 | Wind with Security or Watchdog | One pursuer-specific draw-only trap, 20 city actors, 40 wind ribbons, and 24 presentation effects; 372 nodes, 42 collision objects, and 112 collision shapes |
@@ -473,7 +481,9 @@ discovery-gated Hidden Sewer Maintenance Pocket, the
 growth-gated Construction Crane High Deck, the
 progression-gated Moonlight Market rooftop garden, the fixture-gated Oddities
 Shop cellar, busy daytime, peak rain, the wind squall alone and combined with
-Security's motion beacon and Watchdog's sticky patch, ordinary and crowd-cover Animal Control pursuit,
+Security's motion beacon and Watchdog's sticky patch, the Canal Kite Festival
+alone and combined with all three pursuer-and-trap profiles, ordinary and
+crowd-cover Animal Control pursuit,
 Security Guard pursuit and flashlight warning, active tongue-deflection
 feedback, Watchdog pursuit and lunge, a temporary
 straight roadblock, a two-segment staggered roadblock, all three
@@ -519,6 +529,20 @@ staggered roadblock and Animal Control snare active together. One repeated
 sample reported 24.41 ms p95 alongside a 520.27 ms host scheduling/window
 stall. The simultaneous presentation-only peak uses capped eight-spoke damage
 bursts and remains at the 450-draw-call ceiling.
+
+Repeated fixed-seed Canal Kite Festival measurements held the exact 8-kite
+draw-only cap. The standalone festival measured 8.53–8.66 ms frame-time p95,
+46.8 MiB static memory, 17.3–19.3 MiB video memory, 185–186 draw calls,
+987–991 rendered objects, and 10,688–10,778 primitives. Security plus its
+motion beacon and maximum presentation measured 9.20–13.43 ms p95 in
+unobstructed samples; Watchdog plus its sticky patch measured 9.39 ms. Their
+render snapshots remained at 433–434 draws, 1,172–1,178 objects, and
+25,856–25,926 primitives. The full Animal Control festival peak measured
+14.13–17.50 ms p95, 47.2 MiB static memory, 17.6–19.7 MiB video memory, 445
+draw calls, 1,249 objects, and 26,062 primitives. Its structural snapshot
+remains 375 nodes, 43 collision objects, and 114 collision shapes. Other
+repeated Security and Watchdog samples contained host scheduling/window stalls
+and are not treated as target-device results.
 
 The straight-roadblock snapshot measured 8.77 ms frame-time p95, 46.6 MiB
 static memory, 19.5 MiB video memory, 211 draw calls, 906 rendered objects, and
@@ -608,7 +632,7 @@ The following parts of the full design are not implemented yet:
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
-- further festivals, shop schedules, random emergencies, and fantasy events;
+- further shop schedules, random emergencies, and fantasy events;
 - achievements, story clues, and secrets beyond the Field Guide;
 - additional temporary powers;
 - final art, authored animation, expanded audio content and target-device mix

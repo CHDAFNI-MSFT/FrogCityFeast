@@ -60,6 +60,10 @@ const WIND_START := 0.30
 const WIND_FULL_START := 0.34
 const WIND_FULL_END := 0.42
 const WIND_END := 0.46
+const KITE_FESTIVAL_START := 0.46
+const KITE_FESTIVAL_FULL_START := 0.48
+const KITE_FESTIVAL_FULL_END := 0.54
+const KITE_FESTIVAL_END := 0.56
 const CROWD_START := 0.18
 const CROWD_FULL_START := 0.22
 const CROWD_FULL_END := 0.50
@@ -486,6 +490,7 @@ var _current_daylight := 0.0
 var _current_rain_intensity := 0.0
 var _current_wind_intensity := 0.0
 var _current_crowd_intensity := 0.0
+var _current_kite_festival_intensity := 0.0
 var _oddities_shop_scheduled_open := false
 var _crowd_hide_time := 0.0
 var _roadblock_deploy_time := 0.0
@@ -2793,6 +2798,12 @@ func performance_structure_snapshot() -> Dictionary:
 			else 0.0
 		),
 		"festival_lanterns": festival_lanterns,
+		"kite_festival_intensity": _current_kite_festival_intensity,
+		"kite_festival_kites": (
+			_city_activity.visible_kite_festival_count()
+			if is_instance_valid(_city_activity)
+			else 0
+		),
 		"crowd_intensity": _current_crowd_intensity,
 		"crowd_hide_progress": (
 			_crowd_hide_time / _pursuer.crowd_escape_duration()
@@ -4285,9 +4296,13 @@ func _update_day_night(delta: float) -> void:
 	var wind_intensity := wind_squall_intensity_for_clock(_day_clock)
 	var crowd_intensity := crowd_intensity_for_clock(_day_clock)
 	var festival_intensity := festival_intensity_for_clock(_day_clock)
+	var kite_festival_intensity := kite_festival_intensity_for_clock(
+		_day_clock
+	)
 	_current_rain_intensity = rain_intensity
 	_current_wind_intensity = wind_intensity
 	_current_crowd_intensity = crowd_intensity
+	_current_kite_festival_intensity = kite_festival_intensity
 	var weather_color := clear_color.lerp(
 		Color(0.68, 0.76, 0.84),
 		rain_intensity * 0.3
@@ -4302,6 +4317,9 @@ func _update_day_night(delta: float) -> void:
 		_city_activity.set_wind_intensity(wind_intensity)
 		_city_activity.set_crowd_intensity(crowd_intensity)
 		_city_activity.set_festival_intensity(festival_intensity)
+		_city_activity.set_kite_festival_intensity(
+			kite_festival_intensity
+		)
 	_update_oddities_shop_schedule()
 	AudioDirector.set_game_ambience(
 		self,
@@ -4328,6 +4346,25 @@ static func wind_squall_intensity_for_clock(value: float) -> float:
 		return smoothstep(WIND_START, WIND_FULL_START, clock)
 	if clock > WIND_FULL_END:
 		return 1.0 - smoothstep(WIND_FULL_END, WIND_END, clock)
+	return 1.0
+
+
+static func kite_festival_intensity_for_clock(value: float) -> float:
+	var clock := fposmod(value, 1.0)
+	if clock < KITE_FESTIVAL_START or clock > KITE_FESTIVAL_END:
+		return 0.0
+	if clock < KITE_FESTIVAL_FULL_START:
+		return smoothstep(
+			KITE_FESTIVAL_START,
+			KITE_FESTIVAL_FULL_START,
+			clock
+		)
+	if clock > KITE_FESTIVAL_FULL_END:
+		return 1.0 - smoothstep(
+			KITE_FESTIVAL_FULL_END,
+			KITE_FESTIVAL_END,
+			clock
+		)
 	return 1.0
 
 

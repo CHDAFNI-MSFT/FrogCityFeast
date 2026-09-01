@@ -30,6 +30,7 @@ const MAX_PURSUIT_TRAPS := 1
 const MAX_RAIN_STREAKS := 84
 const MAX_WIND_RIBBONS := 40
 const MAX_FESTIVAL_LANTERNS := 10
+const MAX_KITE_FESTIVAL_KITES := 8
 const MAX_NET_PROJECTILES := 1
 const MAX_AUDIO_NODES := 7
 const MAX_AUDIO_PLAYERS := 6
@@ -199,6 +200,50 @@ const STRUCTURAL_LIMITS := {
 		"active_city_actors": MAX_CITY_ACTORS,
 		"wind_ribbons": MAX_WIND_RIBBONS,
 		"active_effects": MAX_VISUAL_EFFECTS,
+	},
+	"kite_festival": {
+		"game_nodes": 369,
+		"collision_objects": 41,
+		"collision_shapes": 111,
+		"targets": MAX_TARGETS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"kite_festival_kites": MAX_KITE_FESTIVAL_KITES,
+	},
+	"kite_security_peak": {
+		"game_nodes": 372,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"kite_festival_kites": MAX_KITE_FESTIVAL_KITES,
+		"active_effects": MAX_VISUAL_EFFECTS,
+	},
+	"kite_watchdog_peak": {
+		"game_nodes": 372,
+		"collision_objects": 42,
+		"collision_shapes": 112,
+		"targets": MAX_TARGETS,
+		"pursuers": MAX_PURSUERS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"kite_festival_kites": MAX_KITE_FESTIVAL_KITES,
+		"active_effects": MAX_VISUAL_EFFECTS,
+	},
+	"kite_gameplay_peak": {
+		"game_nodes": 375,
+		"collision_objects": 43,
+		"collision_shapes": 114,
+		"targets": MAX_TARGETS,
+		"buildings": MAX_BUILDINGS,
+		"pursuers": MAX_PURSUERS,
+		"roadblocks": MAX_ROADBLOCKS,
+		"pursuit_traps": MAX_PURSUIT_TRAPS,
+		"active_city_actors": MAX_CITY_ACTORS,
+		"kite_festival_kites": MAX_KITE_FESTIVAL_KITES,
+		"active_effects": MAX_VISUAL_EFFECTS,
+		"touch_feedback": MAX_TOUCH_FEEDBACK,
 	},
 	"pursuit": {
 		"game_nodes": 371,

@@ -55,6 +55,11 @@ func _run() -> void:
 		"The night-bazaar budget matches the fixed lantern count."
 	)
 	_check(
+		BUDGETS.MAX_KITE_FESTIVAL_KITES
+		== CityActivity.KITE_FESTIVAL_OFFSETS.size(),
+		"The Canal Kite Festival budget matches the fixed kite count."
+	)
+	_check(
 		BUDGETS.MAX_NET_PROJECTILES == 1,
 		"The Animal Control projectile budget remains capped at one."
 	)
@@ -250,6 +255,30 @@ func _run() -> void:
 			"setup": _setup_wind_watchdog_peak,
 			"preferences": _default_preferences(),
 			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "kite_festival",
+			"setup": _setup_kite_festival,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "kite_security_peak",
+			"setup": _setup_kite_security_peak,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "kite_watchdog_peak",
+			"setup": _setup_kite_watchdog_peak,
+			"preferences": _default_preferences(),
+			"discoveries": PackedStringArray(),
+		},
+		{
+			"name": "kite_gameplay_peak",
+			"setup": _setup_kite_gameplay_peak,
+			"preferences": _default_preferences(),
+			"discoveries": DiscoveryCatalog.ids(),
 		},
 		{
 			"name": "pursuit",
@@ -604,6 +633,32 @@ func _setup_wind_watchdog_peak(game: FrogGame) -> void:
 	_setup_wind_squall(game)
 	_setup_watchdog_sticky_patch(game)
 	_setup_presentation_peak(game)
+
+
+func _setup_kite_festival(game: FrogGame) -> void:
+	game._day_clock = 0.5
+	game._update_day_night(0.0)
+
+
+func _setup_kite_security_peak(game: FrogGame) -> void:
+	_setup_kite_festival(game)
+	_setup_security_motion_beacon(game)
+	_setup_presentation_peak(game)
+
+
+func _setup_kite_watchdog_peak(game: FrogGame) -> void:
+	_setup_kite_festival(game)
+	_setup_watchdog_sticky_patch(game)
+	_setup_presentation_peak(game)
+
+
+func _setup_kite_gameplay_peak(game: FrogGame) -> void:
+	_setup_kite_festival(game)
+	_setup_roadblock_staggered(game)
+	game._pursuit_trap_deploy_time = 0.0
+	game._update_pursuit_trap(0.1)
+	_setup_presentation_peak(game)
+	_exercise_navigation_detour(game, false)
 
 
 func _setup_pursuit(game: FrogGame) -> void:
@@ -975,6 +1030,56 @@ func _check_scenario_expectations(
 				"Wind, daytime crowds, Watchdog, and its sticky patch share one capped stress state."
 			)
 			_check_presentation_peak(snapshot)
+		"kite_festival":
+			_check(
+				is_equal_approx(
+					float(snapshot["kite_festival_intensity"]),
+					1.0
+				)
+				and int(snapshot["kite_festival_kites"])
+				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and int(snapshot["active_city_actors"])
+				== BUDGETS.MAX_CITY_ACTORS
+				and int(snapshot["festival_lanterns"]) == 0,
+				"Peak Canal Kite Festival uses one fixed draw-only set over full daytime activity."
+			)
+		"kite_security_peak":
+			_check(
+				int(snapshot["kite_festival_kites"])
+				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and str(snapshot["pursuer_archetype"])
+				== PrototypePursuer.ARCHETYPE_SECURITY_GUARD
+				and str(snapshot["pursuit_trap_variant"])
+				== PrototypePursuitTrap.VARIANT_MOTION_BEACON,
+				"The kite festival, Security, and its beacon share one capped stress state."
+			)
+			_check_presentation_peak(snapshot)
+		"kite_watchdog_peak":
+			_check(
+				int(snapshot["kite_festival_kites"])
+				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and str(snapshot["pursuer_archetype"])
+				== PrototypePursuer.ARCHETYPE_WATCHDOG
+				and str(snapshot["pursuit_trap_variant"])
+				== PrototypePursuitTrap.VARIANT_STICKY_PATCH,
+				"The kite festival, Watchdog, and its sticky patch share one capped stress state."
+			)
+			_check_presentation_peak(snapshot)
+		"kite_gameplay_peak":
+			_check(
+				int(snapshot["kite_festival_kites"])
+				== BUDGETS.MAX_KITE_FESTIVAL_KITES
+				and int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS
+				and int(snapshot["roadblocks"])
+				== BUDGETS.MAX_ROADBLOCKS
+				and int(snapshot["pursuit_traps"])
+				== BUDGETS.MAX_PURSUIT_TRAPS
+				and str(snapshot["roadblock_layout"])
+				== PrototypeRoadblock.LAYOUT_STAGGERED,
+				"The kite festival peak combines Animal Control, its snare, and the largest safe roadblock."
+			)
+			_check_navigation_stress(snapshot, "Kite festival peak")
+			_check_presentation_peak(snapshot)
 		"pursuit":
 			_check(
 				int(snapshot["pursuers"]) == BUDGETS.MAX_PURSUERS,
@@ -1199,6 +1304,9 @@ func _measure_scenario(
 		"gameplay_peak",
 		"wind_security_peak",
 		"wind_watchdog_peak",
+		"kite_security_peak",
+		"kite_watchdog_peak",
+		"kite_gameplay_peak",
 	]:
 		_setup_presentation_peak(game)
 	elif scenario_name == "net_attack":
@@ -1232,6 +1340,9 @@ func _measure_scenario(
 			"gameplay_peak",
 			"wind_security_peak",
 			"wind_watchdog_peak",
+			"kite_security_peak",
+			"kite_watchdog_peak",
+			"kite_gameplay_peak",
 			"net_attack",
 			"crowd_pursuit",
 		]
@@ -1255,6 +1366,9 @@ func _measure_scenario(
 		"gameplay_peak",
 		"wind_security_peak",
 		"wind_watchdog_peak",
+		"kite_security_peak",
+		"kite_watchdog_peak",
+		"kite_gameplay_peak",
 	]:
 		_setup_presentation_peak(game)
 		await process_frame
@@ -1296,7 +1410,11 @@ func _measure_scenario(
 		]
 	)
 	var snapshot := game.performance_structure_snapshot()
-	if scenario_name in ["gameplay_peak", "generated_streaming"]:
+	if scenario_name in [
+		"gameplay_peak",
+		"kite_gameplay_peak",
+		"generated_streaming",
+	]:
 		_check_navigation_stress(
 			snapshot,
 			"%s rendered sample" % scenario_name.capitalize()

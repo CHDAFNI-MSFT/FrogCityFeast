@@ -80,10 +80,11 @@ Deterministic structural budgets are enforced independently of hardware. The
 authored core permits 36 gameplay targets, 4 buildings, 10 separate exploration
 rooms, 1 pursuer, 1 temporary physical roadblock, 1 profile-driven draw-only
 pursuit trap, 20 draw-only city actors, 84 draw-only rain streaks, 40 batched
-draw-only wind ribbons, 10 draw-only festival lanterns, 1 draw-only Animal
-Control net projectile, 24 capped world effects, 3 touch cues, and 6 fixed
-audio players including 4 reusable effect voices. Baseline and separate-room
-states permit up to 369 game-subtree nodes,
+draw-only wind ribbons, 10 draw-only night-bazaar lanterns, 8 draw-only
+kite-festival decorations, 1 draw-only Animal Control net projectile, 24 capped
+world effects, 3 touch cues, and 6 fixed audio players including 4 reusable
+effect voices. Baseline and separate-room states permit up to 369 game-subtree
+nodes,
 41 collision objects, and 111 collision shapes; ordinary pursuit and net attack
 permit 371 nodes, 42 collision objects, and 112 collision shapes; any
 pursuit-trap profile permits 372 nodes with the same physics structure; a
@@ -119,8 +120,9 @@ budget rejection.
 
 Reproducible stress coverage includes the maximum generated-district ring, all
 ten connected exploration rooms, the night bazaar, busy daytime city activity,
-peak rain, the wind squall alone and with each pursuer-and-trap profile,
-pursuit, active crowd cover, both roadblock layouts, the
+peak rain, the wind squall alone and with each pursuer-and-trap profile, the
+Canal Kite Festival alone and with every pursuer-and-trap profile, pursuit,
+active crowd cover, both roadblock layouts, the
 staggered-roadblock-and-snare peak, a net in flight, maximum growth, a finite
 simultaneous presentation burst, a 64-item Belly, the fully populated Field
 Guide, both accessibility settings, and a reachable gameplay peak. Desktop
@@ -376,7 +378,7 @@ The city can change through:
 - random emergencies; and
 - fantasy events.
 
-The fixed-city prototype now implements six small deterministic dynamic-city
+The fixed-city prototype now implements seven small deterministic dynamic-city
 slices. The day and night cycle changes the visible pedestrian crowd, secondary
 traffic level, streetlight glow, and restrained synthesized ambience. Once per
 180-second cycle, a 36-second daytime rain shower fades in, reaches a steady
@@ -425,6 +427,18 @@ motion uses the existing absolute city-activity clock, and Reduce motion keeps
 them lit while freezing their gentle sway. The bazaar adds no scene nodes,
 collision, targeting, scoring, saves, audio assets, gameplay random-number use,
 or Field Guide entries.
+
+The Canal Kite Festival is a separate daytime event. It begins exactly when the
+wind squall ends, fades in for 3.6 seconds, holds for 10.8 seconds, and fades
+out for 3.6 seconds before the rain window. Eight fixed kites sway above River
+Park while the nearby meetup and routed daytime activity remain available.
+Their outlines and tails are grouped into two batched draw calls with one
+static event label; Reduce motion freezes the gentle sway without hiding the
+kites, label, intensity, or schedule. The festival adds no actors, collision,
+forces, targets, saves, score, growth, Belly items, discoveries, challenges,
+gameplay random-number use, audio assets, or Field Guide entries. Pursuit,
+crowd escape, traps, roadblocks, room travel, and district streaming continue
+to use their existing rules.
 
 Ambient pedestrians and vehicles use authored routes and are decorative rather
 than targets, hazards, or persistent world state. The labeled Delivery Van
