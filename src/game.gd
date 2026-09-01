@@ -10,6 +10,7 @@ signal target_swallowed(target_id: String)
 signal target_discovered(target_id: String)
 signal item_digested(target_id: String)
 signal growth_tier_applied(tier: int)
+signal power_discovered(power_id: String)
 signal accessibility_changed(
 	reduce_motion: bool,
 	larger_text_controls: bool
@@ -26,6 +27,7 @@ const ROADBLOCK_SCRIPT := preload("res://src/roadblock.gd")
 const PURSUIT_TRAP_SCRIPT := preload("res://src/pursuit_trap.gd")
 const CITY_DETOUR_SCRIPT := preload("res://src/city_detour.gd")
 const NAVIGATION_SCRIPT := preload("res://src/deterministic_navigation.gd")
+const POWER_STATE_SCRIPT := preload("res://src/temporary_power_state.gd")
 const PERFORMANCE_INSTRUMENTATION_SCRIPT := preload(
 	"res://src/performance_instrumentation.gd"
 )
@@ -505,7 +507,8 @@ var _tongue_end := Vector2.ZERO
 var _struggle_kick := 0.0
 var _damage_cooldown := 0.0
 var _status_time := 0.0
-var _flight_time_left := 0.0
+var _power_state: TemporaryPowerState = POWER_STATE_SCRIPT.new()
+var _power_discoveries: Dictionary = {}
 var _day_clock := 0.23
 var _current_daylight := 0.0
 var _current_rain_intensity := 0.0
@@ -656,7 +659,8 @@ func configure(
 	discovered_ids: PackedStringArray = PackedStringArray(),
 	accessibility_preferences: Dictionary = {},
 	audio_preferences: Dictionary = {},
-	session_seed: int = 0
+	session_seed: int = 0,
+	power_discoveries: PackedStringArray = PackedStringArray()
 ) -> void:
 	_profile_id = profile_id
 	_display_name = display_name
@@ -682,6 +686,11 @@ func configure(
 		_audio_preferences = AudioPreferences.sanitize_preferences(
 			audio_preferences
 		)
+	_power_discoveries.clear()
+	for power_id in power_discoveries:
+		var normalized_id := str(power_id).strip_edges()
+		if not ProgressionCatalog.power_entry(normalized_id).is_empty():
+			_power_discoveries[normalized_id] = true
 	_session_seed = (
 		session_seed
 		if session_seed != 0
@@ -1197,7 +1206,7 @@ func _process(delta: float) -> void:
 
 	_tongue_recovery = maxf(0.0, _tongue_recovery - delta)
 	_damage_cooldown = maxf(0.0, _damage_cooldown - delta)
-	_update_flight(delta)
+	_update_powers(delta)
 	_update_day_night(delta)
 	_retry_pending_growth()
 
@@ -1870,7 +1879,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 			)
 		else:
 			_show_tongue(limited_end)
-			_tongue_recovery = TONGUE_RECOVERY
+			_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 			AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
 			_show_status("That spot is out of tongue range.")
 		return
@@ -1892,7 +1901,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 		if _growth_tier < 2:
 			pursuer_hit.pulse_deflect()
 			_show_tongue(world_position)
-			_tongue_recovery = TONGUE_RECOVERY
+			_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 			_show_status(pursuer_hit.protection_status())
 		else:
 			_show_tongue(world_position)
@@ -1901,7 +1910,7 @@ func _try_tongue_at_screen(screen_position: Vector2) -> void:
 
 	if target == null:
 		_show_tongue(world_position)
-		_tongue_recovery = TONGUE_RECOVERY
+		_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 		AudioDirector.play_effect(FrogAudioDirector.TONGUE_MISS)
 		_show_status("Miss! Aim directly at something you can eat.")
 		return
@@ -1986,7 +1995,7 @@ func _fail_struggle() -> void:
 		and _tutorial.suppresses_struggle_failure(escaped_target.target_id)
 	):
 		_reset_tutorial_target_after_failed_struggle(escaped_target)
-		_tongue_recovery = TONGUE_RECOVERY
+		_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 		_show_status("Almost! Try the highlighted target again and tap faster.")
 		return
 	var building_repelled := _reset_building_target_position(escaped_target)
@@ -2004,7 +2013,9 @@ func _fail_struggle() -> void:
 		and interior_building == null
 	):
 		escaped_target.flee_from(_frog.global_position)
-	_tongue_recovery = TONGUE_RECOVERY * 1.5
+	_tongue_recovery = _adjusted_tongue_recovery(
+		TONGUE_RECOVERY * 1.5
+	)
 	var pursuer_archetype := _pursuer_archetype_for_escape(escaped_target)
 	var response_name := PrototypePursuer.display_name_for(
 		pursuer_archetype
@@ -2086,7 +2097,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	_effects.emit_swallow(effect_position, effect_color, swallowed_building)
 	if swallowed_building:
 		_trigger_camera_shake(6.0, 0.22)
-	_tongue_recovery = TONGUE_RECOVERY
+	_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 	if swallowed_building:
 		_show_status("The whole %s is now inside the frog!" % item.display_name)
 	elif building_was_weakened:
@@ -3410,8 +3421,20 @@ func _check_vehicle_hazards() -> void:
 			return
 
 
-func _apply_damage(source_position: Vector2, penalty: int, message: String) -> void:
+func _apply_damage(
+	source_position: Vector2,
+	penalty: int,
+	message: String,
+	pursuit_hit: bool = false
+) -> void:
 	if _damage_cooldown > 0.0:
+		return
+	if (
+		pursuit_hit
+		and _power_state.consume(TemporaryPowerState.BUBBLE_SHIELD)
+	):
+		_update_power_label()
+		_show_status("The Bubble Shield blocked the pursuit hit!")
 		return
 	_damage_cooldown = DAMAGE_COOLDOWN
 	_score = maxi(0, _score - penalty)
@@ -3429,6 +3452,12 @@ func _spawn_pursuer(
 	archetype_id: String = PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL
 ) -> void:
 	if is_instance_valid(_pursuer):
+		return
+	if _power_state.is_active(TemporaryPowerState.CAMOUFLAGE):
+		_show_status(
+			"Camouflage kept %s from finding the frog."
+			% PrototypePursuer.display_name_for(archetype_id)
+		)
 		return
 	if not _active_interior_id.is_empty():
 		_show_status(
@@ -3459,6 +3488,9 @@ func _spawn_pursuer(
 	_pursuer.navigation = _navigation
 	_pursuer.position = spawn_position
 	_pursuer.set_presentation_motion_scale(_motion_scale)
+	_pursuer.set_frog_camouflaged(
+		_power_state.is_active(TemporaryPowerState.CAMOUFLAGE)
+	)
 	_pursuer.caught.connect(_on_pursuer_caught)
 	_pursuer.netted.connect(_on_pursuer_netted)
 	_pursuer.attack_hit.connect(_on_pursuer_attack_hit)
@@ -3736,7 +3768,7 @@ func _handle_tongue_obstruction(
 	fallback_status: String
 ) -> void:
 	_show_tongue(obstruction["position"] as Vector2)
-	_tongue_recovery = TONGUE_RECOVERY
+	_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 	var collider := obstruction.get("collider") as Object
 	if is_instance_valid(_pursuer) and collider == _pursuer:
 		_pursuer.pulse_deflect()
@@ -3808,7 +3840,9 @@ func _update_pursuit_trap(delta: float) -> void:
 				PrototypePursuitTrap.VARIANT_STICKY_PATCH:
 					_tongue_recovery = maxf(
 						_tongue_recovery,
-						PrototypePursuitTrap.STICKY_TONGUE_RECOVERY
+						_adjusted_tongue_recovery(
+							PrototypePursuitTrap.STICKY_TONGUE_RECOVERY
+						)
 					)
 					_show_status(
 						"Sticky scent paste tangled the frog's tongue!"
@@ -3818,7 +3852,8 @@ func _update_pursuit_trap(delta: float) -> void:
 					_apply_damage(
 						source_position,
 						15,
-						"An Animal Control snare knocked the frog back!"
+						"An Animal Control snare knocked the frog back!",
+						true
 					)
 		return
 	if (
@@ -3846,6 +3881,7 @@ func _pursuit_trap_can_trigger() -> bool:
 		)
 		and _growth_tier < 2
 		and not _frog.is_flying
+		and not _power_state.is_active(TemporaryPowerState.CAMOUFLAGE)
 		and not _frog.knockback_active()
 		and _frog.movement_enabled
 		and not _net_escape_active
@@ -4048,7 +4084,8 @@ func _on_pursuer_caught(source_position: Vector2) -> void:
 		source_position,
 		_pursuer.contact_penalty(),
 		"%s caught you! You lost some points."
-		% _pursuer.display_name()
+		% _pursuer.display_name(),
+		true
 	)
 
 
@@ -4057,13 +4094,20 @@ func _on_pursuer_attack_hit(
 	penalty: int,
 	message: String
 ) -> void:
-	_apply_damage(source_position, penalty, message)
+	_apply_damage(source_position, penalty, message, true)
 
 
 func _on_pursuer_netted(source_position: Vector2) -> void:
 	if _frog.growth_tier >= 2 or _frog.is_flying:
 		if is_instance_valid(_pursuer):
 			_pursuer.set_frog_netted(false)
+		return
+	if _power_state.consume(TemporaryPowerState.BUBBLE_SHIELD):
+		if is_instance_valid(_pursuer):
+			_pursuer.set_frog_netted(false)
+			_pursuer.cancel_active_attack()
+		_update_power_label()
+		_show_status("The Bubble Shield popped Animal Control's net!")
 		return
 	if is_instance_valid(_struggle_target):
 		_fail_struggle()
@@ -4115,7 +4159,8 @@ func _fail_net_escape() -> void:
 	_apply_damage(
 		source_position,
 		25,
-		"Animal Control tightened the net! You lost some points."
+		"Animal Control tightened the net! You lost some points.",
+		true
 	)
 
 
@@ -4189,7 +4234,7 @@ func _swallow_pursuer(pursuer: PrototypePursuer, accuracy: float) -> void:
 	_clear_pursuit_trap()
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
 	_effects.emit_swallow(effect_position, item.target_color)
-	_tongue_recovery = TONGUE_RECOVERY
+	_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 	_update_hud()
 	_show_status(
 		"You swallowed %s! Digest or return them safely."
@@ -4215,7 +4260,7 @@ func _cancel_pull() -> void:
 	_pull_hit_offset = Vector2.ZERO
 	_frog.stop_moving()
 	_start_tongue_retract()
-	_tongue_recovery = TONGUE_RECOVERY
+	_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)
 
 
 func _queue_living_respawn(item: BellyItem) -> void:
@@ -4229,8 +4274,9 @@ func _queue_living_respawn(item: BellyItem) -> void:
 
 func _apply_digest_effects(item: BellyItem) -> void:
 	_queue_living_respawn(item)
-	if item.target_id == "golden_cake":
-		_activate_flight(60.0)
+	var power_entry := ProgressionCatalog.power_for_target(item.target_id)
+	if not power_entry.is_empty():
+		_activate_power(str(power_entry["id"]))
 
 
 func _respawn_living_later(item: BellyItem) -> void:
@@ -4354,8 +4400,27 @@ func _has_live_target_id(target_id: String) -> bool:
 	return false
 
 
+func _activate_power(power_id: String, duration: float = -1.0) -> void:
+	var entry := ProgressionCatalog.power_entry(power_id)
+	if entry.is_empty():
+		push_warning("Cannot activate unknown temporary power '%s'." % power_id)
+		return
+	_power_state.activate(power_id, duration)
+	if not _power_discoveries.has(power_id):
+		_power_discoveries[power_id] = true
+		power_discovered.emit(power_id)
+	if power_id == TemporaryPowerState.FLIGHT:
+		_start_flight()
+	_apply_power_effects()
+	_show_status(_power_activation_message(power_id))
+	_update_power_label()
+
+
 func _activate_flight(duration: float) -> void:
-	_flight_time_left = maxf(_flight_time_left, duration)
+	_activate_power(TemporaryPowerState.FLIGHT, duration)
+
+
+func _start_flight() -> void:
 	var destination := _frog_route_requested_destination
 	_cancel_frog_navigation()
 	_frog.set_flying(true)
@@ -4364,27 +4429,63 @@ func _activate_flight(duration: float) -> void:
 		_frog.move_to(
 			_clamp_circle_to_world(destination, _frog.collision_radius())
 		)
-	_show_status("Flight power! The frog can fly over walls for one minute.")
-	_update_power_label()
 
 
-func _update_flight(delta: float) -> void:
-	if _flight_time_left <= 0.0:
-		return
-	_flight_time_left = maxf(0.0, _flight_time_left - delta)
-	if _flight_time_left <= 0.0:
+func _update_powers(delta: float) -> void:
+	var expired := _power_state.advance(delta)
+	if expired.has(TemporaryPowerState.FLIGHT):
 		if not _land_frog_safely():
-			_flight_time_left = 0.5
+			_power_state.set_remaining(TemporaryPowerState.FLIGHT, 0.5)
 			_show_status("Fly to an open area so the frog can land safely.")
-			_update_power_label()
-			return
-		_frog.set_flying(false)
-		if _frog._has_move_target:
-			var destination := _frog._move_target
-			_frog.stop_moving()
-			_request_frog_navigation(destination, false)
-		_show_status("The flight power wore off.")
+		else:
+			_frog.set_flying(false)
+			if _frog._has_move_target:
+				var destination := _frog._move_target
+				_frog.stop_moving()
+				_request_frog_navigation(destination, false)
+			_show_status("The flight power wore off.")
+	_apply_power_effects()
 	_update_power_label()
+
+
+func _apply_power_effects() -> void:
+	_frog.set_ground_speed_multiplier(
+		1.35
+		if _power_state.is_active(TemporaryPowerState.SPEED_BURST)
+		else 1.0
+	)
+	_frog.set_tongue_range_multiplier(
+		1.4
+		if _power_state.is_active(TemporaryPowerState.LONG_TONGUE)
+		else 1.0
+	)
+	if is_instance_valid(_pursuer):
+		_pursuer.set_frog_camouflaged(
+			_power_state.is_active(TemporaryPowerState.CAMOUFLAGE)
+		)
+
+
+func _adjusted_tongue_recovery(duration: float) -> float:
+	return (
+		duration * 0.8
+		if _power_state.is_active(TemporaryPowerState.LONG_TONGUE)
+		else duration
+	)
+
+
+func _power_activation_message(power_id: String) -> String:
+	match power_id:
+		TemporaryPowerState.FLIGHT:
+			return "Flight power! The frog can fly over walls for one minute."
+		TemporaryPowerState.SPEED_BURST:
+			return "Speed Burst! Ground movement is faster for 20 seconds."
+		TemporaryPowerState.LONG_TONGUE:
+			return "Long Tongue! Range is longer and recovery is faster for 30 seconds."
+		TemporaryPowerState.CAMOUFLAGE:
+			return "Camouflage! Pursuers lose the frog for 20 seconds."
+		TemporaryPowerState.BUBBLE_SHIELD:
+			return "Bubble Shield! The next pursuit hit is blocked."
+	return "Temporary power activated."
 
 
 func _land_frog_safely() -> bool:
@@ -4403,11 +4504,22 @@ func _land_frog_safely() -> bool:
 
 
 func _update_power_label() -> void:
-	_power_label.text = (
-		"FLY %ds" % ceili(_flight_time_left)
-		if _flight_time_left > 0.0
-		else ""
-	)
+	var labels := PackedStringArray()
+	var abbreviations := {
+		TemporaryPowerState.FLIGHT: "F",
+		TemporaryPowerState.SPEED_BURST: "S",
+		TemporaryPowerState.LONG_TONGUE: "T",
+		TemporaryPowerState.CAMOUFLAGE: "C",
+		TemporaryPowerState.BUBBLE_SHIELD: "B",
+	}
+	for power_id in _power_state.active_ids():
+		labels.append(
+			"%s%d" % [
+				abbreviations[power_id],
+				ceili(_power_state.remaining(power_id)),
+			]
+		)
+	_power_label.text = " ".join(labels)
 
 
 func _update_day_night(delta: float) -> void:

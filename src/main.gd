@@ -31,7 +31,9 @@ func _start_game(profile_id: String, display_name: String) -> void:
 		not _profile_store.is_tutorial_complete(profile_id),
 		_profile_store.get_discoveries(profile_id),
 		_profile_store.get_accessibility_preferences(profile_id),
-		_profile_store.get_audio_preferences(profile_id)
+		_profile_store.get_audio_preferences(profile_id),
+		0,
+		_profile_store.get_power_discoveries(profile_id)
 	)
 	game.score_changed.connect(_on_score_changed.bind(profile_id))
 	game.end_requested.connect(_on_game_ended.bind(profile_id))
@@ -41,6 +43,7 @@ func _start_game(profile_id: String, display_name: String) -> void:
 		_on_accessibility_changed.bind(profile_id)
 	)
 	game.audio_changed.connect(_on_audio_changed.bind(profile_id))
+	game.power_discovered.connect(_on_power_discovered.bind(profile_id))
 	_replace_screen(game)
 	game.activate_audio_context()
 
@@ -80,6 +83,10 @@ func _on_audio_changed(
 	profile_id: String
 ) -> void:
 	_profile_store.set_audio_preferences(profile_id, preferences)
+
+
+func _on_power_discovered(power_id: String, profile_id: String) -> void:
+	_profile_store.mark_power_discovered(profile_id, power_id)
 
 
 func _replace_screen(next_screen: Node) -> void:

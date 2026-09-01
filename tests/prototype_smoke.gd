@@ -107,13 +107,16 @@ func _run() -> void:
 		progression_steps += 1
 	_check(game._growth_tier == 2, "Digesting enough value reaches the maximum prototype growth tier.")
 	_check(game._frog.growth_tier == 2, "Frog presentation and abilities receive the growth tier.")
-	if game._flight_time_left <= 0.0:
+	if not game._power_state.is_active(TemporaryPowerState.FLIGHT):
 		var cake := _find_target(game, "golden_cake")
 		_check(cake != null, "The rare golden cake remains available for its flight test.")
 		if cake != null:
 			game._swallow_target(cake, 1.0)
 			game._digest_item(0)
-	_check(game._flight_time_left > 0.0, "Digesting the rare golden cake activates flight.")
+	_check(
+		game._power_state.is_active(TemporaryPowerState.FLIGHT),
+		"Digesting the rare golden cake activates flight."
+	)
 	_check(game._frog.is_flying, "Flight changes the frog's movement state.")
 
 	var vehicle: EdibleTarget
@@ -761,7 +764,8 @@ func _test_accessibility(game_scene: PackedScene) -> void:
 	game._score = 99999
 	game._growth_tier = 1
 	game._growth_points = 350
-	game._flight_time_left = 60.0
+	game._power_state.activate(TemporaryPowerState.FLIGHT)
+	game._start_flight()
 	game._update_hud()
 	game._update_power_label()
 	game.apply_safe_area_insets(safe_insets)
@@ -1011,7 +1015,8 @@ func _test_game_feel(game_scene: PackedScene) -> void:
 	game._score = 99999
 	game._growth_tier = 1
 	game._growth_points = 350
-	game._flight_time_left = 60.0
+	game._power_state.activate(TemporaryPowerState.FLIGHT)
+	game._start_flight()
 	game._update_hud()
 	game._update_power_label()
 	await process_frame

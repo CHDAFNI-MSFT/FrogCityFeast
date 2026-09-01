@@ -114,6 +114,18 @@ The prototype includes:
   follow, pursuit handoff, and unchanged authored connected-room scoping;
 - rare-target replenishment on a randomized 90–180 second schedule;
 - a rare golden cake that grants one minute of flight;
+- a Rooftop Beehive that grants a 20-second 35% ground Speed Burst;
+- a Cursed Music Box that grants 30 seconds of 40% longer tongue range and 20%
+  faster tongue recovery;
+- a Maintenance Pump Handle that grants 20 seconds of Camouflage, blocks new
+  pursuit calls, cancels active attacks, and dismisses an existing pursuer
+  after 0.8 seconds;
+- a Lily Pad Planter that grants a 30-second one-hit Bubble Shield against
+  nets, pursuer contact, pursuer attacks, and damaging pursuit traps, but not
+  traffic;
+- deterministic power replacement rules: the same power refreshes only to its
+  standard duration, different powers coexist, overlays and room fades pause
+  timers, and connected-room travel preserves active powers;
 - a lightweight day and night cycle that changes the world tint, pedestrian
   crowd, secondary traffic, and streetlight glow;
 - deterministic Oddities Shop hours that raise its intact removable shutter

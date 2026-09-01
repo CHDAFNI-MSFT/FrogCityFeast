@@ -12,6 +12,8 @@ const WAYPOINT_TOLERANCE := 1.0
 var growth_tier := 0
 var movement_enabled := true
 var is_flying := false
+var ground_speed_multiplier := 1.0
+var tongue_range_multiplier := 1.0
 var _move_target := Vector2.ZERO
 var _has_move_target := false
 var _move_path := PackedVector2Array()
@@ -67,7 +69,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var offset := waypoint - global_position
-	var speed_multiplier := 1.45 if is_flying else 1.0
+	var speed_multiplier := 1.45 if is_flying else ground_speed_multiplier
 	var movement_speed: float = (
 		TIER_SPEEDS[growth_tier] * speed_multiplier
 	)
@@ -168,7 +170,7 @@ func set_presentation_motion_scale(value: float) -> void:
 
 
 func tongue_range() -> float:
-	return TIER_TONGUE_RANGES[growth_tier]
+	return TIER_TONGUE_RANGES[growth_tier] * tongue_range_multiplier
 
 
 func collision_radius() -> float:
@@ -183,6 +185,14 @@ func set_flying(value: bool) -> void:
 	is_flying = value
 	collision_mask = 0 if is_flying else 1
 	queue_redraw()
+
+
+func set_ground_speed_multiplier(value: float) -> void:
+	ground_speed_multiplier = maxf(0.0, value)
+
+
+func set_tongue_range_multiplier(value: float) -> void:
+	tongue_range_multiplier = maxf(0.0, value)
 
 
 func _current_waypoint() -> Vector2:

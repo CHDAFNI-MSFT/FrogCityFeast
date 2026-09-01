@@ -282,11 +282,24 @@ minute. The progression milestone also adds:
   after 30 seconds.
 
 Power durations count active play only and pause while the Belly, Field Guide,
-or Options overlay pauses the game. Powers persist through connected-room
-transitions. Recollecting the same power keeps the longer of its current
-remaining time and the power's standard duration rather than adding durations;
-different powers may coexist. Speed Burst affects only ground movement, so it
-does not multiply flight speed.
+or Options overlay or a room-transition fade pauses player control. Powers
+persist through connected-room transitions. Recollecting the same power keeps
+the longer of its current remaining time and the power's standard duration
+rather than adding durations; different powers may coexist. Speed Burst
+affects only ground movement, so it does not multiply flight speed.
+
+The current power sources are:
+
+| Power | Digested source | Active behavior |
+|---|---|---|
+| Flight | Flying Golden Cake | Ignores ground collision while remaining bounded to the active city or room; safe landing is required when time expires. |
+| Speed Burst | Rooftop Beehive | Ground movement uses a 1.35 multiplier; flight retains its own fixed multiplier. |
+| Long Tongue | Cursed Music Box | Tongue range uses a 1.40 multiplier and every ordinary or trap-applied tongue recovery is reduced to 80%. |
+| Camouflage | Maintenance Pump Handle | New pursuer calls fail, active attacks cancel, and an existing pursuer loses the frog after 0.8 seconds. |
+| Bubble Shield | Lily Pad Planter | Blocks one Animal Control net, pursuer contact, pursuer attack, or damaging pursuit trap, then ends. It does not block traffic. |
+
+All five power IDs are recorded once per profile when first activated. Repeated
+digestion can refresh gameplay time but cannot repeat discovery progress.
 
 ## Infinite city
 

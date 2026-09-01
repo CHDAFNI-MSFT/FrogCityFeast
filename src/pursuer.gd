@@ -78,6 +78,7 @@ const WATCHDOG_PROTECTION_RADIUS := 210.0
 const WATCHDOG_CROWD_ESCAPE_DURATION := 0.8
 const WATCHDOG_CONTACT_PENALTY := 14
 const WATCHDOG_LUNGE_PENALTY := 16
+const CAMOUFLAGE_ESCAPE_TIME := 0.8
 const ANIMAL_CONTROL_TRAP_DEPLOY_DELAY := 6.0
 const SECURITY_TRAP_DEPLOY_DELAY := 5.0
 const WATCHDOG_TRAP_DEPLOY_DELAY := 4.0
@@ -124,6 +125,7 @@ var _lunge_direction := Vector2.ZERO
 var _lunge_travel := 0.0
 var _lunge_windup_left := 0.0
 var _forced_detection_left := 0.0
+var _frog_camouflaged := false
 
 
 func _ready() -> void:
@@ -322,6 +324,16 @@ func reveal_frog(position: Vector2, duration: float) -> void:
 	invalidate_navigation()
 
 
+func set_frog_camouflaged(value: bool) -> void:
+	if _frog_camouflaged == value:
+		return
+	_frog_camouflaged = value
+	if value:
+		cancel_active_attack()
+		_frog_detected = false
+	invalidate_navigation()
+
+
 func _physics_process(delta: float) -> void:
 	if not active or not is_instance_valid(frog):
 		velocity = Vector2.ZERO
@@ -346,6 +358,12 @@ func _physics_process(delta: float) -> void:
 	_chase_time += delta
 	_update_detection(delta)
 	var offset := frog.global_position - global_position
+	if _frog_camouflaged:
+		_far_time += delta
+		velocity = Vector2.ZERO
+		if _far_time >= CAMOUFLAGE_ESCAPE_TIME:
+			_escape()
+		return
 	match archetype_id:
 		ARCHETYPE_SECURITY_GUARD:
 			if _frog_detected:
@@ -557,6 +575,9 @@ func cancel_net_attack() -> void:
 
 func _update_detection(delta: float = 0.0) -> void:
 	if not is_instance_valid(frog):
+		_frog_detected = false
+		return
+	if _frog_camouflaged:
 		_frog_detected = false
 		return
 	_forced_detection_left = maxf(

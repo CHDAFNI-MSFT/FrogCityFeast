@@ -42,6 +42,8 @@ run_checked audio-smoke --headless --path "$repo_root" \
   --script res://tests/audio_smoke.gd
 run_checked progression-smoke --headless --path "$repo_root" \
   --script res://tests/progression_smoke.gd
+run_checked power-smoke --headless --path "$repo_root" \
+  --script res://tests/power_smoke.gd
 run_checked prototype-smoke --headless --path "$repo_root" \
   --script res://tests/prototype_smoke.gd
 run_checked performance-smoke --headless --path "$repo_root" \

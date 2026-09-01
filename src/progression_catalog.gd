@@ -177,25 +177,25 @@ const POWERS := [
 		"id": "speed_burst",
 		"name": "Speed Burst",
 		"duration": 20.0,
-		"target_id": "sugar_comet",
+		"target_id": "market_rooftop_beehive",
 	},
 	{
 		"id": "long_tongue",
 		"name": "Long Tongue",
 		"duration": 30.0,
-		"target_id": "stretchy_taffy",
+		"target_id": "oddities_cellar_music_box",
 	},
 	{
 		"id": "camouflage",
 		"name": "Camouflage",
 		"duration": 20.0,
-		"target_id": "moon_mint",
+		"target_id": "river_hidden_pump_handle",
 	},
 	{
 		"id": "bubble_shield",
 		"name": "Bubble Shield",
 		"duration": 30.0,
-		"target_id": "bubble_pearl",
+		"target_id": "river_pond_lily_planter",
 	},
 ]
 
