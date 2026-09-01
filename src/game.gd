@@ -193,6 +193,8 @@ const RIVER_HIDDEN_MAINTENANCE_ID := "river_sewer_hidden_maintenance"
 const RIVER_HIDDEN_MAINTENANCE_POSITION := (
 	INTERIOR_SPACE_ORIGIN + Vector2(0, 12200)
 )
+const SECRET_DISTRICT_DESTINATION := "secret_fantasy_district_world"
+const SECRET_DISTRICT_RETURN_PORTAL_ID := "secret_star_path_return"
 const CITY_EXPLORATION_PORTALS := [
 	{
 		"id": "construction_crane_lift",
@@ -496,6 +498,7 @@ var _district_definitions: Dictionary = {}
 var _district_states: Dictionary = {}
 var _loaded_districts: Dictionary = {}
 var _current_district_coordinate := Vector2i.ZERO
+var _secret_district_coordinate := Vector2i.ZERO
 var _next_session_instance_id := 1
 var _pursuer: PrototypePursuer
 var _roadblock: PrototypeRoadblock
@@ -726,6 +729,9 @@ func configure(
 		if session_seed != 0
 		else _create_session_seed(profile_id)
 	)
+	_secret_district_coordinate = (
+		DISTRICT_GENERATOR_SCRIPT.secret_coordinate(_session_seed)
+	)
 	_configured = true
 
 
@@ -760,6 +766,8 @@ func _update_district_streaming(force: bool = false) -> void:
 		var coordinate := coordinate_value as Vector2i
 		if not desired.has(coordinate):
 			_unload_generated_district(coordinate)
+	if _is_secret_district_coordinate(_current_district_coordinate):
+		_record_secret_district_entered()
 	if coordinate_changed and not force:
 		_clear_roadblock()
 		_clear_pursuit_trap()
@@ -936,9 +944,23 @@ func _unload_generated_district(coordinate: Vector2i) -> void:
 func _district_definition(coordinate: Vector2i) -> DistrictDefinition:
 	var key := _district_key(coordinate)
 	if not _district_definitions.has(key):
-		_district_definitions[key] = DISTRICT_GENERATOR_SCRIPT.generate(
-			_session_seed,
-			coordinate
+		_district_definitions[key] = (
+			DISTRICT_GENERATOR_SCRIPT.generate_secret(
+				_session_seed,
+				coordinate
+			)
+			if _is_secret_district_coordinate(coordinate)
+			else (
+				DISTRICT_GENERATOR_SCRIPT.generate_reserved(
+					_session_seed,
+					coordinate
+				)
+				if coordinate == _secret_district_coordinate
+				else DISTRICT_GENERATOR_SCRIPT.generate(
+					_session_seed,
+					coordinate
+				)
+			)
 		)
 	return _district_definitions[key] as DistrictDefinition
 
@@ -1527,13 +1549,16 @@ func _transition_building_at(world_position: Vector2) -> PrototypeBuilding:
 
 
 func _city_portal_at(world_position: Vector2) -> Dictionary:
-	if (
-		_current_district_coordinate
-		!= DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
-	):
-		return {}
-	for portal_value in CITY_EXPLORATION_PORTALS:
+	for portal_value in _available_city_portals():
 		var portal := portal_value as Dictionary
+		var district_coordinate := (
+			portal.get(
+				"district_coordinate",
+				DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+			) as Vector2i
+		)
+		if district_coordinate != _current_district_coordinate:
+			continue
 		var marker_position := (
 			portal.get("marker_position", Vector2.INF) as Vector2
 		)
@@ -1543,11 +1568,41 @@ func _city_portal_at(world_position: Vector2) -> Dictionary:
 
 
 func _city_portal_by_id(portal_id: String) -> Dictionary:
-	for portal_value in CITY_EXPLORATION_PORTALS:
+	for portal_value in _available_city_portals():
 		var portal := portal_value as Dictionary
 		if str(portal.get("id", "")) == portal_id:
 			return portal
 	return {}
+
+
+func _available_city_portals() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for portal_value in CITY_EXPLORATION_PORTALS:
+		var portal := (portal_value as Dictionary).duplicate(true)
+		portal["district_coordinate"] = (
+			DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+		)
+		result.append(portal)
+	if _secret_unlocks.has(ProgressionCatalog.SECRET_FANTASY_DISTRICT):
+		result.append({
+			"id": SECRET_DISTRICT_RETURN_PORTAL_ID,
+			"label": "star path",
+			"marker_position": (
+				DISTRICT_GENERATOR_SCRIPT.secret_portal_marker_position(
+					_secret_district_coordinate
+				)
+			),
+			"approach_position": (
+				DISTRICT_GENERATOR_SCRIPT.secret_portal_approach_position(
+					_secret_district_coordinate
+				)
+			),
+			"destination": RIVER_HIDDEN_MAINTENANCE_ID,
+			"destination_entry_id": "from_secret",
+			"district_coordinate": _secret_district_coordinate,
+			"preserve_city_return": true,
+		})
+	return result
 
 
 func _building_for_interior_room(room_id: String) -> PrototypeBuilding:
@@ -1676,11 +1731,16 @@ func _begin_interior_transition(
 				city_portal.get("approach_position", Vector2.INF)
 				as Vector2
 			)
+			var portal_coordinate := (
+				city_portal.get(
+					"district_coordinate",
+					DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+				) as Vector2i
+			)
 			if (
 				city_portal.is_empty()
 				or str(city_portal.get("destination", "")) != destination
-				or _current_district_coordinate
-				!= DISTRICT_GENERATOR_SCRIPT.CORE_COORDINATE
+				or _current_district_coordinate != portal_coordinate
 				or _frog.global_position.distance_to(portal_approach)
 				> 130.0
 			):
@@ -1770,7 +1830,25 @@ func _update_interior_transition(delta: float) -> void:
 
 
 func _complete_interior_transfer() -> void:
-	if _interior_transition_destination != "city":
+	if _interior_transition_destination == SECRET_DISTRICT_DESTINATION:
+		_active_interior_id = ""
+		_clear_city_detour()
+		_frog.global_position = (
+			DISTRICT_GENERATOR_SCRIPT.secret_entry_position(
+				_secret_district_coordinate
+			)
+		)
+		_camera.zoom = _city_camera_zoom
+		_camera.rotation = _city_camera_rotation
+		_camera.position_smoothing_enabled = (
+			_city_camera_smoothing_enabled
+		)
+		if is_instance_valid(_pursuer):
+			_pursuer._escape()
+		_update_district_streaming(true)
+		_record_secret_district_entered()
+		_show_status("Entered Starfall Quarter through the secret path.")
+	elif _interior_transition_destination != "city":
 		var room := (
 			_interior_rooms.get(_interior_transition_destination)
 			as PrototypeInteriorRoom
@@ -1786,10 +1864,17 @@ func _complete_interior_transfer() -> void:
 				var city_portal := _city_portal_by_id(
 					_interior_transition_source_portal_id
 				)
-				_city_return_position = city_portal.get(
-					"approach_position",
-					Vector2.ZERO
-				) as Vector2
+				if not bool(
+					city_portal.get("preserve_city_return", false)
+				):
+					_city_return_position = city_portal.get(
+						"approach_position",
+						Vector2.ZERO
+					) as Vector2
+					_city_camera_rotation = _camera.rotation
+					_city_camera_smoothing_enabled = (
+						_camera.position_smoothing_enabled
+					)
 			else:
 				var building := _building_for_interior_room(
 					_interior_transition_destination
@@ -1803,10 +1888,10 @@ func _complete_interior_transfer() -> void:
 				_city_return_position = (
 					building.transition_door_approach_position()
 				)
-			_city_camera_rotation = _camera.rotation
-			_city_camera_smoothing_enabled = (
-				_camera.position_smoothing_enabled
-			)
+				_city_camera_rotation = _camera.rotation
+				_city_camera_smoothing_enabled = (
+					_camera.position_smoothing_enabled
+				)
 		_active_interior_id = _interior_transition_destination
 		_clear_city_detour()
 		_frog.global_position = room.entry_position(
@@ -2677,8 +2762,35 @@ func _unlock_secret_path() -> bool:
 	if _secret_unlocks.has(secret_id):
 		return false
 	_secret_unlocks[secret_id] = true
+	_prepare_secret_district()
+	_sync_progression_portals()
 	secret_unlocked.emit(secret_id)
 	return true
+
+
+func _prepare_secret_district() -> void:
+	if _secret_district_coordinate == Vector2i.ZERO:
+		return
+	call_deferred("_replace_secret_district_definition")
+
+
+func _replace_secret_district_definition() -> void:
+	if _loaded_districts.has(_secret_district_coordinate):
+		_unload_generated_district(_secret_district_coordinate)
+	var key := _district_key(_secret_district_coordinate)
+	_district_definitions.erase(key)
+	if (
+		_active_interior_id.is_empty()
+		and _current_district_coordinate == _secret_district_coordinate
+	):
+		call_deferred("_update_district_streaming", true)
+
+
+func _is_secret_district_coordinate(coordinate: Vector2i) -> bool:
+	return (
+		_secret_unlocks.has(ProgressionCatalog.SECRET_FANTASY_DISTRICT)
+		and coordinate == _secret_district_coordinate
+	)
 
 
 func _evaluate_event_explorer() -> void:
@@ -2986,6 +3098,17 @@ func _sync_progression_portals() -> void:
 		sewer_junction.set_portal_visible(
 			"hidden_maintenance_hatch",
 			_discoveries.has("river_sewer_valve")
+		)
+	var hidden_maintenance := (
+		_interior_rooms.get(RIVER_HIDDEN_MAINTENANCE_ID)
+		as PrototypeInteriorRoom
+	)
+	if is_instance_valid(hidden_maintenance):
+		hidden_maintenance.set_portal_visible(
+			"secret_star_path",
+			_secret_unlocks.has(
+				ProgressionCatalog.SECRET_FANTASY_DISTRICT
+			)
 		)
 
 
@@ -6357,6 +6480,14 @@ func _build_prototype_city() -> void:
 		"return",
 		Vector2(400, 80),
 		Vector2(300, 80)
+	)
+	hidden_maintenance.set_entry("from_secret", Vector2(0, 0))
+	hidden_maintenance.add_portal(
+		"secret_star_path",
+		"STAR PATH",
+		Vector2(0, -310),
+		Vector2(0, -200),
+		SECRET_DISTRICT_DESTINATION
 	)
 	var market_rooftop := _spawn_interior_room(
 		MARKET_ROOFTOP_ID,

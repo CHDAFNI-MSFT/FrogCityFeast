@@ -38,6 +38,8 @@ run_checked navigation-smoke --headless --path "$repo_root" \
   --script res://tests/navigation_smoke.gd
 run_checked district-smoke --headless --path "$repo_root" \
   --script res://tests/district_smoke.gd
+run_checked secret-district-smoke --headless --path "$repo_root" \
+  --script res://tests/secret_district_smoke.gd
 run_checked audio-smoke --headless --path "$repo_root" \
   --script res://tests/audio_smoke.gd
 run_checked progression-smoke --headless --path "$repo_root" \

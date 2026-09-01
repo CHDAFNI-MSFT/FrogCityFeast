@@ -432,6 +432,8 @@ func _store_id(
 
 func _reconcile_progression() -> void:
 	var changed := false
+	var secret_found_on_device := false
+	var enormous_growth_on_device := false
 	if get_device_best() >= ProgressionCatalog.DEVICE_SCORE_MILESTONE_THRESHOLD:
 		changed = _store_id(
 			"device_achievements",
@@ -531,6 +533,14 @@ func _reconcile_progression() -> void:
 			) or changed
 
 		achievements = get_profile_achievements(profile_id)
+		secret_found_on_device = (
+			secret_found_on_device
+			or achievements.has("secret_finder")
+		)
+		enormous_growth_on_device = (
+			enormous_growth_on_device
+			or achievements.has("enormous_appetite")
+		)
 		var story_clues := get_story_clues(profile_id)
 		if (
 			not power_discoveries.is_empty()
@@ -567,6 +577,21 @@ func _reconcile_progression() -> void:
 				ProgressionCatalog.SECRET_FANTASY_DISTRICT,
 				ProgressionCatalog.secret_unlock_ids()
 			) or changed
+
+	if secret_found_on_device:
+		changed = _store_id(
+			"device_achievements",
+			"unlocked",
+			"device_secret_found",
+			ProgressionCatalog.device_achievement_ids()
+		) or changed
+	if enormous_growth_on_device:
+		changed = _store_id(
+			"device_achievements",
+			"unlocked",
+			"device_enormous_growth",
+			ProgressionCatalog.device_achievement_ids()
+		) or changed
 
 	if changed:
 		_save()

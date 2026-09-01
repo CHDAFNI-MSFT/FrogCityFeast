@@ -437,6 +437,12 @@ func _run() -> void:
 			"preferences": _default_preferences(),
 			"discoveries": DiscoveryCatalog.ids(),
 		},
+		{
+			"name": "secret_district",
+			"setup": _setup_secret_district,
+			"preferences": _default_preferences(),
+			"discoveries": DiscoveryCatalog.ids(),
+		},
 	]
 
 	if _measure:
@@ -895,6 +901,15 @@ func _setup_generated_streaming(game: FrogGame) -> void:
 	game._frog.global_position = DistrictGenerator.bounds_for_coordinate(
 		Vector2i(2, 2)
 	).get_center()
+	game._update_district_streaming()
+	_exercise_navigation_detour(game, true)
+
+
+func _setup_secret_district(game: FrogGame) -> void:
+	game._unlock_secret_path()
+	game._frog.global_position = DistrictGenerator.secret_entry_position(
+		game._secret_district_coordinate
+	)
 	game._update_district_streaming()
 	_exercise_navigation_detour(game, true)
 
@@ -1448,6 +1463,20 @@ func _check_scenario_expectations(
 				"Generated streaming reaches its bounded untouched 3x3 district ring."
 			)
 			_check_navigation_stress(snapshot, "Generated streaming")
+		"secret_district":
+			_check(
+				int(snapshot["loaded_generated_districts"])
+				== BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
+				and int(snapshot["generated_district_records"])
+				== BUDGETS.MAX_LOADED_GENERATED_DISTRICTS
+				and int(snapshot["district_state_records"]) == 0
+				and int(snapshot["generated_buildings"])
+				== BUDGETS.MAX_GENERATED_BUILDINGS
+				and int(snapshot["generated_targets"])
+				== BUDGETS.MAX_GENERATED_TARGETS,
+				"Secret streaming reaches the bounded fantasy 3x3 district ring."
+			)
+			_check_navigation_stress(snapshot, "Secret district")
 
 
 func _check_presentation_peak(snapshot: Dictionary) -> void:
@@ -1664,6 +1693,7 @@ func _measure_scenario(
 		"city_detour_security_peak",
 		"city_detour_watchdog_peak",
 		"generated_streaming",
+		"secret_district",
 	]:
 		_check_navigation_stress(
 			snapshot,

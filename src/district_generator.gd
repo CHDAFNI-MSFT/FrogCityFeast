@@ -11,6 +11,11 @@ const BUILDINGS_PER_DISTRICT := 1
 const LOOSE_TARGETS_PER_DISTRICT := 4
 const STREAM_MARGIN := 800.0
 const MAX_LOADED_GENERATED_DISTRICTS := 9
+const SECRET_MIN_DISTANCE := 4
+const SECRET_MAX_DISTANCE := 6
+const SECRET_ENTRY_OFFSET := Vector2.ZERO
+const SECRET_PORTAL_MARKER_OFFSET := Vector2(0, -280)
+const SECRET_PORTAL_APPROACH_OFFSET := Vector2(0, -170)
 const GENERATED_BUILDING_DISCOVERY_IDS := [
 	"generated_building_sign",
 	"generated_building_awning",
@@ -135,6 +140,26 @@ const ARCHETYPES := [
 	},
 ]
 
+const SECRET_ARCHETYPE := {
+	"id": "secret_fantasy",
+	"name": "Starfall Quarter",
+	"ground": Color("51496f"),
+	"lot": Color("76658f"),
+	"road": Color("2d3048"),
+	"accent": Color("f0d472"),
+	"building": Color("8f72aa"),
+	"building_names": ["Starlight Conservatory"],
+	"target_id": "generated_park_picnic",
+	"target_names": [
+		"Starfruit Picnic",
+		"Moonflower Basket",
+		"Comet Kite Spool",
+		"Glowcap Cart",
+	],
+	"target_color": Color("e8cc72"),
+	"layout": "secret",
+}
+
 
 static func bounds_for_coordinate(coordinate: Vector2i) -> Rect2:
 	return Rect2(
@@ -166,31 +191,122 @@ static func seed_for_coordinate(
 	return maxi(1, value)
 
 
+static func secret_coordinate(session_seed: int) -> Vector2i:
+	var value := maxi(1, absi(session_seed))
+	var side := posmod(value, 4)
+	var distance := (
+		SECRET_MIN_DISTANCE
+		+ posmod(value / 4, SECRET_MAX_DISTANCE - SECRET_MIN_DISTANCE + 1)
+	)
+	var along := posmod(value / 12, 5) - 2
+	match side:
+		0:
+			return Vector2i(distance, along)
+		1:
+			return Vector2i(along, distance)
+		2:
+			return Vector2i(-distance, along)
+	return Vector2i(along, -distance)
+
+
+static func secret_entry_position(coordinate: Vector2i) -> Vector2:
+	return bounds_for_coordinate(coordinate).get_center() + SECRET_ENTRY_OFFSET
+
+
+static func secret_portal_marker_position(coordinate: Vector2i) -> Vector2:
+	return (
+		bounds_for_coordinate(coordinate).get_center()
+		+ SECRET_PORTAL_MARKER_OFFSET
+	)
+
+
+static func secret_portal_approach_position(coordinate: Vector2i) -> Vector2:
+	return (
+		bounds_for_coordinate(coordinate).get_center()
+		+ SECRET_PORTAL_APPROACH_OFFSET
+	)
+
+
 static func generate(
 	session_seed: int,
 	coordinate: Vector2i
 ) -> DistrictDefinition:
-	var definition := DEFINITION_SCRIPT.new() as DistrictDefinition
 	var district_seed := seed_for_coordinate(session_seed, coordinate)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = district_seed
 	var archetype := (
 		ARCHETYPES[posmod(district_seed, ARCHETYPES.size())] as Dictionary
 	)
+	return _generate_definition(
+		coordinate,
+		district_seed,
+		archetype,
+		"district",
+		false
+	)
+
+
+static func generate_reserved(
+	session_seed: int,
+	coordinate: Vector2i
+) -> DistrictDefinition:
+	var district_seed := seed_for_coordinate(session_seed, coordinate)
+	var archetype := (
+		ARCHETYPES[posmod(district_seed, ARCHETYPES.size())] as Dictionary
+	)
+	return _generate_definition(
+		coordinate,
+		district_seed,
+		archetype,
+		"secret_district",
+		false
+	)
+
+
+static func generate_secret(
+	session_seed: int,
+	coordinate: Vector2i
+) -> DistrictDefinition:
+	var district_seed := seed_for_coordinate(
+		session_seed ^ 0x5EC7E7,
+		coordinate
+	)
+	return _generate_definition(
+		coordinate,
+		district_seed,
+		SECRET_ARCHETYPE,
+		"secret_district",
+		true
+	)
+
+
+static func _generate_definition(
+	coordinate: Vector2i,
+	district_seed: int,
+	archetype: Dictionary,
+	district_id_prefix: String,
+	is_secret: bool
+) -> DistrictDefinition:
+	var definition := DEFINITION_SCRIPT.new() as DistrictDefinition
+	var rng := RandomNumberGenerator.new()
+	rng.seed = district_seed
 	var bounds := bounds_for_coordinate(coordinate)
 	var center := bounds.get_center()
 
 	definition.coordinate = coordinate
-	definition.district_id = "district_%d_%d" % [
+	definition.district_id = "%s_%d_%d" % [
+		district_id_prefix,
 		coordinate.x,
 		coordinate.y,
 	]
 	definition.archetype_id = str(archetype["id"])
-	definition.display_name = "%s %d,%d" % [
-		archetype["name"],
-		coordinate.x,
-		coordinate.y,
-	]
+	definition.display_name = (
+		str(archetype["name"])
+		if is_secret
+		else "%s %d,%d" % [
+			archetype["name"],
+			coordinate.x,
+			coordinate.y,
+		]
+	)
 	definition.bounds = bounds
 	definition.ground_color = archetype["ground"] as Color
 	definition.lot_color = archetype["lot"] as Color
@@ -410,6 +526,11 @@ static func _build_obstacles(
 			return [
 				Rect2(center + Vector2(760, -930), Vector2(380, 230)),
 			]
+		"secret_fantasy":
+			return [
+				Rect2(center + Vector2(-1260, -980), Vector2(360, 220)),
+				Rect2(center + Vector2(900, 760), Vector2(340, 240)),
+			]
 	return []
 
 
@@ -449,6 +570,10 @@ static func _build_buildings(
 			placements = [
 				{"offset": Vector2(-970, -690), "door": "east"},
 				{"offset": Vector2(970, 690), "door": "west"},
+			]
+		"secret":
+			placements = [
+				{"offset": Vector2(880, -650), "door": "west"},
 			]
 
 	var result: Array[Dictionary] = []

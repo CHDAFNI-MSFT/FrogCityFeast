@@ -178,3 +178,38 @@ func _draw_archetype_details() -> void:
 					64.0,
 					definition.accent_color.darkened(0.32)
 				)
+		"secret_fantasy":
+			var portal_position := (
+				center + DistrictGenerator.SECRET_PORTAL_MARKER_OFFSET
+			)
+			draw_circle(
+				portal_position,
+				72.0,
+				definition.accent_color.darkened(0.35)
+			)
+			draw_circle(
+				portal_position,
+				52.0,
+				definition.accent_color.lightened(0.12),
+				false,
+				8.0
+			)
+			for point_index in 8:
+				var angle := float(point_index) * TAU / 8.0
+				var outer := portal_position + Vector2.from_angle(angle) * 92.0
+				var inner := portal_position + Vector2.from_angle(angle) * 66.0
+				draw_line(
+					inner,
+					outer,
+					definition.accent_color.lightened(0.18),
+					6.0
+				)
+			draw_string(
+				ThemeDB.fallback_font,
+				portal_position + Vector2(-150, -100),
+				"STAR PATH",
+				HORIZONTAL_ALIGNMENT_CENTER,
+				300,
+				22,
+				Color("fff1a8")
+			)

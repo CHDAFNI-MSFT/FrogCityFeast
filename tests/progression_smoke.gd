@@ -181,6 +181,7 @@ func _run() -> void:
 			"event_kite_festival",
 			"event_water_main",
 			"event_wind_squall",
+			"secret_finder",
 		])
 	)
 	reloaded._save()
@@ -188,6 +189,9 @@ func _run() -> void:
 	var reconciled := ProfileStore.new(save_path)
 	_check(
 		reconciled.get_device_achievements().has("device_score_2500")
+		and reconciled.get_device_achievements().has(
+			"device_secret_found"
+		)
 		and reconciled.get_profile_achievements("frog_two").has(
 			"city_gourmet"
 		)

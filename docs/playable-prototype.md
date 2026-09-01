@@ -110,6 +110,11 @@ The prototype includes:
 - deterministic regeneration of untouched districts plus compact session-only
   deltas for removed or moved targets, relocated spat-out items, removed
   building parts, and consumed or restored buildings;
+- a six-clue star path from Hidden Sewer Maintenance to Starfall Quarter, whose
+  special fantasy archetype is placed four to six districts from the core by
+  the fresh session seed and uses the same bounded streaming and delta model;
+- a marked two-way return that preserves the original River Park exit, plus
+  one-time profile and device entry milestones that cannot be farmed;
 - cross-district Belly restocking, Field Guide discovery categories, camera
   follow, pursuit handoff, and unchanged authored connected-room scoping;
 - rare-target replenishment on a randomized 90–180 second schedule;
@@ -495,6 +500,7 @@ The deterministic structural budgets are enforced in CI:
 | Staggered-roadblock pursuit | 374 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 2 roadblock segments |
 | Reachable gameplay peak | 375 nodes, 43 collision objects, 114 collision shapes, 1 pursuer, 1 two-segment roadblock, 1 draw-only snare |
 | Maximum generated ring | 9 generated districts, 9 generated buildings, 72 generated targets; 579 nodes, 100 collision objects, and 172 collision shapes including the authored core |
+| Secret-district ring | Same 9-district, 9-building, and 72-target cap; worst-case obstacle composition allows up to 594 nodes, 104 collision objects, and 183 shapes, with one draw-only star-path mark |
 | Navigation query | At most 160 active obstacle rectangles, 70,000 total coarse/fine grid cells, and 512 smoothed route points per request |
 | Populated Belly sample | 64 items and rows, 625 nodes; this is a stress sample, not a gameplay capacity limit |
 | Busy daytime activity | 10 routed pedestrians, 5 meetup visitors, and 5 secondary vehicles, all draw-only |
@@ -675,14 +681,13 @@ The following parts of the full design are not implemented yet:
 
 - generated multi-room interiors, upper levels, rooftops, and authored events;
 - restaurant, outdoor-market, suburban, construction, entertainment, and
-  secret-fantasy generator archetypes;
+  additional fantasy generator archetypes;
 - generated pedestrian and traffic routes beyond the authored central
   district;
 - persistence of generated district state across application launches, which
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
 - further fantasy events;
-- the generated secret-fantasy district reached by the unlocked path;
 - final art, authored animation, expanded audio content and target-device mix
   validation, and any accessibility work beyond the implemented motion,
   interface-size, contrast, touch-feedback, safe-area, and volume controls; and

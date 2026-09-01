@@ -54,6 +54,11 @@ const MAX_GENERATED_TARGETS := (
 		+ DISTRICT_GENERATOR.BUILDINGS_PER_DISTRICT * 4
 	)
 )
+const MAX_SECRET_RING_ENVIRONMENT_BODIES := 9
+const MAX_SECRET_RING_OBSTACLE_SHAPES := 18
+const MAX_SECRET_DISTRICT_NODES := 594
+const MAX_SECRET_DISTRICT_COLLISION_OBJECTS := 104
+const MAX_SECRET_DISTRICT_COLLISION_SHAPES := 183
 const BELLY_STRESS_ITEMS := 64
 const STRESS_RANDOM_SEED := 0xF06C2026
 const LOCAL_WARMUP_SECONDS := 1.25
@@ -445,6 +450,18 @@ const STRUCTURAL_LIMITS := {
 		"game_nodes": 579,
 		"collision_objects": 100,
 		"collision_shapes": 172,
+		"targets": MAX_TARGETS + MAX_GENERATED_TARGETS,
+		"buildings": MAX_BUILDINGS + MAX_GENERATED_BUILDINGS,
+		"loaded_generated_districts": MAX_LOADED_GENERATED_DISTRICTS,
+		"generated_district_records": MAX_LOADED_GENERATED_DISTRICTS,
+		"district_state_records": 0,
+		"generated_targets": MAX_GENERATED_TARGETS,
+		"generated_buildings": MAX_GENERATED_BUILDINGS,
+	},
+	"secret_district": {
+		"game_nodes": MAX_SECRET_DISTRICT_NODES,
+		"collision_objects": MAX_SECRET_DISTRICT_COLLISION_OBJECTS,
+		"collision_shapes": MAX_SECRET_DISTRICT_COLLISION_SHAPES,
 		"targets": MAX_TARGETS + MAX_GENERATED_TARGETS,
 		"buildings": MAX_BUILDINGS + MAX_GENERATED_BUILDINGS,
 		"loaded_generated_districts": MAX_LOADED_GENERATED_DISTRICTS,

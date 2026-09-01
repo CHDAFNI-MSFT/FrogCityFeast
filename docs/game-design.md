@@ -331,6 +331,25 @@ scene tree. Untouched districts are regenerated on demand, while compact
 session-local deltas retain removed targets, moved or spat-out targets, removed
 building parts, and consumed or restored buildings.
 
+After six profile clues reveal the secret path, a star portal appears in the
+Hidden Sewer Maintenance Pocket. It leads to **Starfall Quarter**, a special
+fantasy archetype placed four to six districts from the core at a coordinate
+derived from the current session seed. The district uses the same one-building,
+four-target, 3x3 streaming, collision, navigation, destruction, and compact
+delta limits as ordinary generated districts. A marked return star leads back
+to Hidden Maintenance without replacing the original River Park return.
+
+The chosen coordinate is reserved from session start with stable
+`secret_district_<x>_<y>` instance IDs, even while it still presents an
+ordinary archetype before unlock. Revealing Starfall Quarter replaces only the
+definition and preserves removed or moved targets, building damage, swallowed
+building references, and other session deltas already recorded there.
+
+The secret unlock persists, but its coordinate, layout details, target state,
+and destruction state do not. Start New Game derives a fresh placement and
+fresh district state from the new city seed. First entry grants one profile
+achievement and one device milestone; revisits cannot farm either.
+
 **Start New Game always creates a fresh city.** Score, growth, Belly contents,
 location, city seed, destruction, moved targets, and generated-district deltas
 reset. Per-profile Field Guide entries, achievements, story clues, power
@@ -355,7 +374,7 @@ things to eat.
 - Waterfront and canals (implemented foundation archetype)
 - Construction sites
 - Entertainment district
-- Secret fantasy district
+- Secret fantasy district (implemented as the clue-gated Starfall Quarter)
 
 ### Buildings and interiors
 

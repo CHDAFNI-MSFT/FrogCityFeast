@@ -100,6 +100,9 @@ Invoke-GodotCheck `
     -Label "district-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/district_smoke.gd"
 Invoke-GodotCheck `
+    -Label "secret-district-smoke" `
+    -Arguments "--headless --path `"$repoRoot`" --script res://tests/secret_district_smoke.gd"
+Invoke-GodotCheck `
     -Label "audio-smoke" `
     -Arguments "--headless --path `"$repoRoot`" --script res://tests/audio_smoke.gd"
 Invoke-GodotCheck `
