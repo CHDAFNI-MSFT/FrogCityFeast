@@ -22,6 +22,15 @@ const FROG_TEXTURE: Texture2D = preload(
 const WING_TEXTURE: Texture2D = preload(
 	"res://assets/art/characters/frog_wing.svg"
 )
+const ANIMAL_CONTROL_TEXTURE: Texture2D = preload(
+	"res://assets/art/characters/animal_control.svg"
+)
+const SECURITY_GUARD_TEXTURE: Texture2D = preload(
+	"res://assets/art/characters/security_guard.svg"
+)
+const WATCHDOG_TEXTURE: Texture2D = preload(
+	"res://assets/art/characters/watchdog.svg"
+)
 const FOOD_TEXTURE: Texture2D = preload(
 	"res://assets/art/targets/food.svg"
 )
@@ -37,6 +46,16 @@ const VEHICLE_TEXTURE: Texture2D = preload(
 const BUILDING_PART_TEXTURE: Texture2D = preload(
 	"res://assets/art/targets/building_part.svg"
 )
+
+
+static func pursuer_texture(archetype_id: String) -> Texture2D:
+	match archetype_id:
+		"security_guard":
+			return SECURITY_GUARD_TEXTURE
+		"watchdog":
+			return WATCHDOG_TEXTURE
+		_:
+			return ANIMAL_CONTROL_TEXTURE
 
 
 static func target_texture(kind: String) -> Texture2D:

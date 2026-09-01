@@ -1,6 +1,8 @@
 class_name PrototypeRoadblock
 extends StaticBody2D
 
+const ART := preload("res://src/production_art.gd")
+
 signal removed(roadblock: PrototypeRoadblock, broken: bool)
 
 const REQUIRED_HITS := 3
@@ -157,11 +159,15 @@ func dismiss(broken: bool) -> void:
 func _draw() -> void:
 	var rects := local_collision_rects()
 	for rect in rects:
-		draw_rect(rect, Color("d88335"))
+		draw_rect(
+			Rect2(rect.position + Vector2(5, 6), rect.size),
+			Color(ART.INK, 0.24)
+		)
+		draw_rect(rect, ART.CITY_CORAL)
 		if layout_id == LAYOUT_STRAIGHT:
 			draw_rect(
 				rect.grow(-5.0),
-				Color("352d29"),
+				ART.INK,
 				false,
 				4.0
 			)
@@ -194,7 +200,7 @@ func _draw() -> void:
 					Vector2(rect.size.x - 12.0, stripe_length)
 				)
 			)
-			draw_rect(stripe_rect, Color("f4e5bb"))
+			draw_rect(stripe_rect, ART.CREAM)
 	for hit_index in _hits:
 		var target_rect := rects[hit_index % rects.size()]
 		var center := target_rect.get_center()
@@ -202,13 +208,13 @@ func _draw() -> void:
 		draw_line(
 			Vector2(x - 16, center.y - 15),
 			Vector2(x + 4, center.y + 1),
-			Color("5b2521"),
+			ART.DANGER_CORAL.darkened(0.4),
 			5.0
 		)
 		draw_line(
 			Vector2(x + 4, center.y + 1),
 			Vector2(x - 8, center.y + 17),
-			Color("5b2521"),
+			ART.DANGER_CORAL.darkened(0.4),
 			5.0
 		)
 	var bounds := navigation_obstacle_rect()
@@ -227,5 +233,5 @@ func _draw() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER,
 		220,
 		18,
-		Color("f8f1dd")
+		ART.CREAM
 	)

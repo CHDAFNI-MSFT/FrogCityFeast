@@ -21,6 +21,9 @@ project requires the owner's permission.
 |---|---|
 | `characters/frog.svg` | Layered player body, face, limbs, paper shadow, and spots. |
 | `characters/frog_wing.svg` | Reusable mirrored flight wing. |
+| `characters/animal_control.svg` | Animal Control cutout with uniform, badge, and net case. |
+| `characters/security_guard.svg` | Security Guard cutout with cap, badge, and flashlight. |
+| `characters/watchdog.svg` | Watchdog cutout with collar and readable canine silhouette. |
 | `targets/food.svg` | Tintable food-category silhouette. |
 | `targets/living.svg` | Tintable harmless living-target silhouette. |
 | `targets/object.svg` | Tintable loose-object and whole-building token silhouette. |

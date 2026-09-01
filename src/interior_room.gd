@@ -1,6 +1,8 @@
 class_name PrototypeInteriorRoom
 extends Node2D
 
+const ART := preload("res://src/production_art.gd")
+
 const WALL_THICKNESS := 28.0
 const CAMERA_FIXED := "fixed"
 const CAMERA_FOLLOW := "follow"
@@ -233,14 +235,18 @@ func _add_rect_collision(rect: Rect2) -> void:
 
 func _draw() -> void:
 	var room := Rect2(-room_size / 2.0, room_size)
+	draw_rect(
+		Rect2(room.position + Vector2(12, 14), room.size),
+		Color(ART.INK, 0.18)
+	)
 	draw_rect(room, floor_color)
 	draw_rect(
 		room.grow(-WALL_THICKNESS),
-		floor_color.lightened(0.12),
+		ART.CREAM,
 		false,
 		6.0
 	)
-	var wall_color := floor_color.darkened(0.46)
+	var wall_color := ART.INK
 	draw_rect(
 		Rect2(room.position, Vector2(room.size.x, WALL_THICKNESS)),
 		wall_color
@@ -278,7 +284,7 @@ func _draw() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER,
 		room_size.x * 0.6,
 		32,
-		Color("30241e")
+		ART.INK
 	)
 	for portal_value in portals:
 		var portal := portal_value as Dictionary
@@ -290,11 +296,11 @@ func _draw() -> void:
 		) as Vector2
 		draw_rect(
 			Rect2(portal_position - Vector2(58, 28), Vector2(116, 56)),
-			Color("4f6f72")
+			ART.NIGHT_NAVY
 		)
 		draw_rect(
 			Rect2(portal_position - Vector2(48, 20), Vector2(96, 40)),
-			Color("96bdaf"),
+			ART.FOCUS_MINT,
 			false,
 			4.0
 		)
@@ -305,5 +311,5 @@ func _draw() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER,
 			240,
 			18,
-			Color("f2f5e9")
+			ART.CREAM
 		)

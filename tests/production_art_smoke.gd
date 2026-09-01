@@ -3,6 +3,9 @@ extends SceneTree
 const ART_PATHS := [
 	"res://assets/art/characters/frog.svg",
 	"res://assets/art/characters/frog_wing.svg",
+	"res://assets/art/characters/animal_control.svg",
+	"res://assets/art/characters/security_guard.svg",
+	"res://assets/art/characters/watchdog.svg",
 	"res://assets/art/targets/food.svg",
 	"res://assets/art/targets/living.svg",
 	"res://assets/art/targets/object.svg",
@@ -73,6 +76,14 @@ func _test_art_runtime_contract() -> void:
 		"building",
 	]
 	var textures_are_valid := true
+	for archetype_value in [
+		"animal_control",
+		"security_guard",
+		"watchdog",
+	]:
+		var archetype_id := str(archetype_value)
+		if ProductionArt.pursuer_texture(archetype_id) is not Texture2D:
+			textures_are_valid = false
 	for kind in kinds:
 		if (
 			ProductionArt.target_texture(kind) is not Texture2D

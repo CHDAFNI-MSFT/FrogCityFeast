@@ -54,6 +54,21 @@ func emit_damage(world_position: Vector2) -> void:
 	)
 
 
+func emit_destruction(
+	world_position: Vector2,
+	color: Color,
+	large: bool = false
+) -> void:
+	_add_effect(
+		"destruction",
+		world_position,
+		color,
+		0.58 if large else 0.4,
+		150.0 if large else 74.0,
+		14 if large else 9
+	)
+
+
 func active_effect_count() -> int:
 	return _effects.size()
 
@@ -108,6 +123,8 @@ func _draw() -> void:
 		match str(effect["kind"]):
 			"growth":
 				_draw_growth(effect, progress)
+			"destruction":
+				_draw_destruction(effect, progress)
 			"damage":
 				_draw_burst(effect, progress, false)
 			_:
@@ -159,3 +176,27 @@ func _draw_growth(effect: Dictionary, progress: float) -> void:
 		var ring_color := color
 		ring_color.a *= alpha * (1.0 - float(ring_index) * 0.2)
 		draw_arc(position, ring_radius, 0.0, TAU, 40, ring_color, 6.0)
+
+
+func _draw_destruction(effect: Dictionary, progress: float) -> void:
+	var position := effect["position"] as Vector2
+	var color := effect["color"] as Color
+	var max_radius := float(effect["radius"])
+	var directions := effect["directions"] as PackedVector2Array
+	var travel := progress * motion_scale
+	var alpha := 1.0 - progress
+	for index in directions.size():
+		var direction := directions[index]
+		var shard_position := (
+			position
+			+ direction * max_radius * (0.18 + travel * 0.82)
+		)
+		var side := direction.orthogonal() * (7.0 if index % 2 == 0 else -7.0)
+		draw_colored_polygon(
+			PackedVector2Array([
+				shard_position + direction * 9.0,
+				shard_position - direction * 7.0 + side,
+				shard_position - direction * 4.0 - side * 0.45,
+			]),
+			Color(color, alpha)
+		)

@@ -2,6 +2,7 @@ class_name PrototypePursuer
 extends CharacterBody2D
 
 const TUNING := preload("res://src/gameplay_tuning.gd")
+const ART := preload("res://src/production_art.gd")
 
 signal caught(source_position: Vector2)
 signal escaped
@@ -128,6 +129,7 @@ var _lunge_travel := 0.0
 var _lunge_windup_left := 0.0
 var _forced_detection_left := 0.0
 var _frog_camouflaged := false
+var _animation_time := 0.0
 
 
 func _ready() -> void:
@@ -340,6 +342,9 @@ func _physics_process(delta: float) -> void:
 	if not active or not is_instance_valid(frog):
 		velocity = Vector2.ZERO
 		return
+	if _presentation_motion_scale > 0.0:
+		_animation_time = fmod(_animation_time + delta, TAU * 8.0)
+		queue_redraw()
 
 	_catch_cooldown = maxf(0.0, _catch_cooldown - delta)
 	_net_cooldown = maxf(0.0, _net_cooldown - delta)
@@ -995,91 +1000,52 @@ func _escape() -> void:
 
 
 func _draw() -> void:
-	match archetype_id:
-		ARCHETYPE_SECURITY_GUARD:
-			_draw_security_guard()
-		ARCHETYPE_WATCHDOG:
-			_draw_watchdog()
-		_:
-			_draw_animal_control()
+	var movement_amount := clampf(
+		velocity.length() / maxf(speed, 1.0),
+		0.0,
+		1.0
+	)
+	var step_cycle := (
+		sin(_animation_time * 8.0)
+		* movement_amount
+		* _presentation_motion_scale
+	)
+	var character_size := (
+		Vector2(94, 88)
+		if archetype_id == ARCHETYPE_WATCHDOG
+		else Vector2(86, 98)
+	)
+	draw_set_transform(Vector2(0, 29), 0.0, Vector2(1.0, 0.34))
+	draw_circle(
+		Vector2.ZERO,
+		35.0 if archetype_id == ARCHETYPE_WATCHDOG else 31.0,
+		Color(ART.INK, 0.22)
+	)
+	draw_set_transform(
+		Vector2(0, step_cycle * 2.0),
+		step_cycle * 0.025,
+		Vector2(
+			1.0 + absf(step_cycle) * 0.035,
+			1.0 - absf(step_cycle) * 0.025
+		)
+	)
+	draw_texture_rect(
+		ART.pursuer_texture(archetype_id),
+		Rect2(-character_size / 2.0, character_size),
+		false
+	)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_string(
+		ThemeDB.fallback_font,
+		Vector2(-62, -57),
+		display_name(),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		124,
+		15,
+		ART.CREAM
+	)
 	_draw_attack()
 	_draw_deflect_feedback()
-
-
-func _draw_animal_control() -> void:
-	draw_circle(Vector2.ZERO, 31.0, Color("da7462"))
-	draw_rect(Rect2(-20, -37, 40, 30), Color("416c9a"))
-	draw_circle(Vector2(-11, -25), 4.0, Color.WHITE)
-	draw_circle(Vector2(11, -25), 4.0, Color.WHITE)
-	draw_circle(Vector2(-11, -25), 2.0, Color("1d2328"))
-	draw_circle(Vector2(11, -25), 2.0, Color("1d2328"))
-	draw_line(Vector2(-18, 30), Vector2(-25, 47), Color("263642"), 8.0)
-	draw_line(Vector2(18, 30), Vector2(25, 47), Color("263642"), 8.0)
-	draw_string(
-		ThemeDB.fallback_font,
-		Vector2(-55, -52),
-		"Animal Control",
-		HORIZONTAL_ALIGNMENT_CENTER,
-		110,
-		15,
-		Color.WHITE
-	)
-
-
-func _draw_security_guard() -> void:
-	draw_circle(Vector2.ZERO, 32.0, Color("c69a63"))
-	draw_rect(Rect2(-21, -38, 42, 31), Color("3f435a"))
-	draw_rect(Rect2(-25, -42, 50, 8), Color("292c3d"))
-	draw_circle(Vector2(-11, -25), 4.0, Color.WHITE)
-	draw_circle(Vector2(11, -25), 4.0, Color.WHITE)
-	draw_circle(Vector2(-11, -25), 2.0, Color("1d2328"))
-	draw_circle(Vector2(11, -25), 2.0, Color("1d2328"))
-	draw_line(Vector2(-18, 30), Vector2(-25, 47), Color("282b39"), 8.0)
-	draw_line(Vector2(18, 30), Vector2(25, 47), Color("282b39"), 8.0)
-	draw_string(
-		ThemeDB.fallback_font,
-		Vector2(-55, -54),
-		"Security Guard",
-		HORIZONTAL_ALIGNMENT_CENTER,
-		110,
-		15,
-		Color.WHITE
-	)
-
-
-func _draw_watchdog() -> void:
-	draw_circle(Vector2(0, 5), 24.0, Color("9a6844"))
-	draw_circle(Vector2(0, -18), 19.0, Color("b47b4e"))
-	draw_colored_polygon(
-		PackedVector2Array([
-			Vector2(-17, -29),
-			Vector2(-30, -43),
-			Vector2(-23, -18),
-		]),
-		Color("70452f")
-	)
-	draw_colored_polygon(
-		PackedVector2Array([
-			Vector2(17, -29),
-			Vector2(30, -43),
-			Vector2(23, -18),
-		]),
-		Color("70452f")
-	)
-	draw_circle(Vector2(-7, -20), 3.0, Color("1d2328"))
-	draw_circle(Vector2(7, -20), 3.0, Color("1d2328"))
-	draw_circle(Vector2(0, -10), 4.0, Color("33251f"))
-	draw_line(Vector2(-15, 24), Vector2(-20, 38), Color("70452f"), 7.0)
-	draw_line(Vector2(15, 24), Vector2(20, 38), Color("70452f"), 7.0)
-	draw_string(
-		ThemeDB.fallback_font,
-		Vector2(-55, -52),
-		"Watchdog",
-		HORIZONTAL_ALIGNMENT_CENTER,
-		110,
-		15,
-		Color.WHITE
-	)
 
 
 func _draw_attack() -> void:

@@ -1,6 +1,8 @@
 class_name PrototypeBuilding
 extends Node2D
 
+const ART := preload("res://src/production_art.gd")
+
 signal navigation_changed
 
 const PART_SIGN := "sign"
@@ -70,8 +72,23 @@ func _draw() -> void:
 	if consumed:
 		return
 	var room := Rect2(-building_size / 2.0, building_size)
+	draw_rect(
+		Rect2(room.position + Vector2(10, 12), room.size),
+		Color(ART.INK, 0.2)
+	)
 	draw_rect(room, floor_color)
-	draw_rect(room.grow(-20), floor_color.lightened(0.12), false, 5.0)
+	draw_rect(room.grow(-20), ART.CREAM, false, 5.0)
+	for stripe in range(
+		roundi(room.position.y + 42.0),
+		roundi(room.end.y - 30.0),
+		52
+	):
+		draw_line(
+			Vector2(room.position.x + 30.0, stripe),
+			Vector2(room.end.x - 30.0, stripe),
+			Color(ART.INK, 0.07),
+			2.0
+		)
 	for prop in interior_props:
 		draw_rect(prop, floor_color.darkened(0.34))
 		draw_rect(
@@ -81,7 +98,7 @@ func _draw() -> void:
 			3.0
 		)
 
-	var wall_color := floor_color.darkened(0.42)
+	var wall_color := ART.INK
 	var half := building_size / 2.0
 	draw_rect(Rect2(-half.x, -half.y, building_size.x, WALL_THICKNESS), wall_color)
 	draw_rect(Rect2(-half.x, half.y - WALL_THICKNESS, building_size.x, WALL_THICKNESS), wall_color)
@@ -103,7 +120,7 @@ func _draw() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER,
 			building_size.x * 0.76,
 			25,
-			Color("2f2822")
+			ART.INK
 		)
 	else:
 		draw_string(
@@ -113,7 +130,7 @@ func _draw() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER,
 			building_size.x * 0.6,
 			18,
-			Color("663b2e")
+			ART.DANGER_CORAL.darkened(0.35)
 		)
 	if destructible_parts and not is_part_removed(PART_COUNTER):
 		draw_rect(

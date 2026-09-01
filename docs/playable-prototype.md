@@ -368,6 +368,10 @@ The prototype includes:
 - snappy draw-only frog movement, flight, swallow, growth, and damage feedback,
   target movement and state animation, a centralized confectionery/canal
   palette, and a layered illustrated menu backdrop; and
+- original SVG cutouts and movement feedback for Animal Control, Security, and
+  the Watchdog; cut-paper styling across the authored and generated city,
+  buildings, rooms, roadblocks, and traps; capped destruction shards; and
+  eased room transitions; and
 - reduced-motion production variants that freeze travel, bobbing, wing motion,
   pulsing, and radius changes while retaining static silhouettes, labels,
   warnings, and informational color feedback.
@@ -706,8 +710,8 @@ The following parts of the full design are not implemented yet:
   remains intentionally deferred until the new-game/resume decision is made;
 - further authored multi-room interiors and connected exploration spaces;
 - further fantasy events;
-- remaining production art for environments, buildings, pursuers, overlays,
-  target-specific hero detail, and transitions; expanded authored animation,
+- remaining production art for overlays, target-specific hero detail, and
+  end-game presentation; expanded authored animation,
   audio content and target-device mix validation; and accessibility work beyond
   the implemented motion, interface-size, contrast, touch-feedback, safe-area,
   and volume controls; and

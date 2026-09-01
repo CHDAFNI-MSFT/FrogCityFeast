@@ -1,6 +1,8 @@
 class_name CityBackdrop
 extends Node2D
 
+const ART := preload("res://src/production_art.gd")
+
 const WORLD_RECT := Rect2(-1800, -1400, 3600, 2800)
 const RIVER_RECT := Rect2(1210, -1320, 500, 920)
 const ROAD_RECTS := [
@@ -33,25 +35,42 @@ func _ready() -> void:
 
 
 func _draw() -> void:
-	draw_rect(WORLD_RECT, Color("7f9c76"))
+	draw_rect(WORLD_RECT, ART.PARK_TEAL.lightened(0.2))
 
 	for road in ROAD_RECTS:
-		draw_rect(road, Color("39434b"))
-		draw_rect(road.grow(-18), Color("414d56"), false, 4.0)
+		draw_rect(road.grow(22.0), ART.PAPER.darkened(0.18))
+		draw_rect(road, ART.NIGHT_NAVY.lightened(0.08))
+		draw_rect(road.grow(-18), ART.CREAM.darkened(0.62), false, 4.0)
 
 	for x in range(-1700, 1701, 130):
-		draw_line(Vector2(x, 0), Vector2(x + 68, 0), Color("e5cb64"), 5.0)
+		draw_line(Vector2(x, 0), Vector2(x + 68, 0), ART.CITY_GOLD, 5.0)
 	for y in range(-1300, 1301, 130):
-		draw_line(Vector2(0, y), Vector2(0, y + 68), Color("e5cb64"), 5.0)
+		draw_line(Vector2(0, y), Vector2(0, y + 68), ART.CITY_GOLD, 5.0)
 
-	draw_rect(Rect2(380, 290, 760, 330), Color("477d51"))
-	draw_circle(Vector2(600, 430), 78.0, Color("2e6742"))
-	draw_circle(Vector2(890, 470), 62.0, Color("2e6742"))
-	draw_circle(Vector2(760, 455), 92.0, Color("4d91b5"))
-	draw_circle(Vector2(760, 455), 68.0, Color("67abc1"), false, 5.0)
-	draw_rect(RIVER_RECT, Color("4d91b5"))
+	draw_rect(Rect2(380, 290, 760, 330), ART.PARK_TEAL)
+	for tree_position in [
+		Vector2(540, 390),
+		Vector2(600, 500),
+		Vector2(940, 410),
+		Vector2(1010, 520),
+	]:
+		draw_circle(tree_position + Vector2(7, 8), 45.0, Color(ART.INK, 0.16))
+		draw_circle(tree_position, 45.0, ART.FROG_DARK)
+		draw_circle(
+			tree_position + Vector2(-12, -8),
+			22.0,
+			ART.FOCUS_MINT.darkened(0.18)
+		)
+	draw_circle(Vector2(760, 455), 92.0, ART.CANAL_TEAL)
+	draw_circle(Vector2(760, 455), 68.0, ART.CREAM, false, 5.0)
+	draw_rect(RIVER_RECT, ART.CANAL_TEAL)
 	for y in range(-1240, -430, 90):
-		draw_line(Vector2(1230, y), Vector2(1690, y + 28), Color(0.75, 0.9, 1.0, 0.35), 4.0)
+		draw_line(
+			Vector2(1230, y),
+			Vector2(1690, y + 28),
+			Color(ART.CREAM, 0.3),
+			4.0
+		)
 
 	draw_string(
 		ThemeDB.fallback_font,
@@ -60,7 +79,7 @@ func _draw() -> void:
 		HORIZONTAL_ALIGNMENT_LEFT,
 		300,
 		28,
-		Color("d8f4c6")
+		ART.CREAM
 	)
 	for marker_value in EXPLORATION_MARKERS:
 		var marker := marker_value as Dictionary

@@ -1826,20 +1826,25 @@ func _update_interior_transition(delta: float) -> void:
 	if _interior_transition_phase == InteriorTransitionPhase.NONE:
 		return
 	_interior_transition_time += maxf(0.0, delta)
-	var progress := clampf(
+	var linear_progress := clampf(
 		_interior_transition_time / INTERIOR_TRANSITION_DURATION,
 		0.0,
 		1.0
 	)
+	var progress := (
+		linear_progress
+		* linear_progress
+		* (3.0 - 2.0 * linear_progress)
+	)
 	if _interior_transition_phase == InteriorTransitionPhase.FADE_OUT:
 		_set_interior_fade_alpha(progress)
-		if progress >= 1.0:
+		if linear_progress >= 1.0:
 			_complete_interior_transfer()
 			_interior_transition_phase = InteriorTransitionPhase.FADE_IN
 			_interior_transition_time = 0.0
 	elif _interior_transition_phase == InteriorTransitionPhase.FADE_IN:
 		_set_interior_fade_alpha(1.0 - progress)
-		if progress >= 1.0:
+		if linear_progress >= 1.0:
 			_finish_interior_transition()
 
 
@@ -2212,6 +2217,7 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	var effect_position := target.global_position
 	var effect_color := target.target_color
 	var swallowed_building := target.kind == "building"
+	var swallowed_building_part := target.kind == "building_part"
 	var chased := _is_actively_chased()
 	var item := target.make_belly_item(accuracy, target.dangerous_location, chased)
 	_mark_generated_target_removed(target)
@@ -2240,6 +2246,12 @@ func _swallow_target(target: EdibleTarget, accuracy: float) -> void:
 	AudioDirector.play_effect(FrogAudioDirector.SWALLOW)
 	_frog.celebrate_swallow()
 	_effects.emit_swallow(effect_position, effect_color, swallowed_building)
+	if swallowed_building or swallowed_building_part:
+		_effects.emit_destruction(
+			effect_position,
+			effect_color,
+			swallowed_building
+		)
 	if swallowed_building:
 		_trigger_camera_shake(6.0, 0.22)
 	_tongue_recovery = _adjusted_tongue_recovery(TONGUE_RECOVERY)

@@ -1,6 +1,8 @@
 class_name GeneratedDistrict
 extends Node2D
 
+const ART := preload("res://src/production_art.gd")
+
 var definition: DistrictDefinition
 var _environment_body: StaticBody2D
 
@@ -49,6 +51,7 @@ func _draw() -> void:
 		return
 	draw_rect(definition.bounds, definition.ground_color)
 	for road in definition.roads:
+		draw_rect(road.grow(22.0), ART.PAPER.darkened(0.22))
 		draw_rect(road, definition.road_color)
 		draw_rect(
 			road.grow(-18.0),
@@ -63,6 +66,11 @@ func _draw() -> void:
 			- (building["size"] as Vector2) / 2.0,
 			building["size"] as Vector2
 		)
+		var lot_rect := footprint.grow(54.0)
+		draw_rect(
+			Rect2(lot_rect.position + Vector2(8, 8), lot_rect.size),
+			Color(ART.INK, 0.12)
+		)
 		draw_rect(footprint.grow(54.0), definition.lot_color)
 	for obstacle in definition.obstacles:
 		var obstacle_color := (
@@ -71,6 +79,12 @@ func _draw() -> void:
 			else definition.accent_color.darkened(0.28)
 		)
 		draw_rect(obstacle, obstacle_color)
+		draw_line(
+			obstacle.position,
+			Vector2(obstacle.end.x, obstacle.position.y),
+			obstacle_color.lightened(0.2),
+			5.0
+		)
 		draw_rect(
 			obstacle.grow(-10.0),
 			obstacle_color.lightened(0.14),

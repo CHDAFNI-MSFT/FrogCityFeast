@@ -1,6 +1,8 @@
 class_name PrototypePursuitTrap
 extends Node2D
 
+const ART := preload("res://src/production_art.gd")
+
 signal removed(trap: PrototypePursuitTrap, triggered: bool)
 
 const VARIANT_SNARE := "snare"
@@ -152,9 +154,9 @@ func _draw() -> void:
 		else 0.0
 	)
 	var fill_color := (
-		Color(0.86, 0.28, 0.22, 0.22)
+		Color(ART.DANGER_CORAL, 0.22)
 		if armed
-		else Color(0.95, 0.74, 0.28, 0.18)
+		else Color(ART.MAGIC_AMBER, 0.18)
 	)
 	var line_color := (
 		configuration["line_color"] as Color
@@ -200,5 +202,5 @@ func _draw() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER,
 		180,
 		16,
-		Color("fff3cf")
+		ART.CREAM
 	)
