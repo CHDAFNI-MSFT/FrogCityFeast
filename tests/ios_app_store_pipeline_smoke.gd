@@ -156,7 +156,7 @@ func _run() -> void:
 	_check(
 		metadata_sync_script.find(
 			"const existingVersion = await findVersion"
-		) < metadata_sync_script.find("await updateAppAndCategories")
+		) < metadata_sync_script.find("await updateCategories")
 			and metadata_sync_script.contains('"partial_failure"')
 			and metadata_sync_script.contains("appliedResources"),
 		"The metadata sync validates version editability before writes and "

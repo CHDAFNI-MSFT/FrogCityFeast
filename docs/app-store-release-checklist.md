@@ -74,7 +74,7 @@ of signing secrets.
 
 - [ ] Run the protected `App Store metadata sync` workflow for the exact
   reviewed commit and confirm the API-supported product-page, category,
-  content-rights, manual-release, copyright, and age-rating values.
+  manual-release, copyright, and age-rating values.
 - [ ] Copy the validated `en-US` fields from
   `tools/app-store-metadata.json`.
 - [ ] Set Games > Casual with Adventure as the secondary Games subcategory.

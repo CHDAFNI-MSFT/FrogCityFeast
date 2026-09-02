@@ -151,11 +151,13 @@ Developer-role API key can upload builds, but build selection, App Review
 submission, and release remain separate App Store Connect actions.
 
 The separate protected `App Store metadata sync` workflow can attempt the
-reviewed API-supported listing fields without uploading a build. Apple may
-reject metadata writes from the current Developer-role key; if so, the Account
-Holder must provide an App Manager-equivalent key through the same protected
-secret path before rerunning it. Do not broaden the key to Admin solely for
-metadata entry.
+reviewed API-supported listing fields without uploading a build. Apple rejects
+primary-locale and content-rights updates on the existing app record even
+though those attributes remain in the current OpenAPI update schema, so those
+values require direct confirmation. Apple may also reject other metadata
+writes from the current Developer-role key; if so, the Account Holder must
+provide an App Manager-equivalent key through the same protected secret path
+before rerunning it. Do not broaden the key to Admin solely for metadata entry.
 
 The provisioning profile must use the same Team ID and exact bundle identifier
 configured in GitHub. The workflow rejects development, Ad Hoc, enterprise,

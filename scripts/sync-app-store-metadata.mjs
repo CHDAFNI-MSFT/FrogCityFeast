@@ -316,26 +316,11 @@ async function ensureAppInfoLocalization(
   return created.data.id;
 }
 
-async function updateAppAndCategories(
+async function updateCategories(
   token,
-  appId,
   appInfoId,
   metadata,
 ) {
-  await apiRequest(
-    token,
-    "PATCH",
-    `/v1/apps/${appId}`,
-    patchResource(
-      "apps",
-      appId,
-      {
-        primaryLocale: metadata.locale,
-        contentRightsDeclaration: metadata.content_rights_declaration,
-      },
-    ),
-  );
-  appliedResources.push("app");
   const category = (id) => ({
     data: { type: "appCategories", id },
   });
@@ -559,7 +544,7 @@ async function main() {
     appInfo.id,
   );
 
-  await updateAppAndCategories(token, app.id, appInfo.id, metadata);
+  await updateCategories(token, appInfo.id, metadata);
   const appInfoLocalizationId = await ensureAppInfoLocalization(
     token,
     appInfo.id,
@@ -593,6 +578,7 @@ async function main() {
     values: publicFieldValues(metadata),
     notAutomated: [
       "App Privacy questionnaire",
+      "content-rights declaration",
       "pricing",
       "storefront availability",
       "EU DSA status",

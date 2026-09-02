@@ -300,10 +300,15 @@ def validate_metadata_sync() -> None:
     )
     require(
         sync_script.index("const existingVersion = await findVersion")
-        < sync_script.index("await updateAppAndCategories")
+        < sync_script.index("await updateCategories")
         and '"partial_failure"' in sync_script
         and "appliedResources" in sync_script,
         "The metadata script writes before version preflight or hides partial writes.",
+    )
+    require(
+        "contentRightsDeclaration:" not in sync_script
+        and "primaryLocale:" not in sync_script,
+        "The metadata script retries App Store fields rejected by Apple.",
     )
 
 

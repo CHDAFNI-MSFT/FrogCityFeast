@@ -208,18 +208,18 @@ It then applies:
 - description, keywords, promotional text, support URL, and blank marketing
   URL;
 - Games category with Casual and Adventure subcategories;
-- developer-owned content-rights declaration;
 - copyright and manual release mode; and
 - the reviewed age-rating declaration, including frequent cartoon or fantasy
   violence.
 
 It does not upload or select a build, submit for review, release the app, or
 publish an artifact. Apple's API does not expose the App Privacy questionnaire
-through the downloaded specification, and the configured Developer-role key
-may not have permission for metadata writes. Pricing, storefront availability,
-EU DSA status, App Privacy, screenshots, and App Review contact therefore
-remain separately confirmed in App Store Connect unless a permitted workflow
-is added and reviewed.
+through the downloaded specification. Apple also rejects primary-locale and
+content-rights updates on the existing app record even though those attributes
+remain present in the current OpenAPI update schema. Pricing, storefront
+availability, EU DSA status, App Privacy, content rights, screenshots, and App
+Review contact therefore remain separately confirmed in App Store Connect
+unless a permitted workflow is added and reviewed.
 
 ## Screenshot plan
 
