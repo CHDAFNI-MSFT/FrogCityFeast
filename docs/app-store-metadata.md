@@ -6,9 +6,11 @@ Feast**. The machine-readable copy is in
 project check enforces Apple's current name, subtitle, promotional text,
 description, and keyword limits.
 
-Do not enter or publish this metadata until the release owner has supplied the
-fields marked `REQUIRED_BEFORE_SUBMISSION` and explicitly authorized App Store
-work.
+The release owner supplied the public listing choices and authorized metadata
+entry. The protected metadata workflow can apply the API-supported fields
+without uploading a build, selecting a build, submitting for review, or
+releasing the app. App Review contact information remains pending through a
+protected process.
 
 ## App identity
 
@@ -26,6 +28,10 @@ work.
 | Support URL | `https://chdafni-msft.github.io/SamuelIcecream/support/` |
 | Privacy policy URL | `https://chdafni-msft.github.io/SamuelIcecream/privacy/` |
 | Marketing URL | Optional; leave blank unless a maintained HTTPS page exists |
+| Release method | Manual release after approval |
+| Content rights | Developer owns or has rights to all content |
+| App Privacy | No Data Collected |
+| App Review contact | Pending protected owner input |
 
 ## Product-page copy
 
@@ -109,9 +115,8 @@ This answer is accurate for the reviewed build:
 - `privacy/tracking_enabled=false` remains pinned in the iOS export preset.
 
 The privacy policy URL is still required even when the App Privacy answer is
-No Data Collected. Publish
-[`privacy-policy.md`](privacy-policy.md) only after its contact and effective-
-date placeholders are complete.
+No Data Collected. The completed policy is published at
+`https://chdafni-msft.github.io/SamuelIcecream/privacy/`.
 
 Official reference:
 [Manage app privacy](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy).
@@ -186,6 +191,35 @@ Use this draft after replacing bracketed release values:
 
 No demo account, external hardware, backend availability, or reviewer
 credential is required.
+
+## Protected metadata synchronization
+
+The manual `App Store metadata sync` workflow applies the API-supported fields
+from `tools/app-store-metadata.json` to the existing App Store Connect app and
+version. It is restricted to `main`, pinned to version `0.1.0`, and requires
+the protected `app-store` approval followed by the protected `testflight`
+credential approval. Despite the historical environment name, it does not use
+TestFlight and references only the App Store Connect API key secrets.
+
+The workflow may create the editable iOS `0.1.0` version if it does not exist.
+It then applies:
+
+- app name, subtitle, privacy policy URL, and primary language;
+- description, keywords, promotional text, support URL, and blank marketing
+  URL;
+- Games category with Casual and Adventure subcategories;
+- developer-owned content-rights declaration;
+- copyright and manual release mode; and
+- the reviewed age-rating declaration, including frequent cartoon or fantasy
+  violence.
+
+It does not upload or select a build, submit for review, release the app, or
+publish an artifact. Apple's API does not expose the App Privacy questionnaire
+through the downloaded specification, and the configured Developer-role key
+may not have permission for metadata writes. Pricing, storefront availability,
+EU DSA status, App Privacy, screenshots, and App Review contact therefore
+remain separately confirmed in App Store Connect unless a permitted workflow
+is added and reviewed.
 
 ## Screenshot plan
 

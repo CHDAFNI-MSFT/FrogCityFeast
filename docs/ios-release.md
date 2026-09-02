@@ -139,7 +139,7 @@ Current prerequisite status:
 | App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
 | App Store Connect API key | A Developer-role team key is configured in the protected `testflight` environment and passed authenticated upload operations. The approved double-gate workflow consumes it in place without copying or revealing the key. The previous Admin key was confirmed revoked and its local file was deleted. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
-| Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing templates now cover privacy, rating, contact, support, category, review notes, and marketing copy; their live URLs and owner-specific fields remain pending. |
+| Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing data now covers the live support/privacy URLs, rating, category, review notes, marketing copy, pricing choice, storefront choice, and DSA choice. App Review contact remains pending through a protected process. |
 
 The signing identity and App Store app record exist, but public distribution
 remains blocked. Complete the live support and privacy URLs, owner-specific
@@ -149,6 +149,13 @@ all authorization gates in
 [`app-store-release-checklist.md`](app-store-release-checklist.md). The
 Developer-role API key can upload builds, but build selection, App Review
 submission, and release remain separate App Store Connect actions.
+
+The separate protected `App Store metadata sync` workflow can attempt the
+reviewed API-supported listing fields without uploading a build. Apple may
+reject metadata writes from the current Developer-role key; if so, the Account
+Holder must provide an App Manager-equivalent key through the same protected
+secret path before rerunning it. Do not broaden the key to Admin solely for
+metadata entry.
 
 The provisioning profile must use the same Team ID and exact bundle identifier
 configured in GitHub. The workflow rejects development, Ad Hoc, enterprise,

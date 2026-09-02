@@ -11,6 +11,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPORT_OPTIONS_SCRIPT = REPO_ROOT / "scripts" / "create-export-options.py"
 METADATA_PATH = REPO_ROOT / "tools" / "app-store-metadata.json"
+METADATA_SYNC_SCRIPT = REPO_ROOT / "scripts" / "sync-app-store-metadata.mjs"
+METADATA_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "app-store-metadata.yml"
+)
 SUPPORT_PATH = REPO_ROOT / "docs" / "app-support.md"
 PRIVACY_PATH = REPO_ROOT / "docs" / "privacy-policy.md"
 PAGES_CONFIG_PATH = REPO_ROOT / "docs" / "_config.yml"
@@ -168,6 +172,47 @@ def validate_metadata() -> None:
         metadata.get("eu_dsa_status") == "non-trader",
         "The reviewed EU DSA status changed.",
     )
+    require(
+        metadata.get("schema_version") == 2
+        and metadata.get("platform") == "IOS"
+        and metadata.get("release_type") == "MANUAL",
+        "The metadata sync identity or manual release policy changed.",
+    )
+    require(
+        metadata.get("primary_category_id") == "GAMES"
+        and metadata.get("primary_subcategory_one_id") == "GAMES_CASUAL"
+        and metadata.get("primary_subcategory_two_id")
+        == "GAMES_ADVENTURE",
+        "The App Store category identifiers changed.",
+    )
+    require(
+        metadata.get("content_rights_declaration")
+        == "DOES_NOT_USE_THIRD_PARTY_CONTENT"
+        and metadata.get("app_privacy") == "NO_DATA_COLLECTED",
+        "Content-rights or privacy declarations changed.",
+    )
+    age_rating = metadata.get("age_rating", {})
+    require(
+        age_rating.get("violenceCartoonOrFantasy") == "FREQUENT"
+        and all(
+            age_rating.get(field) == "NONE"
+            for field in (
+                "alcoholTobaccoOrDrugUseOrReferences",
+                "contests",
+                "gamblingSimulated",
+                "gunsOrOtherWeapons",
+                "medicalOrTreatmentInformation",
+                "profanityOrCrudeHumor",
+                "sexualContentGraphicAndNudity",
+                "sexualContentOrNudity",
+                "horrorOrFearThemes",
+                "matureOrSuggestiveThemes",
+                "violenceRealisticProlongedGraphicOrSadistic",
+                "violenceRealistic",
+            )
+        ),
+        "The reviewed age-rating frequency answers changed.",
+    )
 
 
 def validate_public_support() -> None:
@@ -204,10 +249,69 @@ def validate_public_support() -> None:
         )
 
 
+def validate_metadata_sync() -> None:
+    require(
+        METADATA_SYNC_SCRIPT.is_file(),
+        "The App Store metadata sync script is missing.",
+    )
+    require(
+        METADATA_WORKFLOW.is_file(),
+        "The protected App Store metadata workflow is missing.",
+    )
+    result = subprocess.run(
+        ["node", str(METADATA_SYNC_SCRIPT), "--print-values"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    values = json.loads(result.stdout)
+    require(
+        values.get("version") == "0.1.0"
+        and values.get("releaseType") == "MANUAL"
+        and values.get("appPrivacy") == "NO_DATA_COLLECTED",
+        "The metadata sync does not report the reviewed release values.",
+    )
+    workflow = METADATA_WORKFLOW.read_text(encoding="utf-8")
+    sync_script = METADATA_SYNC_SCRIPT.read_text(encoding="utf-8")
+    require(
+        "workflow_dispatch:" in workflow
+        and "confirm_sync:" in workflow
+        and workflow.count("inputs.version == '0.1.0'") == 2
+        and "name: app-store" in workflow
+        and "name: testflight" in workflow,
+        "The metadata workflow is not manual, pinned, and double-gated.",
+    )
+    require(
+        "archive-and-upload-ios" not in workflow
+        and "actions/upload-artifact" not in workflow,
+        "The metadata workflow can upload or publish an artifact.",
+    )
+    require(
+        all(
+            forbidden not in sync_script
+            for forbidden in (
+                "reviewSubmissions",
+                "appStoreVersionReleaseRequests",
+                "relationships/build",
+                "appStoreVersionSubmissions",
+            )
+        ),
+        "The metadata script can select a build, submit, or release.",
+    )
+    require(
+        sync_script.index("const existingVersion = await findVersion")
+        < sync_script.index("await updateAppAndCategories")
+        and '"partial_failure"' in sync_script
+        and "appliedResources" in sync_script,
+        "The metadata script writes before version preflight or hides partial writes.",
+    )
+
+
 def main() -> None:
     validate_export_options()
     validate_metadata()
     validate_public_support()
+    validate_metadata_sync()
     print("App Store readiness checks passed.")
 
 

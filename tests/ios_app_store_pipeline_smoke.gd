@@ -2,6 +2,8 @@ extends SceneTree
 
 const WORKFLOW := "res://.github/workflows/ios-app-store.yml"
 const TESTFLIGHT_WORKFLOW := "res://.github/workflows/ios-testflight.yml"
+const METADATA_WORKFLOW := "res://.github/workflows/app-store-metadata.yml"
+const METADATA_SYNC_SCRIPT := "res://scripts/sync-app-store-metadata.mjs"
 const ARCHIVE_SCRIPT := "res://scripts/archive-and-upload-ios.sh"
 const CLEANUP_SCRIPT := "res://scripts/cleanup-ios-signing.sh"
 const EXPORT_OPTIONS_SCRIPT := "res://scripts/create-export-options.py"
@@ -22,6 +24,8 @@ func _init() -> void:
 func _run() -> void:
 	var workflow := _read(WORKFLOW)
 	var testflight_workflow := _read(TESTFLIGHT_WORKFLOW)
+	var metadata_workflow := _read(METADATA_WORKFLOW)
+	var metadata_sync_script := _read(METADATA_SYNC_SCRIPT)
 	var archive_script := _read(ARCHIVE_SCRIPT)
 	var cleanup_script := _read(CLEANUP_SCRIPT)
 	var export_options := _read(EXPORT_OPTIONS_SCRIPT)
@@ -101,6 +105,62 @@ func _run() -> void:
 			"IOS_DISTRIBUTION: internal-testflight"
 		),
 		"The historical TestFlight workflow explicitly retains internal mode."
+	)
+	_check(
+		metadata_workflow.contains("on:\n  workflow_dispatch:")
+			and metadata_workflow.contains("confirm_sync:")
+			and metadata_workflow.contains(
+				"github.ref == 'refs/heads/main'"
+			)
+			and metadata_workflow.count(
+				"inputs.version == '0.1.0'"
+			) == 2
+			and metadata_workflow.contains(
+				"    environment:\n      name: app-store"
+			)
+			and metadata_workflow.contains("    needs: authorize")
+			and metadata_workflow.contains(
+				"    environment:\n      name: testflight"
+			)
+			and metadata_workflow.contains(
+				"node scripts/sync-app-store-metadata.mjs --apply"
+			),
+		"The metadata workflow is manual, main-only, version-pinned, and "
+			+ "double-gated."
+	)
+	_check(
+		metadata_workflow.contains("permissions:\n  contents: read")
+			and metadata_workflow.contains("persist-credentials: false")
+			and not metadata_workflow.contains("archive-and-upload-ios")
+			and not metadata_workflow.contains("actions/upload-artifact")
+			and not metadata_sync_script.contains("reviewSubmissions")
+			and not metadata_sync_script.contains(
+				"appStoreVersionReleaseRequests"
+			)
+			and not metadata_sync_script.contains("relationships/build")
+			and not metadata_sync_script.contains(
+				"appStoreVersionSubmissions"
+			),
+		"The metadata workflow cannot upload a build, submit, release, or "
+			+ "publish an artifact."
+	)
+	_check(
+		metadata_sync_script.contains(
+			'notAutomated: ['
+		)
+			and metadata_sync_script.contains('"build selection"')
+			and metadata_sync_script.contains('"submission"')
+			and metadata_sync_script.contains('"release"'),
+		"The metadata sync explicitly reports every excluded publication step."
+	)
+	_check(
+		metadata_sync_script.find(
+			"const existingVersion = await findVersion"
+		) < metadata_sync_script.find("await updateAppAndCategories")
+			and metadata_sync_script.contains('"partial_failure"')
+			and metadata_sync_script.contains("appliedResources"),
+		"The metadata sync validates version editability before writes and "
+			+ "reports partial application."
 	)
 
 	for variable_name in ["APPLE_TEAM_ID", "IOS_BUNDLE_ID"]:
@@ -237,6 +297,27 @@ func _validate_metadata(source: String) -> void:
 			and str(metadata.get("primary_subcategory", "")) == "Casual"
 			and str(metadata.get("secondary_subcategory", "")) == "Adventure",
 		"The machine-readable category recommendation remains reviewed."
+	)
+	_check(
+		int(metadata.get("schema_version", 0)) == 2
+			and str(metadata.get("platform", "")) == "IOS"
+			and str(metadata.get("release_type", "")) == "MANUAL"
+			and str(metadata.get("primary_category_id", "")) == "GAMES"
+			and str(metadata.get("primary_subcategory_one_id", ""))
+				== "GAMES_CASUAL"
+			and str(metadata.get("primary_subcategory_two_id", ""))
+				== "GAMES_ADVENTURE",
+		"The API metadata map preserves platform, release, and category IDs."
+	)
+	var age_rating := metadata.get("age_rating", {}) as Dictionary
+	_check(
+		str(metadata.get("content_rights_declaration", ""))
+				== "DOES_NOT_USE_THIRD_PARTY_CONTENT"
+			and str(metadata.get("app_privacy", "")) == "NO_DATA_COLLECTED"
+			and str(age_rating.get("violenceCartoonOrFantasy", ""))
+				== "FREQUENT"
+			and str(age_rating.get("violenceRealistic", "")) == "NONE",
+		"Content rights, privacy, and age-rating answers remain reviewed."
 	)
 	var combined_copy := (
 		str(metadata.get("subtitle", ""))

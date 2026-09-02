@@ -1,0 +1,83 @@
+name: App Store metadata sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Authorized App Store version (0.1.0)
+        required: true
+        type: string
+      confirm_sync:
+        description: Apply reviewed metadata without submitting or releasing
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-store-metadata-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Approve App Store metadata
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_sync &&
+      inputs.version == '0.1.0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: app-store
+
+    steps:
+      - name: Record protected metadata approval
+        run: |
+          echo "Metadata sync approved for ${GITHUB_SHA}."
+          echo "No build upload, submission, or release is authorized."
+
+  sync:
+    name: Apply reviewed App Store metadata
+    needs: authorize
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_sync &&
+      inputs.version == '0.1.0' &&
+      needs.authorize.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: testflight
+    env:
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Confirm authorized metadata version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const metadata = JSON.parse(
+              fs.readFileSync("tools/app-store-metadata.json", "utf8")
+            );
+            if (metadata.version !== process.env.REQUESTED_VERSION) {
+              throw new Error(
+                `Requested ${process.env.REQUESTED_VERSION}, ` +
+                `metadata contains ${metadata.version}.`
+              );
+            }
+          '
+
+      - name: Apply App Store metadata
+        run: node scripts/sync-app-store-metadata.mjs --apply
