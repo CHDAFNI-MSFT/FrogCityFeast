@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       confirm_build:
-        description: Build for the protected registered iPad profile
+        description: Build for the protected registered-iPad profile
         required: true
         type: boolean
         default: false
@@ -96,7 +96,9 @@ jobs:
       - name: Prepare protected Ad Hoc signing
         env:
           IOS_SIGNING_DISTRIBUTION: ad-hoc
-          IOS_AD_HOC_DEVICE_UDID: ${{ secrets.IOS_AD_HOC_DEVICE_UDID }}
+          IOS_AD_HOC_DEVICE_UDID_1: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_1 }}
+          IOS_AD_HOC_DEVICE_UDID_2: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_2 }}
+          IOS_AD_HOC_DEVICE_UDID_3: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_3 }}
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 }}
@@ -110,7 +112,9 @@ jobs:
         env:
           IOS_XCODE_PROJECT: ${{ steps.export.outputs.xcode_project }}
           IOS_XCODE_SCHEME: ${{ steps.export.outputs.xcode_scheme }}
-          IOS_AD_HOC_DEVICE_UDID: ${{ secrets.IOS_AD_HOC_DEVICE_UDID }}
+          IOS_AD_HOC_DEVICE_UDID_1: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_1 }}
+          IOS_AD_HOC_DEVICE_UDID_2: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_2 }}
+          IOS_AD_HOC_DEVICE_UDID_3: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_3 }}
         run: bash scripts/archive-and-export-ios-ad-hoc.sh
 
       - name: Remove temporary signing material

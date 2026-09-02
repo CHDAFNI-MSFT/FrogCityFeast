@@ -56,7 +56,9 @@ func _run() -> void:
 		"APPLE_CERTIFICATE_BASE64",
 		"APPLE_CERTIFICATE_PASSWORD",
 		"APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64",
-		"IOS_AD_HOC_DEVICE_UDID",
+		"IOS_AD_HOC_DEVICE_UDID_1",
+		"IOS_AD_HOC_DEVICE_UDID_2",
+		"IOS_AD_HOC_DEVICE_UDID_3",
 	]:
 		_check(
 			workflow.contains("${{ secrets.%s }}" % secret_name),
@@ -76,13 +78,22 @@ func _run() -> void:
 	)
 	_check(
 		signing_script.contains(
-			'IOS_AD_HOC_DEVICE_UDID:?IOS_AD_HOC_DEVICE_UDID is required.'
+			'IOS_AD_HOC_DEVICE_UDID_1'
 		)
 			and signing_script.contains(
-				'echo "::add-mask::$IOS_AD_HOC_DEVICE_UDID"'
+				'IOS_AD_HOC_DEVICE_UDID_2'
 			)
 			and signing_script.contains(
-				'--device-udid "$IOS_AD_HOC_DEVICE_UDID"'
+				'IOS_AD_HOC_DEVICE_UDID_3'
+			)
+			and signing_script.contains(
+				'echo "::add-mask::$device_udid"'
+			)
+			and signing_script.contains(
+				'--device-udid-env "$device_env_name"'
+			)
+			and signing_script.contains(
+				"The protected Ad Hoc device UDIDs must be unique."
 			)
 			and signing_script.contains(
 				'IOS_SIGNING_DISTRIBUTION must be app-store or ad-hoc.'
@@ -93,7 +104,13 @@ func _run() -> void:
 		signing_validator.contains('choices=("app-store", "ad-hoc")')
 			and signing_validator.contains('"ProvisionedDevices"')
 			and signing_validator.contains(
-				"device_udid.upper() == args.device_udid.upper()"
+				"profile_device_udids == expected_device_udids"
+			)
+			and signing_validator.contains(
+				"len(profile_device_udids) == len(provisioned_devices)"
+			)
+			and signing_validator.contains(
+				'"--device-udid-env"'
 			)
 			and signing_validator.contains(
 				"Enterprise provisioning is not permitted"
@@ -120,7 +137,13 @@ func _run() -> void:
 				"embedded.mobileprovision"
 			)
 			and archive_script.contains(
-				"profile_udid.upper() == device_udid.upper()"
+				"profile_devices != expected_devices"
+			)
+			and archive_script.contains(
+				"len(profile_devices) != len(devices)"
+			)
+			and not archive_script.contains(
+				'"$IOS_AD_HOC_DEVICE_UDID_'
 			)
 			and archive_script.contains(
 				"No signed package was uploaded or published."
@@ -139,6 +162,9 @@ func _run() -> void:
 	)
 	_check(
 		guide.contains("UDID")
+			and guide.contains("IOS_AD_HOC_DEVICE_UDID_1")
+			and guide.contains("IOS_AD_HOC_DEVICE_UDID_3")
+			and guide.contains("exactly")
 			and guide.contains("APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64")
 			and guide.contains("No signed IPA is retained")
 			and guide.contains("explicit approval")

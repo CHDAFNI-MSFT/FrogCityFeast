@@ -138,6 +138,7 @@ These files have different responsibilities:
 | `.github/workflows/app-store-metadata.yml` | Manual protected metadata-only sync | Copy and replace the authorized version |
 | `tests/app_store_metadata_version_test.mjs` | Initial-version and malformed-response regression coverage | Copy |
 | `tests/ios_ad_hoc_pipeline_smoke.gd` | Ad Hoc workflow, profile, IPA, cleanup, and no-publication checks | Copy |
+| `tests/ios_signing_device_set_test.py` | Exact Ad Hoc device-set validation, including duplicate and extra-device rejection | Copy |
 | `.gitignore` | Excludes editor state, tools, builds, generated presets, and signing files | Copy or merge carefully |
 | `.github/copilot-instructions.md` | Durable repository rules for future agents | Copy and replace the product name |
 | `README.md` | Human entry point for setup and automation | Copy and rebrand, or reproduce all runbook links |

@@ -244,8 +244,12 @@ the App Store profile:
 
 | Secret | Content |
 |---|---|
-| `IOS_AD_HOC_DEVICE_UDID` | Protected UDID of the registered A16 iPad |
-| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Base64-encoded Ad Hoc profile for that exact device, App ID, and certificate |
+| `IOS_AD_HOC_DEVICE_UDID_1` through `_3` | Three independently masked protected iPad UDIDs |
+| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Base64-encoded Ad Hoc profile containing exactly those devices, the App ID, and the certificate |
+
+The three device-identifier secrets are configured. The Ad Hoc profile secret
+remains pending until an authorized Apple Developer account operator registers
+the devices and creates the exact matching profile.
 
 On macOS, encode each binary or key file without adding line wrapping:
 

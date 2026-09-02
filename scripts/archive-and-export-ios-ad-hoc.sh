@@ -10,7 +10,20 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${IOS_PROVISIONING_PROFILE_NAME:?IOS_PROVISIONING_PROFILE_NAME is required.}"
 : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required.}"
 : "${IOS_BUNDLE_ID:?IOS_BUNDLE_ID is required.}"
-: "${IOS_AD_HOC_DEVICE_UDID:?IOS_AD_HOC_DEVICE_UDID is required.}"
+
+ad_hoc_device_env_names=(
+  IOS_AD_HOC_DEVICE_UDID_1
+  IOS_AD_HOC_DEVICE_UDID_2
+  IOS_AD_HOC_DEVICE_UDID_3
+)
+for device_env_name in "${ad_hoc_device_env_names[@]}"; do
+  device_udid="${!device_env_name:-}"
+  if [[ -z "$device_udid" ]]; then
+    echo "$device_env_name is required." >&2
+    exit 1
+  fi
+  echo "::add-mask::$device_udid"
+done
 
 archive_path="$repo_root/build/ios/FrogCityFeast-AdHoc.xcarchive"
 export_path="$RUNNER_TEMP/ios-ad-hoc-export"
@@ -83,13 +96,32 @@ if ! unzip -p "$ipa_path" "Payload/*.app/embedded.mobileprovision" > "$exported_
 fi
 security cms -D -i "$exported_profile" > "$exported_profile_plist"
 
-python3 - "$exported_profile_plist" "$APPLE_TEAM_ID" "$IOS_BUNDLE_ID" "$IOS_AD_HOC_DEVICE_UDID" <<'PY'
+python3 - \
+  "$exported_profile_plist" \
+  "$APPLE_TEAM_ID" \
+  "$IOS_BUNDLE_ID" \
+  "${ad_hoc_device_env_names[@]}" <<'PY'
+import os
 import plistlib
+import re
 import sys
 
-profile_path, team_id, bundle_id, device_udid = sys.argv[1:]
+profile_path, team_id, bundle_id, *device_env_names = sys.argv[1:]
 with open(profile_path, "rb") as source:
     profile = plistlib.load(source)
+
+udid_pattern = re.compile(
+    r"^(?:[A-Fa-f0-9]{40}|[A-Fa-f0-9]{8}-[A-Fa-f0-9]{16})$"
+)
+expected_devices = set()
+for environment_name in device_env_names:
+    device_udid = os.environ.get(environment_name)
+    if not device_udid or not udid_pattern.fullmatch(device_udid):
+        raise SystemExit("An approved device UDID is missing or malformed.")
+    normalized_device_udid = device_udid.upper()
+    if normalized_device_udid in expected_devices:
+        raise SystemExit("The approved device UDIDs must be unique.")
+    expected_devices.add(normalized_device_udid)
 
 entitlements = profile.get("Entitlements", {})
 if entitlements.get("application-identifier") != f"{team_id}.{bundle_id}":
@@ -97,12 +129,18 @@ if entitlements.get("application-identifier") != f"{team_id}.{bundle_id}":
 if entitlements.get("get-task-allow") is not False:
     raise SystemExit("The exported IPA permits development debugging.")
 devices = profile.get("ProvisionedDevices")
-if not isinstance(devices, list) or not any(
-    isinstance(profile_udid, str)
-    and profile_udid.upper() == device_udid.upper()
+if not isinstance(devices, list) or not all(
+    isinstance(profile_udid, str) and udid_pattern.fullmatch(profile_udid)
     for profile_udid in devices
 ):
-    raise SystemExit("The exported IPA does not include the protected device UDID.")
+    raise SystemExit("The exported IPA profile has a malformed device list.")
+profile_devices = {profile_udid.upper() for profile_udid in devices}
+if len(profile_devices) != len(devices):
+    raise SystemExit("The exported IPA profile contains duplicate device UDIDs.")
+if profile_devices != expected_devices:
+    raise SystemExit(
+        "The exported IPA profile does not exactly match the approved devices."
+    )
 if profile.get("ProvisionsAllDevices") is True:
     raise SystemExit("The exported IPA uses enterprise provisioning.")
 PY

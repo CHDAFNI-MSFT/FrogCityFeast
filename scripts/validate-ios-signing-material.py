@@ -3,10 +3,15 @@
 import argparse
 import datetime
 import hashlib
+import os
 import plistlib
 import re
 import subprocess
 from pathlib import Path
+
+UDID_PATTERN = re.compile(
+    r"^(?:[A-Fa-f0-9]{40}|[A-Fa-f0-9]{8}-[A-Fa-f0-9]{16})$"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,7 +27,12 @@ def parse_args() -> argparse.Namespace:
         required=True,
         choices=("app-store", "ad-hoc"),
     )
-    parser.add_argument("--device-udid")
+    parser.add_argument(
+        "--device-udid-env",
+        action="append",
+        default=[],
+        help="Environment variable containing an approved Ad Hoc device UDID.",
+    )
     return parser.parse_args()
 
 
@@ -38,6 +48,48 @@ def run_openssl(*arguments: str) -> subprocess.CompletedProcess[bytes]:
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
+
+
+def validate_exact_ad_hoc_devices(
+    approved_device_udids: list[str],
+    provisioned_devices: object,
+) -> set[str]:
+    require(
+        all(
+            isinstance(device_udid, str)
+            and UDID_PATTERN.fullmatch(device_udid) is not None
+            for device_udid in approved_device_udids
+        ),
+        "An approved Ad Hoc device UDID has an unsupported format.",
+    )
+    expected_device_udids = {
+        device_udid.upper() for device_udid in approved_device_udids
+    }
+    require(
+        len(expected_device_udids) == len(approved_device_udids),
+        "The approved Ad Hoc device UDIDs must be unique.",
+    )
+    require(
+        isinstance(provisioned_devices, list)
+        and all(
+            isinstance(device_udid, str)
+            and UDID_PATTERN.fullmatch(device_udid) is not None
+            for device_udid in provisioned_devices
+        ),
+        "The Ad Hoc profile contains a malformed device UDID list.",
+    )
+    profile_device_udids = {
+        device_udid.upper() for device_udid in provisioned_devices
+    }
+    require(
+        len(profile_device_udids) == len(provisioned_devices),
+        "The Ad Hoc profile contains duplicate device UDIDs.",
+    )
+    require(
+        profile_device_udids == expected_device_udids,
+        "The Ad Hoc profile device set does not exactly match the approved devices.",
+    )
+    return profile_device_udids
 
 
 def main() -> None:
@@ -63,24 +115,36 @@ def main() -> None:
     )
     if args.distribution == "app-store":
         require(
+            not args.device_udid_env,
+            "Ad Hoc device UDIDs are not valid for App Store profiles.",
+        )
+        require(
             "ProvisionedDevices" not in profile
             and profile.get("ProvisionsAllDevices") is not True,
             "The provisioning profile is not for App Store distribution.",
         )
     else:
         require(
-            isinstance(args.device_udid, str) and bool(args.device_udid),
-            "An Ad Hoc device UDID is required.",
+            len(args.device_udid_env) == 3,
+            "Exactly three approved Ad Hoc device UDIDs are required.",
         )
+        approved_device_udids: list[str] = []
+        for environment_name in args.device_udid_env:
+            require(
+                re.fullmatch(r"IOS_AD_HOC_DEVICE_UDID_[1-9][0-9]*", environment_name)
+                is not None,
+                "An Ad Hoc device environment variable name is invalid.",
+            )
+            device_udid = os.environ.get(environment_name)
+            require(
+                isinstance(device_udid, str) and bool(device_udid),
+                "An approved Ad Hoc device UDID is missing.",
+            )
+            approved_device_udids.append(device_udid)
         provisioned_devices = profile.get("ProvisionedDevices")
-        require(
-            isinstance(provisioned_devices, list)
-            and any(
-                isinstance(device_udid, str)
-                and device_udid.upper() == args.device_udid.upper()
-                for device_udid in provisioned_devices
-            ),
-            "The Ad Hoc profile does not include the protected device UDID.",
+        validate_exact_ad_hoc_devices(
+            approved_device_udids,
+            provisioned_devices,
         )
         require(
             profile.get("ProvisionsAllDevices") is not True,

@@ -1,7 +1,8 @@
 # iOS Ad Hoc Registered-Device Testing
 
 This guide prepares an official Apple Ad Hoc build for the physical A16 iPad
-without using TestFlight. It does not change the selected normal public App
+without using TestFlight. The approved profile may cover the three supplied
+iPads. It does not change the selected normal public App
 Store distribution route.
 
 TestFlight remains unavailable to the intended under-13 Apple Account. Ad Hoc
@@ -21,7 +22,7 @@ workflow. It:
 - uses the pinned Godot 4.7.2, Xcode 26.6, and iOS 26.5 toolchain;
 - validates that the profile matches Team ID `CV7JQ487YU`, bundle ID
   `com.chdafni.frogcityfeast`, the Apple Distribution certificate, and the
-  protected iPad UDID;
+  three protected iPad UDIDs;
 - archives and exports with Xcode's `release-testing` method;
 - verifies the signed app, embedded profile, application identifier, and
   registered-device membership; and
@@ -31,7 +32,9 @@ workflow. It:
 The GitHub `ad-hoc` authorization environment is configured for branch `main`,
 requires reviewer `CHDAFNI-MSFT`, permits no administrator bypass, and contains
 no variables or secrets. Signing values remain isolated in the separately
-approved historical `testflight` environment.
+approved historical `testflight` environment. Three independently masked
+device-identifier secrets are now configured there; their values are not
+recorded in the repository.
 
 No signed IPA is retained, uploaded as a GitHub artifact, or published. The
 workflow is a provisioning and build validator until a separately approved
@@ -39,24 +42,28 @@ private delivery path exists.
 
 ## Inputs still required
 
-The workflow must not run until both values exist in the protected historical
-`testflight` environment:
+The protected device secrets are configured. The workflow must not run until
+the remaining profile value also exists in the historical `testflight`
+environment:
 
-| Secret | Required value |
-|---|---|
-| `IOS_AD_HOC_DEVICE_UDID` | Exact UDID of the physical A16 iPad |
-| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Base64 of an unexpired Ad Hoc `.mobileprovision` containing that UDID, the production App ID, and the protected Apple Distribution certificate |
+| Secret | Required value | Status |
+|---|---|---|
+| `IOS_AD_HOC_DEVICE_UDID_1` | First approved iPad UDID | Configured |
+| `IOS_AD_HOC_DEVICE_UDID_2` | Second approved iPad UDID | Configured |
+| `IOS_AD_HOC_DEVICE_UDID_3` | Third approved iPad UDID | Configured |
+| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Base64 of an unexpired Ad Hoc `.mobileprovision` containing exactly those three UDIDs, the production App ID, and the protected Apple Distribution certificate | Pending device registration and profile creation |
 
 The existing `APPLE_CERTIFICATE_BASE64` and
 `APPLE_CERTIFICATE_PASSWORD` secrets provide the certificate identity. The
 App Store provisioning profile remains separate and is not overwritten.
 
-Treat the UDID as a protected device identifier. Do not place it in a workflow
-input, issue, commit, log, or documentation file.
+Treat every UDID as a protected device identifier. Do not place one in a
+workflow input, issue, commit, log, or documentation file. Separate GitHub
+secrets allow each complete identifier to be masked independently.
 
 ## Obtain and register the UDID
 
-When the iPad is available:
+For each approved iPad:
 
 1. Connect it to the Windows computer with a trusted USB cable.
 2. Open Apple's current Apple Devices app or iTunes device summary.
@@ -64,7 +71,7 @@ When the iPad is available:
 4. Confirm the value has either the modern `8-16` hexadecimal form separated
    by a hyphen or the legacy 40-hexadecimal form.
 5. In the Apple Developer account, open **Certificates, Identifiers &
-   Profiles > Devices**, register one iPad with that exact UDID, and use a
+   Profiles > Devices**, register the iPad with that exact UDID, and use a
    descriptive non-personal device name.
 
 Device slots are limited by product family and membership year. Disabling or
@@ -86,7 +93,7 @@ After registering the iPad:
 3. Select the explicit App ID `com.chdafni.frogcityfeast`.
 4. Select the Apple Distribution certificate whose private key is already in
    the protected GitHub environment.
-5. Select only the intended registered iPad.
+5. Select exactly the three intended registered iPads and no other devices.
 6. Use a name such as `Frog City Feast A16 Ad Hoc`.
 7. Download the `.mobileprovision` outside the repository.
 8. Provide its local path for protected Base64 transfer into
@@ -95,11 +102,12 @@ After registering the iPad:
    it.
 
 The workflow rejects development, App Store, enterprise, expired, wildcard,
-wrong-team, wrong-app, wrong-certificate, and wrong-device profiles.
+wrong-team, wrong-app, wrong-certificate, missing-device, duplicate-device,
+and extra-device profiles.
 
 ## Protected workflow sequence
 
-After the two secrets are configured:
+After all four secrets are configured:
 
 1. Run `iOS Ad Hoc registered-device validation` from `main`.
 2. Enter version `0.1.0` and enable `confirm_build`.

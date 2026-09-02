@@ -12,16 +12,40 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${APPLE_PROVISIONING_PROFILE_BASE64:?APPLE_PROVISIONING_PROFILE_BASE64 is required.}"
 
 signing_distribution="${IOS_SIGNING_DISTRIBUTION:-app-store}"
+ad_hoc_device_env_names=()
 case "$signing_distribution" in
   app-store)
     ;;
   ad-hoc)
-    : "${IOS_AD_HOC_DEVICE_UDID:?IOS_AD_HOC_DEVICE_UDID is required.}"
-    if [[ ! "$IOS_AD_HOC_DEVICE_UDID" =~ ^([A-Fa-f0-9]{40}|[A-Fa-f0-9]{8}-[A-Fa-f0-9]{16})$ ]]; then
-      echo "IOS_AD_HOC_DEVICE_UDID has an unsupported format." >&2
-      exit 1
-    fi
-    echo "::add-mask::$IOS_AD_HOC_DEVICE_UDID"
+    normalized_device_udids=()
+    for device_env_name in \
+      IOS_AD_HOC_DEVICE_UDID_1 \
+      IOS_AD_HOC_DEVICE_UDID_2 \
+      IOS_AD_HOC_DEVICE_UDID_3; do
+      device_udid="${!device_env_name:-}"
+      if [[ -z "$device_udid" ]]; then
+        echo "$device_env_name is required." >&2
+        exit 1
+      fi
+      if [[ ! "$device_udid" =~ ^([A-Fa-f0-9]{40}|[A-Fa-f0-9]{8}-[A-Fa-f0-9]{16})$ ]]; then
+        echo "$device_env_name has an unsupported format." >&2
+        exit 1
+      fi
+
+      normalized_device_udid="$(
+        printf "%s" "$device_udid" | tr "[:lower:]" "[:upper:]"
+      )"
+      for existing_device_udid in "${normalized_device_udids[@]}"; do
+        if [[ "$normalized_device_udid" == "$existing_device_udid" ]]; then
+          echo "The protected Ad Hoc device UDIDs must be unique." >&2
+          exit 1
+        fi
+      done
+
+      normalized_device_udids+=("$normalized_device_udid")
+      ad_hoc_device_env_names+=("$device_env_name")
+      echo "::add-mask::$device_udid"
+    done
     ;;
   *)
     echo "IOS_SIGNING_DISTRIBUTION must be app-store or ad-hoc." >&2
@@ -106,7 +130,9 @@ validation_args=(
   --distribution "$signing_distribution"
 )
 if [[ "$signing_distribution" == "ad-hoc" ]]; then
-  validation_args+=(--device-udid "$IOS_AD_HOC_DEVICE_UDID")
+  for device_env_name in "${ad_hoc_device_env_names[@]}"; do
+    validation_args+=(--device-udid-env "$device_env_name")
+  done
 fi
 
 python3 "$repo_root/scripts/validate-ios-signing-material.py" \

@@ -22,6 +22,8 @@ of signing secrets.
   Account and is not the selected installation path.
 - [x] A separate Ad Hoc validation path is prepared for the registered A16
   iPad. It publishes no signed artifact and creates no private hosting.
+- [x] Store the three supplied iPad identifiers as separate masked secrets in
+  the protected signing environment without recording their values in Git.
 
 ## Uploaded candidate record
 
@@ -64,8 +66,9 @@ of signing secrets.
 - [x] Complete Godot CI on that source commit: run `33662838762`.
 - [x] Manually run the unsigned iOS smoke build on that source commit: run
   `33664214769`.
-- [ ] Register the physical A16 iPad UDID and create its matching Ad Hoc
-  provisioning profile as documented in `docs/ios-ad-hoc-testing.md`.
+- [ ] Register the three supplied iPad UDIDs and create one matching Ad Hoc
+  provisioning profile containing exactly those devices as documented in
+  `docs/ios-ad-hoc-testing.md`.
 - [ ] Run the protected Ad Hoc validation workflow. It must retain no signed
   IPA until a private delivery method is separately approved.
 - [ ] Physical A16 iPad acceptance: signed Release build sustains at least
