@@ -40,9 +40,9 @@ of signing secrets.
 - [x] Replace every `REQUIRED_BEFORE_SUBMISSION` value in
   `tools/app-store-metadata.json`, `docs/privacy-policy.md`, and
   `docs/app-support.md`.
-- [ ] Publish and verify the prepared HTTPS support URL and public GitHub Issue
+- [x] Publish and verify the prepared HTTPS support URL and public GitHub Issue
   contact form.
-- [ ] Publish and verify the prepared HTTPS privacy policy URL and public
+- [x] Publish and verify the prepared HTTPS privacy policy URL and public
   privacy-question form.
 - [x] Confirm copyright owner and year: `2026 Chase Dafnis`.
 - [x] Choose free pricing with no in-app purchases. Do not add in-app
