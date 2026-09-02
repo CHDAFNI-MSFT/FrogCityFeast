@@ -8,8 +8,8 @@ of signing secrets.
 
 - [x] Godot 4.7.2 and the pinned Apple toolchain are documented.
 - [x] The credential-free iOS export and generic-device compile path exists.
-- [x] The public workflow is manual-only, main-only, and uses the dedicated
-  `app-store` environment.
+- [x] The public workflow is manual-only and main-only, with separate
+  `app-store` authorization and `testflight` signing approvals.
 - [x] The public export omits `testFlightInternalTestingOnly`.
 - [x] The workflow uploads no signed IPA, archive, certificate, profile, or key
   as a GitHub artifact.
@@ -18,6 +18,20 @@ of signing secrets.
   templates are versioned.
 - [x] TestFlight is documented as unavailable for the target under-13 Apple
   Account and is not the selected installation path.
+
+## Uploaded candidate record
+
+- Version: `0.1.0`
+- Build: `33576432175.1`
+- Source commit: `646011df800dc35aaed98d1ba8e8f775430341d8`
+- Workflow run:
+  [iOS App Store candidate upload 33576432175](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33576432175)
+- Upload completed: September 1, 2026 at 20:46 EDT
+- App Store Connect status at workflow completion: package uploaded and
+  processing.
+- Signing material cleanup completed and verified.
+- The build was not selected for a version, submitted for App Review, or
+  released.
 
 ## Required owner-supplied listing fields
 
@@ -91,13 +105,13 @@ of signing secrets.
 
 ## Separate authorization gates
 
-- [ ] **Explicit upload authorization:** authorize one exact commit, version,
+- [x] **Explicit upload authorization:** authorize one exact commit, version,
   and workflow run to upload a normal App Store candidate to App Store Connect.
   The current authorization and workflow pin are for version `0.1.0`.
-- [ ] Set the workflow's `confirm_upload` input, approve the protected
+- [x] Set the workflow's `confirm_upload` input, approve the protected
   `app-store` authorization job, and separately approve the protected
   `testflight` signing job.
-- [ ] Confirm the workflow completed cleanup and produced no downloadable
+- [x] Confirm the workflow completed cleanup and produced no downloadable
   signed artifact.
 - [ ] Wait for Apple processing and inspect export compliance, symbols, icon,
   privacy manifest, supported devices, and build metadata.
