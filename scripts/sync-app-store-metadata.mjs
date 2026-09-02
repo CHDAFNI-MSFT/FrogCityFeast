@@ -1,6 +1,7 @@
 import { createPrivateKey, sign } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 
 const API_ORIGIN = "https://api.appstoreconnect.apple.com";
 const METADATA_PATH = new URL(
@@ -19,6 +20,7 @@ const EDITABLE_VERSION_STATES = new Set([
   "READY_FOR_REVIEW",
   "REJECTED",
 ]);
+const APP_STORE_VERSION_PATTERN = /^\d+(?:\.\d+){0,2}$/;
 const appliedResources = [];
 
 function fail(message) {
@@ -346,13 +348,62 @@ async function updateCategories(
   appliedResources.push("appInfoCategories");
 }
 
+export function selectVersion(payload, metadata) {
+  if (!Array.isArray(payload.data)) {
+    fail("App Store version response does not contain a data array.");
+  }
+  if (payload.data.length > 1) {
+    const versions = payload.data.map((entry) => (
+      `${entry.attributes?.versionString ?? "UNKNOWN"} ` +
+      `(${entry.attributes?.appVersionState ?? "UNKNOWN"})`
+    ));
+    fail(
+      `Expected at most one ${metadata.platform} App Store version before ` +
+      `the initial release; found ${payload.data.length}: ` +
+      `${versions.join(", ")}.`,
+    );
+  }
+  if (payload.data.length === 0) {
+    return null;
+  }
+  const version = payload.data[0];
+  if (
+    version?.type !== "appStoreVersions" ||
+    typeof version.id !== "string" ||
+    !version.id.trim()
+  ) {
+    fail("The App Store version response contains an invalid resource.");
+  }
+  if (version.attributes?.platform !== metadata.platform) {
+    fail(
+      `The App Store version platform is ` +
+      `${version.attributes?.platform ?? "UNKNOWN"}; expected ` +
+      `${metadata.platform}.`,
+    );
+  }
+  if (
+    typeof version.attributes?.versionString !== "string" ||
+    !APP_STORE_VERSION_PATTERN.test(version.attributes.versionString)
+  ) {
+    fail("The App Store version response has no valid version string.");
+  }
+  const state = version.attributes?.appVersionState;
+  if (!EDITABLE_VERSION_STATES.has(state)) {
+    fail(
+      `The only ${metadata.platform} App Store version, ` +
+      `${version.attributes?.versionString ?? "UNKNOWN"}, is not editable ` +
+      `(${state ?? "UNKNOWN"}).`,
+    );
+  }
+  return version;
+}
+
 async function findVersion(token, appId, metadata) {
   const payload = await apiRequest(
     token,
     "GET",
     `/v1/apps/${appId}/appStoreVersions?${query({
       "filter[platform]": metadata.platform,
-      "filter[versionString]": metadata.version,
       "fields[appStoreVersions]": [
         "platform",
         "versionString",
@@ -360,18 +411,10 @@ async function findVersion(token, appId, metadata) {
         "copyright",
         "releaseType",
       ].join(","),
-      limit: 2,
+      limit: 200,
     })}`,
   );
-  let version = atMostOne(
-    payload,
-    `${metadata.platform} version ${metadata.version}`,
-  );
-  const state = version?.attributes?.appVersionState;
-  if (state && !EDITABLE_VERSION_STATES.has(state)) {
-    fail(`App Store version ${metadata.version} is not editable (${state}).`);
-  }
-  return version;
+  return selectVersion(payload, metadata);
 }
 
 async function ensureVersion(token, appId, metadata, existingVersion) {
@@ -402,6 +445,14 @@ async function ensureVersion(token, appId, metadata, existingVersion) {
     version = created.data;
     appliedResources.push("appStoreVersion");
   }
+  const attributes = {
+    copyright: metadata.copyright,
+    reviewType: "APP_STORE",
+    releaseType: metadata.release_type,
+  };
+  if (version.attributes?.versionString !== metadata.version) {
+    attributes.versionString = metadata.version;
+  }
   await apiRequest(
     token,
     "PATCH",
@@ -409,11 +460,7 @@ async function ensureVersion(token, appId, metadata, existingVersion) {
     patchResource(
       "appStoreVersions",
       version.id,
-      {
-        copyright: metadata.copyright,
-        reviewType: "APP_STORE",
-        releaseType: metadata.release_type,
-      },
+      attributes,
     ),
   );
   appliedResources.push("appStoreVersion");
@@ -591,13 +638,18 @@ async function main() {
   }, null, 2));
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  if (appliedResources.length > 0) {
-    console.error(JSON.stringify({
-      result: "partial_failure",
-      appliedResources,
-    }));
-  }
-  process.exitCode = 1;
-});
+if (
+  process.argv[1] &&
+  pathToFileURL(process.argv[1]).href === import.meta.url
+) {
+  main().catch((error) => {
+    console.error(error.message);
+    if (appliedResources.length > 0) {
+      console.error(JSON.stringify({
+        result: "partial_failure",
+        appliedResources,
+      }));
+    }
+    process.exitCode = 1;
+  });
+}

@@ -12,6 +12,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPORT_OPTIONS_SCRIPT = REPO_ROOT / "scripts" / "create-export-options.py"
 METADATA_PATH = REPO_ROOT / "tools" / "app-store-metadata.json"
 METADATA_SYNC_SCRIPT = REPO_ROOT / "scripts" / "sync-app-store-metadata.mjs"
+METADATA_VERSION_TEST = (
+    REPO_ROOT / "tests" / "app_store_metadata_version_test.mjs"
+)
 METADATA_WORKFLOW = (
     REPO_ROOT / ".github" / "workflows" / "app-store-metadata.yml"
 )
@@ -271,6 +274,12 @@ def validate_metadata_sync() -> None:
         and values.get("appPrivacy") == "NO_DATA_COLLECTED",
         "The metadata sync does not report the reviewed release values.",
     )
+    subprocess.run(
+        ["node", str(METADATA_VERSION_TEST)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     workflow = METADATA_WORKFLOW.read_text(encoding="utf-8")
     sync_script = METADATA_SYNC_SCRIPT.read_text(encoding="utf-8")
     require(
@@ -304,6 +313,15 @@ def validate_metadata_sync() -> None:
         and '"partial_failure"' in sync_script
         and "appliedResources" in sync_script,
         "The metadata script writes before version preflight or hides partial writes.",
+    )
+    require(
+        '"filter[versionString]"' not in sync_script
+        and "payload.data.length > 1" in sync_script
+        and "return selectVersion(payload, metadata)" in sync_script
+        and "version.attributes?.versionString !== metadata.version"
+        in sync_script
+        and "attributes.versionString = metadata.version" in sync_script,
+        "The metadata script cannot safely reuse and rename an initial draft version.",
     )
     require(
         "contentRightsDeclaration:" not in sync_script

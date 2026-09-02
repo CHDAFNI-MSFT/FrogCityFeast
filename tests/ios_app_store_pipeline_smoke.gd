@@ -162,6 +162,23 @@ func _run() -> void:
 		"The metadata sync validates version editability before writes and "
 			+ "reports partial application."
 	)
+	_check(
+		not metadata_sync_script.contains('"filter[versionString]"')
+			and metadata_sync_script.contains(
+				"payload.data.length > 1"
+			)
+			and metadata_sync_script.contains(
+				"return selectVersion(payload, metadata)"
+			)
+			and metadata_sync_script.contains(
+				"version.attributes?.versionString !== metadata.version"
+			)
+			and metadata_sync_script.contains(
+				"attributes.versionString = metadata.version"
+			),
+		"The metadata sync cannot safely adopt and rename the initial "
+			+ "editable App Store version."
+	)
 
 	for variable_name in ["APPLE_TEAM_ID", "IOS_BUNDLE_ID"]:
 		_check(
