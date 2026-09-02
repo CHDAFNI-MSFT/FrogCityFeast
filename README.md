@@ -11,6 +11,7 @@ the published game name.
 - [Development toolchain setup](docs/development-setup.md)
 - [Clean-room environment rebuild runbook](docs/environment-rebuild-runbook.md)
 - [iOS build and App Store setup](docs/ios-release.md)
+- [Reusable Apple app publishing runbook](docs/apple-app-publishing-runbook.md)
 - [App Store metadata template](docs/app-store-metadata.md)
 - [Privacy policy](docs/privacy-policy.md)
 - [Support page](docs/app-support.md)

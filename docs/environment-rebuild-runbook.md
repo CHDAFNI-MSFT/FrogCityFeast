@@ -38,8 +38,8 @@ app-specific Apple records and private credentials.
 An agent following this runbook must use these rules:
 
 1. Read this document, `tools/toolchain.json`,
-   `.github/copilot-instructions.md`, and `docs/ios-release.md` before changing
-   the new repository.
+   `.github/copilot-instructions.md`, `docs/ios-release.md`, and
+   `docs/apple-app-publishing-runbook.md` before changing the new repository.
 2. Treat `tools/toolchain.json` as the source of truth for tool versions,
    official download assets, checksums, runner image, Xcode version, and iOS SDK.
 3. Use the scripts copied into the new repository rather than reconstructing
@@ -128,9 +128,13 @@ These files have different responsibilities:
 | `scripts/create-export-options.py` | Xcode export options for manual signing | Copy |
 | `scripts/archive-and-upload-ios.sh` | Signed Xcode archive and direct App Store Connect upload | Copy and rename archive path |
 | `scripts/cleanup-ios-signing.sh` | Always-run cleanup of decoded signing material | Copy and rename temporary files |
+| `scripts/sync-app-store-metadata.mjs` | Fail-closed metadata preflight and idempotent listing updates | Copy and replace approved app identity and metadata values |
+| `tools/app-store-metadata.json` | Reviewed machine-readable App Store values and rating answers | Copy and replace every app-specific value |
 | `.github/workflows/godot-ci.yml` | Routine Linux CI | Copy |
 | `.github/workflows/ios-smoke.yml` | Manual credential-free iOS integration test | Copy and change smoke bundle ID |
 | `.github/workflows/ios-testflight.yml` | Protected signed release | Copy |
+| `.github/workflows/app-store-metadata.yml` | Manual protected metadata-only sync | Copy and replace the authorized version |
+| `tests/app_store_metadata_version_test.mjs` | Initial-version and malformed-response regression coverage | Copy |
 | `.gitignore` | Excludes editor state, tools, builds, generated presets, and signing files | Copy or merge carefully |
 | `.github/copilot-instructions.md` | Durable repository rules for future agents | Copy and replace the product name |
 | `README.md` | Human entry point for setup and automation | Copy and rebrand, or reproduce all runbook links |
@@ -138,6 +142,7 @@ These files have different responsibilities:
 | `docs/development-setup.md` | Day-to-day workstation setup | Copy and rebrand |
 | `docs/game-stack-decision-guide.md` | Reusable engine-selection rationale | Copy if the same product constraints apply |
 | `docs/ios-release.md` | Apple and GitHub release configuration | Copy and replace examples |
+| `docs/apple-app-publishing-runbook.md` | Reusable App Store setup order, API failure lessons, and publication gates | Copy and replace app-specific evidence |
 
 Do not copy game-specific scenes, scripts, artwork, audio, branding, or narrative
 content merely to obtain the toolchain. The placeholder `project.godot`,

@@ -21,10 +21,33 @@ const EDITABLE_VERSION_STATES = new Set([
   "REJECTED",
 ]);
 const APP_STORE_VERSION_PATTERN = /^\d+(?:\.\d+){0,2}$/;
+const METADATA_RESOURCES = [
+  "appInfoCategories",
+  "appInfoLocalization",
+  "appStoreVersion",
+  "appStoreVersionLocalization",
+  "ageRatingDeclaration",
+];
 const appliedResources = [];
+const attemptedResources = [];
+let currentResource = null;
 
 function fail(message) {
   throw new Error(message);
+}
+
+function beginResource(name) {
+  currentResource = name;
+  if (!attemptedResources.includes(name)) {
+    attemptedResources.push(name);
+  }
+}
+
+function recordResourceApplied(name) {
+  if (!appliedResources.includes(name)) {
+    appliedResources.push(name);
+  }
+  currentResource = null;
 }
 
 function requiredEnvironment(name) {
@@ -80,6 +103,7 @@ function validateMetadata(metadata) {
     pricing: "free",
     storefronts: "all_except_china_mainland",
     eu_dsa_status: "non-trader",
+    whats_new: "",
   };
   for (const [field, expected] of Object.entries(exactValues)) {
     if (metadata[field] !== expected) {
@@ -209,6 +233,20 @@ function atMostOne(payload, label) {
   return payload.data[0] ?? null;
 }
 
+function validateExistingResource(resource, type, label) {
+  if (!resource) {
+    return null;
+  }
+  if (
+    resource.type !== type ||
+    typeof resource.id !== "string" ||
+    !resource.id.trim()
+  ) {
+    fail(`The existing ${label} response is invalid.`);
+  }
+  return resource;
+}
+
 function patchResource(type, id, attributes, relationships = undefined) {
   return {
     data: {
@@ -263,7 +301,7 @@ async function findEditableAppInfo(token, appId) {
   return editable[0];
 }
 
-async function ensureAppInfoLocalization(
+async function findAppInfoLocalization(
   token,
   appInfoId,
   metadata,
@@ -276,25 +314,39 @@ async function ensureAppInfoLocalization(
       limit: 2,
     })}`,
   );
+  return validateExistingResource(
+    atMostOne(
+      payload,
+      `${metadata.locale} app info localization`,
+    ),
+    "appInfoLocalizations",
+    `${metadata.locale} app info localization`,
+  );
+}
+
+async function ensureAppInfoLocalization(
+  token,
+  appInfoId,
+  metadata,
+  existing,
+) {
   const attributes = {
     name: metadata.name,
     subtitle: metadata.subtitle,
     privacyPolicyUrl: metadata.privacy_policy_url,
   };
-  const existing = atMostOne(
-    payload,
-    `${metadata.locale} app info localization`,
-  );
   if (existing) {
+    beginResource("appInfoLocalization");
     await apiRequest(
       token,
       "PATCH",
       `/v1/appInfoLocalizations/${existing.id}`,
       patchResource("appInfoLocalizations", existing.id, attributes),
     );
-    appliedResources.push("appInfoLocalization");
+    recordResourceApplied("appInfoLocalization");
     return existing.id;
   }
+  beginResource("appInfoLocalization");
   const created = await apiRequest(
     token,
     "POST",
@@ -314,7 +366,7 @@ async function ensureAppInfoLocalization(
       },
     },
   );
-  appliedResources.push("appInfoLocalization");
+  recordResourceApplied("appInfoLocalization");
   return created.data.id;
 }
 
@@ -326,6 +378,7 @@ async function updateCategories(
   const category = (id) => ({
     data: { type: "appCategories", id },
   });
+  beginResource("appInfoCategories");
   await apiRequest(
     token,
     "PATCH",
@@ -345,7 +398,7 @@ async function updateCategories(
       },
     ),
   );
-  appliedResources.push("appInfoCategories");
+  recordResourceApplied("appInfoCategories");
 }
 
 export function selectVersion(payload, metadata) {
@@ -420,6 +473,7 @@ async function findVersion(token, appId, metadata) {
 async function ensureVersion(token, appId, metadata, existingVersion) {
   let version = existingVersion;
   if (!version) {
+    beginResource("appStoreVersion");
     const created = await apiRequest(
       token,
       "POST",
@@ -443,7 +497,15 @@ async function ensureVersion(token, appId, metadata, existingVersion) {
       },
     );
     version = created.data;
-    appliedResources.push("appStoreVersion");
+    if (
+      version?.type !== "appStoreVersions" ||
+      typeof version.id !== "string" ||
+      !version.id.trim()
+    ) {
+      fail("The created App Store version response is invalid.");
+    }
+    recordResourceApplied("appStoreVersion");
+    return version.id;
   }
   const attributes = {
     copyright: metadata.copyright,
@@ -453,6 +515,7 @@ async function ensureVersion(token, appId, metadata, existingVersion) {
   if (version.attributes?.versionString !== metadata.version) {
     attributes.versionString = metadata.version;
   }
+  beginResource("appStoreVersion");
   await apiRequest(
     token,
     "PATCH",
@@ -463,7 +526,7 @@ async function ensureVersion(token, appId, metadata, existingVersion) {
       attributes,
     ),
   );
-  appliedResources.push("appStoreVersion");
+  recordResourceApplied("appStoreVersion");
   return version.id;
 }
 
@@ -471,28 +534,11 @@ async function ensureVersionLocalization(
   token,
   versionId,
   metadata,
+  existing,
 ) {
-  const payload = await apiRequest(
-    token,
-    "GET",
-    `/v1/appStoreVersions/${versionId}/appStoreVersionLocalizations?${query({
-      "filter[locale]": metadata.locale,
-      limit: 2,
-    })}`,
-  );
-  const attributes = {
-    description: metadata.description,
-    keywords: metadata.keywords,
-    marketingUrl: metadata.marketing_url || null,
-    promotionalText: metadata.promotional_text,
-    supportUrl: metadata.support_url,
-    whatsNew: metadata.whats_new || null,
-  };
-  const existing = atMostOne(
-    payload,
-    `${metadata.locale} version localization`,
-  );
+  const attributes = versionLocalizationAttributes(metadata);
   if (existing) {
+    beginResource("appStoreVersionLocalization");
     await apiRequest(
       token,
       "PATCH",
@@ -503,9 +549,10 @@ async function ensureVersionLocalization(
         attributes,
       ),
     );
-    appliedResources.push("appStoreVersionLocalization");
+    recordResourceApplied("appStoreVersionLocalization");
     return existing.id;
   }
+  beginResource("appStoreVersionLocalization");
   const created = await apiRequest(
     token,
     "POST",
@@ -525,8 +572,44 @@ async function ensureVersionLocalization(
       },
     },
   );
-  appliedResources.push("appStoreVersionLocalization");
+  recordResourceApplied("appStoreVersionLocalization");
   return created.data.id;
+}
+
+async function findVersionLocalization(
+  token,
+  versionId,
+  metadata,
+) {
+  if (!versionId) {
+    return null;
+  }
+  const payload = await apiRequest(
+    token,
+    "GET",
+    `/v1/appStoreVersions/${versionId}/appStoreVersionLocalizations?${query({
+      "filter[locale]": metadata.locale,
+      limit: 2,
+    })}`,
+  );
+  return validateExistingResource(
+    atMostOne(
+      payload,
+      `${metadata.locale} version localization`,
+    ),
+    "appStoreVersionLocalizations",
+    `${metadata.locale} version localization`,
+  );
+}
+
+export function versionLocalizationAttributes(metadata) {
+  return {
+    description: metadata.description,
+    keywords: metadata.keywords,
+    marketingUrl: metadata.marketing_url || null,
+    promotionalText: metadata.promotional_text,
+    supportUrl: metadata.support_url,
+  };
 }
 
 async function findAgeRatingDeclaration(token, appInfoId) {
@@ -543,6 +626,7 @@ async function findAgeRatingDeclaration(token, appInfoId) {
 }
 
 async function updateAgeRating(token, declaration, metadata) {
+  beginResource("ageRatingDeclaration");
   await apiRequest(
     token,
     "PATCH",
@@ -553,7 +637,7 @@ async function updateAgeRating(token, declaration, metadata) {
       metadata.age_rating,
     ),
   );
-  appliedResources.push("ageRatingDeclaration");
+  recordResourceApplied("ageRatingDeclaration");
   return declaration.id;
 }
 
@@ -586,6 +670,16 @@ async function main() {
   const app = await findApp(token, bundleId);
   const appInfo = await findEditableAppInfo(token, app.id);
   const existingVersion = await findVersion(token, app.id, metadata);
+  const existingAppInfoLocalization = await findAppInfoLocalization(
+    token,
+    appInfo.id,
+    metadata,
+  );
+  const existingVersionLocalization = await findVersionLocalization(
+    token,
+    existingVersion?.id ?? null,
+    metadata,
+  );
   const ageRatingDeclaration = await findAgeRatingDeclaration(
     token,
     appInfo.id,
@@ -596,6 +690,7 @@ async function main() {
     token,
     appInfo.id,
     metadata,
+    existingAppInfoLocalization,
   );
   const versionId = await ensureVersion(
     token,
@@ -607,6 +702,7 @@ async function main() {
     token,
     versionId,
     metadata,
+    existingVersionLocalization,
   );
   const ageRatingDeclarationId = await updateAgeRating(
     token,
@@ -644,10 +740,17 @@ if (
 ) {
   main().catch((error) => {
     console.error(error.message);
-    if (appliedResources.length > 0) {
+    if (attemptedResources.length > 0) {
       console.error(JSON.stringify({
-        result: "partial_failure",
+        result: appliedResources.length > 0
+          ? "partial_failure"
+          : "failure",
         appliedResources,
+        attemptedResources,
+        failedResource: currentResource,
+        unattemptedResources: METADATA_RESOURCES.filter(
+          (name) => !attemptedResources.includes(name),
+        ),
       }));
     }
     process.exitCode = 1;

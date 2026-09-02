@@ -13,6 +13,7 @@ const METADATA_DOC := "res://docs/app-store-metadata.md"
 const PRIVACY_DOC := "res://docs/privacy-policy.md"
 const SUPPORT_DOC := "res://docs/app-support.md"
 const RELEASE_CHECKLIST := "res://docs/app-store-release-checklist.md"
+const PUBLISHING_RUNBOOK := "res://docs/apple-app-publishing-runbook.md"
 
 var _failures: Array[String] = []
 
@@ -35,6 +36,13 @@ func _run() -> void:
 	var privacy_doc := _read(PRIVACY_DOC)
 	var support_doc := _read(SUPPORT_DOC)
 	var checklist := _read(RELEASE_CHECKLIST)
+	var publishing_runbook := _read(PUBLISHING_RUNBOOK)
+
+	_check(
+		not publishing_runbook.is_empty()
+			and release_doc.contains("apple-app-publishing-runbook.md"),
+		"The reusable Apple publishing runbook is missing or unlinked."
+	)
 
 	_check(
 		workflow.contains("on:\n  workflow_dispatch:")
@@ -156,7 +164,21 @@ func _run() -> void:
 	_check(
 		metadata_sync_script.find(
 			"const existingVersion = await findVersion"
-		) < metadata_sync_script.find("await updateCategories")
+		) < metadata_sync_script.find(
+			"const existingAppInfoLocalization = await "
+				+ "findAppInfoLocalization"
+		)
+			and metadata_sync_script.find(
+				"const existingAppInfoLocalization = await "
+					+ "findAppInfoLocalization"
+			) < metadata_sync_script.find(
+				"const existingVersionLocalization = await "
+					+ "findVersionLocalization"
+			)
+			and metadata_sync_script.find(
+				"const existingVersionLocalization = await "
+					+ "findVersionLocalization"
+			) < metadata_sync_script.find("await updateCategories")
 			and metadata_sync_script.contains('"partial_failure"')
 			and metadata_sync_script.contains("appliedResources"),
 		"The metadata sync validates version editability before writes and "
@@ -178,6 +200,34 @@ func _run() -> void:
 			),
 		"The metadata sync cannot safely adopt and rename the initial "
 			+ "editable App Store version."
+	)
+	_check(
+		metadata_sync_script.contains('whats_new: ""')
+			and not metadata_sync_script.contains("attributes.whatsNew")
+			and not metadata_sync_script.contains(
+				"whatsNew: metadata.whats_new || null"
+			),
+		"The metadata sync attempts to write What's New for the first "
+			+ "App Store version."
+	)
+	_check(
+		metadata_sync_script.contains("attemptedResources")
+			and metadata_sync_script.contains(
+				"failedResource: currentResource"
+			)
+			and metadata_sync_script.contains("unattemptedResources"),
+		"The metadata sync does not distinguish failed and unattempted writes."
+	)
+	_check(
+		metadata_sync_script.contains(
+			'fail("The created App Store version response is invalid.")'
+		)
+			and metadata_sync_script.contains(
+				'recordResourceApplied("appStoreVersion");\n'
+					+ "    return version.id;"
+			),
+		"A newly created App Store version is not validated or is "
+			+ "redundantly patched."
 	)
 
 	for variable_name in ["APPLE_TEAM_ID", "IOS_BUNDLE_ID"]:

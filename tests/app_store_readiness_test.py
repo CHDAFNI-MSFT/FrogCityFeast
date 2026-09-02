@@ -309,6 +309,12 @@ def validate_metadata_sync() -> None:
     )
     require(
         sync_script.index("const existingVersion = await findVersion")
+        < sync_script.index(
+            "const existingAppInfoLocalization = await findAppInfoLocalization"
+        )
+        < sync_script.index(
+            "const existingVersionLocalization = await findVersionLocalization"
+        )
         < sync_script.index("await updateCategories")
         and '"partial_failure"' in sync_script
         and "appliedResources" in sync_script,
@@ -322,6 +328,25 @@ def validate_metadata_sync() -> None:
         in sync_script
         and "attributes.versionString = metadata.version" in sync_script,
         "The metadata script cannot safely reuse and rename an initial draft version.",
+    )
+    require(
+        'whats_new: ""' in sync_script
+        and "attributes.whatsNew" not in sync_script
+        and "whatsNew: metadata.whats_new || null" not in sync_script,
+        "The metadata script writes What's New for the first App Store version.",
+    )
+    require(
+        "attemptedResources" in sync_script
+        and "failedResource: currentResource" in sync_script
+        and "unattemptedResources" in sync_script,
+        "The metadata script does not distinguish failed and unattempted writes.",
+    )
+    require(
+        'fail("The created App Store version response is invalid.")'
+        in sync_script
+        and 'recordResourceApplied("appStoreVersion");\n    return version.id;'
+        in sync_script,
+        "A newly created App Store version is not validated or is redundantly patched.",
     )
     require(
         "contentRightsDeclaration:" not in sync_script

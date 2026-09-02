@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   selectVersion,
+  versionLocalizationAttributes,
 } from "../scripts/sync-app-store-metadata.mjs";
 
 const metadata = {
@@ -147,5 +148,19 @@ for (const invalidVersionString of [
     `${invalidVersionString} must fail version preflight.`,
   );
 }
+
+const firstReleaseLocalization = versionLocalizationAttributes({
+  description: "Description",
+  keywords: "keywords",
+  marketing_url: "",
+  promotional_text: "Promotional text",
+  support_url: "https://example.com/support",
+  whats_new: "",
+});
+assert.equal(
+  Object.hasOwn(firstReleaseLocalization, "whatsNew"),
+  false,
+  "A first release must omit the unavailable What's New attribute.",
+);
 
 console.log("App Store metadata version-selection tests passed.");

@@ -4,6 +4,10 @@ FrogCityFeast uses Windows for normal development and a GitHub-hosted macOS
 runner only for Apple-specific Godot export, Xcode compilation, signing, and
 submission.
 
+For the reusable setup order, failure modes, API-role requirements, and lessons
+to apply before creating another app, read
+[`apple-app-publishing-runbook.md`](apple-app-publishing-runbook.md).
+
 ## Production distribution decision
 
 The September 1, 2026 production decision selects a **normal public App Store
@@ -137,7 +141,7 @@ Current prerequisite status:
 | App Store Connect app record | Created for **Frog City Feast** with primary locale `en-US`, bundle ID `com.chdafni.frogcityfeast`, and SKU `FROGCITYFEAST-IOS-001`. |
 | Apple Distribution certificate | Created and valid through August 30, 2027. Its private key and randomly generated `.p12` password exist only in the protected GitHub environment secret set. |
 | App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
-| App Store Connect API key | A Developer-role team key is configured in the protected `testflight` environment and passed authenticated upload operations. It completed metadata read-only preflight in run `33616496541`, but Apple denied the first category write because Developer keys cannot change listing metadata. No metadata was changed. An App Manager-equivalent key is required for the protected metadata workflow. The previous Admin key was confirmed revoked and its local file was deleted. |
+| App Store Connect API key | An App Manager-role team key is configured in the protected `testflight` environment. Run `33648261223` used it to apply the Games categories and app-information localization before version creation failed. Run `33653860478` then reused and renamed Apple's initial editable version to `0.1.0` before a first-release `whatsNew` state error stopped version-localization and age-rating updates. The previous Developer key lacked metadata write permission; the previous Admin key was confirmed revoked and its local file was deleted. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
 | Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing data now covers the live support/privacy URLs, rating, category, review notes, marketing copy, pricing choice, storefront choice, and DSA choice. App Review contact remains pending through a protected process. |
 
@@ -146,9 +150,9 @@ remains blocked. Complete the live support and privacy URLs, owner-specific
 metadata, pricing, storefront selection, current age-rating questionnaire,
 screenshots, exact-commit CI and unsigned build, physical A16 acceptance, and
 all authorization gates in
-[`app-store-release-checklist.md`](app-store-release-checklist.md). The
-Developer-role API key can upload builds, but build selection, App Review
-submission, and release remain separate App Store Connect actions.
+[`app-store-release-checklist.md`](app-store-release-checklist.md). Build
+selection, App Review submission, and release remain separate App Store
+Connect actions regardless of the API key's role.
 
 The separate protected `App Store metadata sync` workflow can apply the
 reviewed API-supported listing fields without uploading a build. Apple rejects
@@ -156,10 +160,15 @@ primary-locale and content-rights updates on the existing app record even
 though those attributes remain in the current OpenAPI update schema, so those
 values require direct confirmation. Run
 [33616496541](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33616496541)
-confirmed that the current Developer-role key can authenticate and read the
-record but cannot write listing metadata. The Account Holder must provide an
-App Manager-equivalent key through the same protected secret path before
-rerunning it. Do not broaden the key to Admin solely for metadata entry.
+proved that authentication and read access do not establish metadata write
+permission. The protected key was replaced with App Manager access without
+broadening it to Admin. Runs
+[33648261223](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33648261223)
+and
+[33653860478](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33653860478)
+partially applied the categories, app-information localization, and editable
+`0.1.0` version. Version-localization and age-rating writes still require a
+successful protected rerun after the first-release `whatsNew` payload fix.
 
 The provisioning profile must use the same Team ID and exact bundle identifier
 configured in GitHub. The workflow rejects development, Ad Hoc, enterprise,
