@@ -41,13 +41,35 @@ func _run() -> void:
 	_check(
 		workflow.contains("confirm_upload:")
 			and workflow.contains(
-				"if: github.ref == 'refs/heads/main' && inputs.confirm_upload"
+				"  authorize:\n"
+					+ "    name: Approve public App Store candidate"
 			)
 			and workflow.contains(
+				"github.ref == 'refs/heads/main'"
+			)
+			and workflow.contains("inputs.confirm_upload")
+			and workflow.count("inputs.version == '0.1.0'") == 2
+			and workflow.contains(
 				"    environment:\n      name: app-store"
+			)
+			and workflow.contains("    needs: authorize")
+			and workflow.contains(
+				"    environment:\n      name: testflight"
+			)
+			and workflow.contains(
+				"needs.authorize.result == 'success'"
 			),
-		"The App Store upload requires main, explicit confirmation, and the "
-			+ "protected app-store environment."
+		"The App Store upload requires main, explicit confirmation, public "
+			+ "approval, and the existing protected signing environment."
+	)
+	_check(
+		workflow.contains(
+			'if [[ "$REQUESTED_VERSION" != "0.1.0" ]]; then'
+		)
+			and workflow.contains(
+				"Only the explicitly authorized version 0.1.0 may upload."
+			),
+		"The candidate workflow is fail-closed to the authorized version 0.1.0."
 	)
 	_check(
 		workflow.contains("permissions:\n  contents: read")
@@ -97,7 +119,7 @@ func _run() -> void:
 	]:
 		_check(
 			workflow.contains("${{ secrets.%s }}" % secret_name),
-			"The App Store workflow references environment secret %s."
+			"The signed candidate job references protected secret %s."
 				% secret_name
 		)
 

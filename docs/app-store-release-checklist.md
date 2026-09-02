@@ -78,10 +78,14 @@ of signing secrets.
 
 - [ ] Confirm the `app-store` environment still allows only branch `main`.
 - [ ] Confirm `CHDAFNI-MSFT` remains the required reviewer.
+- [ ] Confirm administrators cannot bypass the `app-store` or `testflight`
+  protection rules.
 - [ ] Confirm the environment variables are the reviewed Team ID and bundle
   ID.
-- [ ] Only after Explicit upload authorization, configure or copy the six
-  signing and App Store Connect secrets into the `app-store` environment.
+- [ ] Confirm the protected `testflight` environment retains the six validated
+  signing and App Store Connect secrets and requires its own approval.
+- [ ] Confirm the public workflow consumes those secrets in place and that the
+  `app-store` environment contains no signing secrets.
 - [ ] Confirm no signing value exists at repository scope or in a workflow,
   log, artifact, issue, pull request, commit, or local repository file.
 
@@ -89,8 +93,10 @@ of signing secrets.
 
 - [ ] **Explicit upload authorization:** authorize one exact commit, version,
   and workflow run to upload a normal App Store candidate to App Store Connect.
-- [ ] Approve the protected `app-store` environment deployment and set the
-  workflow's `confirm_upload` input.
+  The current authorization and workflow pin are for version `0.1.0`.
+- [ ] Set the workflow's `confirm_upload` input, approve the protected
+  `app-store` authorization job, and separately approve the protected
+  `testflight` signing job.
 - [ ] Confirm the workflow completed cleanup and produced no downloadable
   signed artifact.
 - [ ] Wait for Apple processing and inspect export compliance, symbols, icon,
@@ -116,4 +122,3 @@ of signing secrets.
   date, and any approved storefront exclusions.
 - [ ] Monitor support and crash information available through Apple without
   adding in-app analytics or tracking.
-

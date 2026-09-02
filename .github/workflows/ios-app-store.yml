@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: App marketing version, such as 1.0.0
+        description: Authorized App marketing version (0.1.0)
         required: true
         type: string
       confirm_upload:
@@ -21,13 +21,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  authorize:
+    name: Approve public App Store candidate
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_upload &&
+      inputs.version == '0.1.0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: app-store
+
+    steps:
+      - name: Record protected upload approval
+        run: |
+          echo "Public candidate upload approved for ${GITHUB_SHA}."
+          echo "Signing credentials remain isolated in the testflight environment."
+
   app-store:
     name: Sign and upload App Store candidate
-    if: github.ref == 'refs/heads/main' && inputs.confirm_upload
+    needs: authorize
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_upload &&
+      inputs.version == '0.1.0' &&
+      needs.authorize.result == 'success'
     runs-on: macos-26
     timeout-minutes: 60
     environment:
-      name: app-store
+      name: testflight
     env:
       APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
       IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
@@ -42,8 +64,8 @@ jobs:
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          if [[ ! "$REQUESTED_VERSION" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
-            echo "The release version must contain one to three numeric components." >&2
+          if [[ "$REQUESTED_VERSION" != "0.1.0" ]]; then
+            echo "Only the explicitly authorized version 0.1.0 may upload." >&2
             exit 1
           fi
           {

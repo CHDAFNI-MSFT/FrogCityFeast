@@ -15,9 +15,10 @@ plan.
 The repository includes a separate manual
 [`iOS App Store candidate upload`](../.github/workflows/ios-app-store.yml)
 workflow. It uses the protected `app-store` environment and an export mode that
-omits `testFlightInternalTestingOnly`. The existing TestFlight workflow and
-internal group are retained only as historical protected infrastructure until
-a separately reviewed cleanup decision; they are not the selected
+omits `testFlightInternalTestingOnly`. A second protected approval lets the
+signing job consume the existing credentials from the `testflight` environment
+without copying or revealing them. The existing TestFlight workflow and
+internal group remain historical infrastructure; they are not the selected
 distribution route.
 
 No signing, upload, App Store submission, publication, release, or tag is
@@ -92,7 +93,7 @@ generated-project validator fails if those declarations drift.
 |---|---|---|---|
 | `Godot CI` | Push, pull request, manual | None | Import, start, and run deterministic project checks on Linux |
 | `iOS unsigned smoke build` | Manual | None | Export through Godot and compile an unsigned generic iOS device target |
-| `iOS App Store candidate upload` | Manual from `main` with explicit confirmation | Protected `app-store` environment | Archive, sign, and upload a normal App Store candidate without submitting it for review |
+| `iOS App Store candidate upload` | Manual from `main` with explicit confirmation | Protected `app-store` authorization followed by protected `testflight` signing credentials | Archive, sign, and upload a normal App Store candidate without submitting it for review |
 | `iOS TestFlight release` | Manual from `main` or a `v*` tag | Protected `testflight` environment | Historical internal-only upload path; not usable by the target under-13 account |
 
 The smoke workflow uses the synthetic Team ID `0000000000` only because Godot
@@ -136,7 +137,7 @@ Current prerequisite status:
 | App Store Connect app record | Created for **Frog City Feast** with primary locale `en-US`, bundle ID `com.chdafni.frogcityfeast`, and SKU `FROGCITYFEAST-IOS-001`. |
 | Apple Distribution certificate | Created and valid through August 30, 2027. Its private key and randomly generated `.p12` password exist only in the protected GitHub environment secret set. |
 | App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
-| App Store Connect API key | A Developer-role team key is configured in the protected `testflight` environment and passed authenticated app and TestFlight operations. The previous Admin key was confirmed revoked and its local file was deleted. Copying the key into `app-store` remains secret-dependent work requiring upload authorization. |
+| App Store Connect API key | A Developer-role team key is configured in the protected `testflight` environment and passed authenticated upload operations. The approved double-gate workflow consumes it in place without copying or revealing the key. The previous Admin key was confirmed revoked and its local file was deleted. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
 | Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing templates now cover privacy, rating, contact, support, category, review notes, and marketing copy; their live URLs and owner-specific fields remain pending. |
 
@@ -158,15 +159,19 @@ unexpired Apple Distribution certificate and that the certificate Team ID is
 
 ## Protected GitHub environments
 
-The selected public workflow uses a dedicated environment named `app-store`.
-Configure it to allow only branch `main`, require `CHDAFNI-MSFT` as reviewer,
-and keep self-review prevention disabled while the repository has only one
-release operator. The workflow is also manual-only and requires its
-`confirm_upload` input. Both gates must remain in place.
+The selected public workflow first enters a dedicated authorization environment
+named `app-store`. It allows only branch `main`, requires `CHDAFNI-MSFT` as
+reviewer, and keeps self-review prevention disabled while the repository has
+only one release operator. Administrator bypass is disabled. The workflow is
+manual-only and requires its `confirm_upload` input.
 
-The historical `testflight` environment allows branch `main` and tags matching
-`v*`, requires the same reviewer, and retains the existing internal-only
-secrets. Do not use it as the target-device installation route.
+After that approval succeeds, the signing job enters the protected
+`testflight` environment and requires its separate approval before credentials
+become available. This consumes the existing validated secrets in place rather
+than copying or exposing them. The job repeats the `main` and confirmation
+conditions, administrator bypass is disabled for this environment too, and the
+job still selects the normal `app-store` export mode. The historical TestFlight
+workflow remains unavailable to the target under-13 account.
 
 Add these environment variables:
 
@@ -175,20 +180,20 @@ Add these environment variables:
 | `APPLE_TEAM_ID` | `CV7JQ487YU` |
 | `IOS_BUNDLE_ID` | `com.chdafni.frogcityfeast` |
 
-Configure both variables in `app-store`. Add the following values only through
-that environment's **Environment secrets** controls and only after explicit
-upload authorization. Never use repository-level secrets for this workflow.
+Configure both variables in `app-store` as reviewable identifiers. Keep the
+same values in `testflight`, where the signed job reads them. Never use
+repository-level variables or secrets for this workflow.
 
 The six required values already exist in the protected historical `testflight`
 environment and passed certificate, profile, and authenticated App Store
-Connect validation. They are intentionally not copied into `app-store` during
-reversible preparation. No local copy of the certificate private key, `.p12`,
+Connect validation. The approved route leaves them there and keeps `app-store`
+free of signing secrets. No local copy of the certificate private key, `.p12`,
 password, CSR, certificate, profile, or API private key is retained.
 
 The previous Admin API key is no longer stored in GitHub, was confirmed revoked
 by Apple, and its local `.p8` file was deleted.
 
-Add these environment secrets:
+The signed job reads these existing `testflight` environment secrets:
 
 | Secret | Content |
 |---|---|
@@ -230,15 +235,16 @@ the repository.
 2. Run `Godot CI` successfully on the intended commit.
 3. Run `iOS unsigned smoke build` on that exact commit. Do not proceed until
    generated-project validation and the unsigned Xcode compile both pass.
-4. Obtain explicit upload authorization for one exact commit and numeric
-   marketing version.
-5. Confirm the `app-store` branch restriction, reviewer, and variables, then
-   configure its six environment secrets without copying them into the
-   repository or logs.
-6. Manually run `iOS App Store candidate upload` from `main`, enter the
-   authorized version, and enable `confirm_upload`.
-7. Approve the protected `app-store` deployment. This is the point after which
-   the job can access signing and upload credentials.
+4. Obtain explicit upload authorization for one exact commit and marketing
+   version. The current workflow is fail-closed to the authorized version
+   `0.1.0`; changing it requires a separately reviewed commit and authorization.
+5. Confirm the `app-store` and `testflight` branch restrictions, reviewers,
+   non-secret variables, and existing `testflight` secret names.
+6. Manually run `iOS App Store candidate upload` from `main`, enter `0.1.0`,
+   and enable `confirm_upload`.
+7. Approve the protected `app-store` authorization job, then separately approve
+   the `testflight` signing job. Credentials become available only after the
+   second approval.
 8. Wait for App Store Connect processing and inspect the candidate. The
    workflow does not select the build for a version, submit it for App Review,
    or release it.

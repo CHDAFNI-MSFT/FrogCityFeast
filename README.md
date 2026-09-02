@@ -38,7 +38,8 @@ signing, and App Store candidate work.
 - `iOS unsigned smoke build` manually validates the Godot-to-Xcode pipeline
   without Apple credentials.
 - `iOS App Store candidate upload` is a manual, protected, main-only path for
-  an explicitly authorized normal App Store candidate.
+  an explicitly authorized normal App Store candidate. It requires separate
+  public-upload and signing-credential environment approvals.
 - `iOS TestFlight release` is retained as historical internal-only
   infrastructure but is not usable by the target under-13 Apple Account.
 
