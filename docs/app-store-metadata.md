@@ -198,18 +198,22 @@ Use final release presentation only. Do not show `--perf-overlay`, test data,
 editor chrome, debug labels, signing information, or placeholder support
 details.
 
-Recommended six-image sequence:
+Recommended seven-image sequence:
 
 1. Storybook city overview with the frog, targets, landmarks, and readable HUD.
 2. Tongue catch with visible accuracy and non-color feedback.
 3. Large or Enormous growth during a whimsical pursuit.
 4. An enterable interior or rooftop with weather or festival activity outside.
-5. The Belly and paginated Guide/Journal as two separate screenshots.
-6. Accessibility Options showing timing assistance, Reduce Motion, larger
+5. The Belly as its own screenshot.
+6. The paginated Guide/Journal as its own screenshot.
+7. Accessibility Options showing timing assistance, Reduce Motion, larger
    controls, camera assistance, haptics, and left-handed HUD support.
 
 Visual review remains deferred until publication. Capture one final coherent
 set from the authorized release build; do not create an iterative review loop.
+The deterministic source, Windows command, output policy, and objective checks
+are documented in
+[`app-store-screenshots.md`](app-store-screenshots.md).
 
 Official reference:
 [Upload app previews and screenshots](https://developer.apple.com/help/app-store-connect/manage-app-information/upload-app-previews-and-screenshots).

@@ -60,6 +60,9 @@ run_checked prototype-smoke --headless --path "$repo_root" \
   --script res://tests/prototype_smoke.gd
 run_checked ux-smoke --headless --path "$repo_root" \
   --script res://tests/ux_smoke.gd
+run_checked app-store-screenshot-smoke --headless --path "$repo_root" \
+  --script res://tests/app_store_screenshot_smoke.gd -- \
+  --app-store-screenshot-harness
 run_checked performance-smoke --headless --path "$repo_root" \
   --script res://tests/performance_smoke.gd
 run_checked tutorial-smoke --headless --path "$repo_root" \

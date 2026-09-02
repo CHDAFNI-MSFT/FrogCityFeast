@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "package": "normal-public-app-store",
+  "target": {
+    "device": "13-inch iPad",
+    "orientation": "landscape",
+    "width": 2752,
+    "height": 2064,
+    "format": "PNG",
+    "colorMode": "RGB",
+    "transparent": false
+  },
+  "engine": {
+    "name": "Godot",
+    "version": "4.7.2",
+    "renderer": "GL Compatibility"
+  },
+  "profileName": "Sam",
+  "outputDirectory": "build/app-store/screenshots/ipad-13-inch",
+  "reproductionCommand": "powershell -ExecutionPolicy Bypass -File .\\scripts\\generate-app-store-screenshots.ps1",
+  "source": {
+    "harness": "tools/app_store_screenshot_harness.gd",
+    "states": "tools/app_store_screenshot_states.gd"
+  },
+  "screenshots": [
+    {
+      "id": "city_overview",
+      "filename": "01-city-overview.png",
+      "title": "Storybook City Overview",
+      "marketingView": "The frog, city landmarks, targets, activity, and release HUD."
+    },
+    {
+      "id": "tongue_catch",
+      "filename": "02-tongue-catch.png",
+      "title": "Accurate Tongue Catch",
+      "marketingView": "A tongue catch with a percentage, progress, ring, text, and resistant-target chevrons."
+    },
+    {
+      "id": "enormous_pursuit",
+      "filename": "03-enormous-pursuit.png",
+      "title": "Enormous Pursuit",
+      "marketingView": "An enormous frog turning an Animal Control pursuit around."
+    },
+    {
+      "id": "weather_festival",
+      "filename": "04-weather-festival.png",
+      "title": "River Park Kite Festival",
+      "marketingView": "Changing city activity during the bright, color-safe kite festival."
+    },
+    {
+      "id": "belly",
+      "filename": "05-belly.png",
+      "title": "Belly",
+      "marketingView": "The separate Belly inventory with digest and safe return choices."
+    },
+    {
+      "id": "guide_journal",
+      "filename": "06-guide-journal.png",
+      "title": "Guide and Journal",
+      "marketingView": "The separate paginated Guide and stamped story postcards."
+    },
+    {
+      "id": "accessibility_options",
+      "filename": "07-accessibility-options.png",
+      "title": "Accessibility Options",
+      "marketingView": "Reduce Motion, larger controls, relaxed timing, camera help, haptics, and left-handed HUD."
+    }
+  ]
+}

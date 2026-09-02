@@ -16,6 +16,8 @@ of signing secrets.
 - [x] Metadata copy, category recommendations, privacy answers, age-rating
   inputs, App Review notes, screenshot plan, support copy, and privacy policy
   templates are versioned.
+- [x] A deterministic seven-image 13-inch iPad screenshot harness, manifest,
+  Windows generator, and opaque-image validation are versioned.
 - [x] TestFlight is documented as unavailable for the target under-13 Apple
   Account and is not the selected installation path.
 
@@ -87,9 +89,11 @@ of signing secrets.
 - [ ] Enter current App Review contact information in international format
   where required.
 - [ ] Add the App Review notes from `docs/app-store-metadata.md`.
-- [ ] Generate the approved automated final iPad landscape screenshot set,
-  upload 1 to 10 images without debug overlays or placeholders, and verify
-  their dimensions in App Store Connect.
+- [ ] Re-run the approved automated final iPad landscape screenshot set from
+  the exact publication build using
+  `scripts\generate-app-store-screenshots.ps1`, perform the deferred visual
+  review, upload its seven images without debug overlays or placeholders, and
+  verify their dimensions in App Store Connect.
 - [ ] Choose **Manually release this version** so approval cannot publish the
   app automatically.
 

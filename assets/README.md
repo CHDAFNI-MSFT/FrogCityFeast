@@ -16,6 +16,7 @@ provenance.
 | `art/characters/*.svg` | Original Copilot-assisted character art authored for this repository in September 2026. | Project-specific copyright belongs to the repository owner; external reuse requires permission. | The committed SVGs are editable runtime sources. See `art/README.md`. |
 | `art/targets/*.svg` | Original Copilot-assisted tintable target-category art authored for this repository in September 2026. | Project-specific copyright belongs to the repository owner; external reuse requires permission. | The committed SVGs are editable runtime sources. See `art/README.md`. |
 | `src/tutorial_card_art.gd` and `src/score_epilogue.gd` | Original Copilot-assisted procedural onboarding and ending illustrations authored for this repository in September 2026. | Project-specific copyright belongs to the repository owner; external reuse requires permission. | Godot 4.7.2 redraws the committed GDScript compositions from project-local colors and SVG textures. See `art/README.md`. |
+| `build/app-store/screenshots/ipad-13-inch/*.png` | Original deterministic game renderings authored from repository-owned code and art by `tools/app_store_screenshot_states.gd`. Generated files are ignored release derivatives. | Project-specific copyright belongs to the repository owner; external reuse requires permission. | Run `powershell -ExecutionPolicy Bypass -File .\scripts\generate-app-store-screenshots.ps1`. See `docs/app-store-screenshots.md` and `tools/app-store-screenshot-manifest.json`. |
 
 ## Current audio assets
 
