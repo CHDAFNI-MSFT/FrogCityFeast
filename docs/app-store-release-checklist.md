@@ -42,10 +42,10 @@ of signing secrets.
 - [x] Replace every `REQUIRED_BEFORE_SUBMISSION` value in
   `tools/app-store-metadata.json`, `docs/privacy-policy.md`, and
   `docs/app-support.md`.
-- [ ] Re-verify the renamed HTTPS support URL and public GitHub Issue contact
-  form after the repository and Pages site move to `FrogCityFeast`.
-- [ ] Re-verify the renamed HTTPS privacy policy URL and public
-  privacy-question form after the repository and Pages site move.
+- [x] Verify the renamed HTTPS support URL and public GitHub Issue contact
+  form at `FrogCityFeast`.
+- [x] Verify the renamed HTTPS privacy policy URL and public privacy-question
+  form at `FrogCityFeast`.
 - [x] Confirm copyright owner and year: `2026 Chase Dafnis`.
 - [x] Choose free pricing with no in-app purchases. Do not add in-app
   purchases without
