@@ -101,8 +101,8 @@ func _test_game_integration() -> void:
 		"Speed Burst and Long Tongue apply exact movement, range, and recovery rules."
 	)
 	_check(
-		game._power_label.text.contains("Long Tongue")
-		and game._power_label.text.contains("(+1)")
+		game._power_label.text.contains("Tongue")
+		and game._power_label.text.contains("+1")
 		and game._power_label.tooltip_text.contains("Speed Burst")
 		and game._power_label.tooltip_text.contains("Long Tongue")
 		and game._status_label.text.contains("ACTIVE")
@@ -215,11 +215,18 @@ func _test_game_integration() -> void:
 	_check(
 		game._power_state.active_ids().size() == 5
 		and game._power_label.text.contains("Shield")
-		and game._power_label.text.contains("(+4)")
+		and game._power_label.text.contains("+4")
 		and game._power_label.tooltip_text.contains("Flight")
 		and game._power_label.tooltip_text.contains("Camouflage")
+		and game._power_label.get_global_rect().size.x >= 149.0
 		and game._end_button.get_global_rect().end.x <= safe_right + 0.5,
 		"Five active powers stay readable without pushing actions outside the safe area."
+	)
+	game._update_powers(FrogGame.POWER_LABEL_CYCLE_DURATION)
+	_check(
+		game._power_label.text.contains("Flight")
+		and game._power_label.text.contains("+4"),
+		"Multiple active power timers rotate through the touch-visible HUD."
 	)
 
 	game.queue_free()

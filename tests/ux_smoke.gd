@@ -70,7 +70,7 @@ func _run() -> void:
 	game._score = 1234
 	game._growth_tier = GameplayTuning.LARGE_TIER
 	game.show_save_error("Final progress still needs to be saved.")
-	game._end_game()
+	game._end_button.pressed.emit()
 	_check(
 		is_instance_valid(game._score_epilogue)
 		and game._score_epilogue._score_label.text.contains("1234")

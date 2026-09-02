@@ -232,6 +232,8 @@ const CITY_EXPLORATION_PORTALS := [
 	},
 ]
 const INTERIOR_TRANSITION_DURATION := 0.18
+const CONTEXT_ACTION_GRACE_DURATION := 0.75
+const POWER_LABEL_CYCLE_DURATION := 2.5
 const REWARD_DURATION := 1.15
 const HUD_PULSE_DURATION := 0.34
 const DISCOVERY_BANNER_DURATION := 2.2
@@ -629,6 +631,8 @@ var _pending_hud_pulse := false
 var _discovery_banner_time := 0.0
 var _challenge_pulse_times: Dictionary = {}
 var _most_recent_power_id := ""
+var _power_label_cycle_time := 0.0
+var _context_action_grace_time := 0.0
 var _reduce_motion_enabled := false
 var _larger_text_controls_enabled := false
 var _input_assist_mode := AccessibilityPresentation.INPUT_ASSIST_STANDARD
@@ -1412,6 +1416,10 @@ func activate_audio_context() -> void:
 
 func _process(delta: float) -> void:
 	_update_hud_feedback(delta)
+	_context_action_grace_time = maxf(
+		0.0,
+		_context_action_grace_time - maxf(0.0, delta)
+	)
 	_update_context_action_button()
 
 	if _status_time > 0.0:
@@ -2177,6 +2185,7 @@ func _complete_interior_transfer() -> void:
 	AudioDirector.play_effect(FrogAudioDirector.ROOM_TRAVEL)
 	if _interior_transition_destination == SECRET_DISTRICT_DESTINATION:
 		_active_interior_id = ""
+		_context_action_grace_time = CONTEXT_ACTION_GRACE_DURATION
 		_clear_city_detour()
 		_frog.global_position = (
 			DISTRICT_GENERATOR_SCRIPT.secret_entry_position(
@@ -2255,6 +2264,7 @@ func _complete_interior_transfer() -> void:
 	else:
 		var building := _building_for_interior_room(_active_interior_id)
 		_active_interior_id = ""
+		_context_action_grace_time = CONTEXT_ACTION_GRACE_DURATION
 		_frog.global_position = _city_return_position
 		_camera.zoom = _city_camera_zoom
 		_camera.rotation = _city_camera_rotation
@@ -5628,6 +5638,7 @@ func _activate_power(power_id: String, duration: float = -1.0) -> void:
 		_start_flight()
 	_apply_power_effects()
 	_most_recent_power_id = power_id
+	_power_label_cycle_time = 0.0
 	_show_status(_power_activation_message(power_id), 6.0)
 	_update_power_label()
 
@@ -5648,6 +5659,10 @@ func _start_flight() -> void:
 
 
 func _update_powers(delta: float) -> void:
+	if _power_state.active_ids().size() > 1:
+		_power_label_cycle_time += maxf(0.0, delta)
+	else:
+		_power_label_cycle_time = 0.0
 	var expired := _power_state.advance(delta)
 	if expired.has(TemporaryPowerState.FLIGHT):
 		if not _land_frog_safely():
@@ -5755,17 +5770,25 @@ func _update_power_label() -> void:
 		if active_ids.has(_most_recent_power_id)
 		else active_ids[0]
 	)
+	if active_ids.size() > 1:
+		var start_index := active_ids.find(primary_power_id)
+		var cycle_steps := floori(
+			_power_label_cycle_time / POWER_LABEL_CYCLE_DURATION
+		)
+		primary_power_id = active_ids[
+			(start_index + cycle_steps) % active_ids.size()
+		]
 	var primary_names := {
 		TemporaryPowerState.FLIGHT: "Flight",
 		TemporaryPowerState.SPEED_BURST: "Speed",
-		TemporaryPowerState.LONG_TONGUE: "Long Tongue",
-		TemporaryPowerState.CAMOUFLAGE: "Camouflage",
+		TemporaryPowerState.LONG_TONGUE: "Tongue",
+		TemporaryPowerState.CAMOUFLAGE: "Camo",
 		TemporaryPowerState.BUBBLE_SHIELD: "Shield",
 	}
 	_power_label.text = "%s %ds%s" % [
 		str(primary_names.get(primary_power_id, "Power")),
 		ceili(_power_state.remaining(primary_power_id)),
-		" (+%d)" % (active_ids.size() - 1)
+		" +%d" % (active_ids.size() - 1)
 		if active_ids.size() > 1
 		else "",
 	]
@@ -6383,15 +6406,19 @@ func _play_haptic(duration_msec: int) -> void:
 
 
 func _default_status_text() -> String:
+	var eat_hint := _default_eat_control_hint()
 	if not _active_interior_id.is_empty():
-		return "Click/tap to move. Use Exit Room or the marked return door."
+		return "Tap to move; %s. Use Exit Room to leave." % eat_hint
 	if _power_state.is_active(TemporaryPowerState.FLIGHT):
 		return (
-			"Flight is active: click/tap to fly over walls. "
-			+ "No power button is needed."
+			"Flight active: tap to cross walls; %s. No power button."
+			% eat_hint
 		)
 	if not _power_state.active_ids().is_empty():
-		return "Temporary powers are active automatically. No button is needed."
+		return (
+			"Power active automatically; %s. No power button."
+			% eat_hint
+		)
 	match _input_assist_mode:
 		AccessibilityPresentation.INPUT_ASSIST_RELAXED:
 			return "Tap to move. Double-tap targets with extra time to eat."
@@ -6399,6 +6426,16 @@ func _default_status_text() -> String:
 			return "Tap to move. Press and hold a target to eat."
 		_:
 			return "Tap the ground to move. Double-tap a target to eat it."
+
+
+func _default_eat_control_hint() -> String:
+	match _input_assist_mode:
+		AccessibilityPresentation.INPUT_ASSIST_RELAXED:
+			return "double-tap targets with extra time to eat"
+		AccessibilityPresentation.INPUT_ASSIST_HOLD:
+			return "hold targets to eat"
+		_:
+			return "double-tap targets to eat"
 
 
 func _struggle_input_hint() -> String:
@@ -6432,6 +6469,8 @@ func _net_escape_status_text() -> String:
 
 
 func _on_context_action_pressed() -> void:
+	if _end_button.disabled:
+		return
 	if _active_interior_id.is_empty():
 		_end_game()
 		return
@@ -6473,6 +6512,7 @@ func _update_context_action_button() -> void:
 		_end_button.tooltip_text = "End the current game and view the score."
 		_end_button.disabled = (
 			_interior_transition_phase != InteriorTransitionPhase.NONE
+			or _context_action_grace_time > 0.0
 		)
 		return
 	var room := (
@@ -7383,6 +7423,7 @@ func _build_prototype_city() -> void:
 		Vector2(0, 300),
 		Vector2(0, 220)
 	)
+	stockroom.set_entry("default", Vector2(0, 150))
 	var upper_hall := _spawn_interior_room(
 		CANAL_UPPER_HALL_ID,
 		"Canal Apartments Upper Hall",

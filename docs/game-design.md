@@ -357,11 +357,13 @@ minute. The progression milestone also adds:
 Temporary powers activate immediately when their source item is digested.
 There is no separate activation button. The HUD uses full power names and
 remaining seconds instead of letter abbreviations. To preserve all top-bar
-actions with large text and safe-area insets, it shows the most recently
-activated named power plus the number of other active powers; its desktop
-tooltip lists every active named timer. The activation message states the
-automatic behavior. Flight uses the normal click/tap destination control while
-allowing the route to cross ground walls and obstacles.
+actions with large text and safe-area insets, it reserves a bounded readable
+timer slot and rotates through every active named power at 2.5-second
+intervals, while also showing the number of other active powers. Its desktop
+tooltip lists every active named timer. Persistent status guidance retains the
+selected eating control while explaining that powers need no separate button.
+Flight uses the normal click/tap destination control while allowing the route
+to cross ground walls and obstacles.
 
 Power durations count active play only and pause while the Belly, Field Guide,
 or Options overlay or a room-transition fade pauses player control. Powers
@@ -482,8 +484,11 @@ things to eat.
   centered room camera, a return door, and a Stockroom Coffee Tin target. The
   normal End Game HUD action becomes Exit Room while any connected room is
   active, routes to that room's marked return door, and changes back after
-  returning outdoors. Belly, Guide, and Options use Back to Game rather than
-  claiming that closing an overlay returns to the city.
+  returning outdoors. A short post-exit grace period prevents repeated exit
+  taps from immediately ending the score run. The stockroom entry point stays
+  outside the return marker's hit radius so the player's first movement tap
+  cannot accidentally leave. Belly, Guide, and Options use Back to Game rather
+  than claiming that closing an overlay returns to the city.
   Entering hides the frog from active Animal Control pursuit. Reduce motion
   replaces the fade with an immediate cut, and consuming the café disables the
   stockroom entrance until the building is restored.

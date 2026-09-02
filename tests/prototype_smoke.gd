@@ -6072,6 +6072,9 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		and stockroom.room_size == Vector2(1100, 820)
 		and stockroom.exit_marker_position()
 		== stockroom.global_position + Vector2(0, 300)
+		and stockroom.entry_position().distance_to(
+			stockroom.exit_marker_position()
+		) > 62.0
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
 		and coffee_tin.move_bounds == stockroom.interior_rect(),
@@ -6166,6 +6169,13 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		and game._close_options_button.text == "Back to Game",
 		"Completing entry exposes a production-sized room exit and honest overlay labels."
 	)
+	game._input_assist_mode = AccessibilityPresentation.INPUT_ASSIST_HOLD
+	_check(
+		game._default_status_text().contains("hold targets to eat")
+		and game._default_status_text().contains("Exit Room"),
+		"Interior status preserves the selected eating assistance."
+	)
+	game._input_assist_mode = AccessibilityPresentation.INPUT_ASSIST_STANDARD
 	game._rotate_camera(180.0, Vector2(640, 480))
 	_check(
 		is_zero_approx(game._camera.rotation),
@@ -6217,7 +6227,7 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	game._swallow_target(spat_tin, 1.0)
 
 	game._frog.global_position = stockroom.global_position
-	game._request_active_interior_exit()
+	game._on_context_action_pressed()
 	_check(
 		game._pending_interior_transition == "city"
 		and game._pending_interior_portal_id == "return"
@@ -6245,8 +6255,18 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		)
 		and game._active_navigation_rect() == FrogGame.WORLD_RECT
 		and game._end_button.text == "End Game"
-		and not game._end_button.disabled,
-		"Exiting restores the city state and the normal End Game action."
+		and game._end_button.disabled,
+		"Exiting restores the city state while keeping End Game briefly guarded."
+	)
+	game._on_context_action_pressed()
+	_check(
+		not is_instance_valid(game._score_epilogue),
+		"An extra room-exit press cannot immediately end the game."
+	)
+	game._process(FrogGame.CONTEXT_ACTION_GRACE_DURATION)
+	_check(
+		not game._end_button.disabled,
+		"End Game becomes available after the room-exit grace period."
 	)
 	game._spit_item(0)
 	_check(

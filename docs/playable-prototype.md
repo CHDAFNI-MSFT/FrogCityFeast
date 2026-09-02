@@ -144,8 +144,9 @@ The release scope includes:
   standard duration, different powers coexist, overlays and room fades pause
   timers, and connected-room travel preserves active powers;
 - automatic power activation on digestion, a bounded readable named-power HUD
-  timer with an additional-power count and full desktop tooltip, and explicit
-  no-button guidance including normal click/tap flight movement;
+  timer that rotates through every active power, an additional-power count,
+  a full desktop tooltip, and explicit no-button guidance that preserves the
+  selected eating control and explains normal click/tap flight movement;
 - a lightweight day and night cycle that changes the world tint, pedestrian
   crowd, secondary traffic, and streetlight glow;
 - deterministic Oddities Shop hours that raise its intact removable shutter
@@ -246,7 +247,9 @@ The release scope includes:
   that remains scoped to the room when spat out or restocked;
 - an always-visible Exit Room action that replaces the top-bar End Game action
   inside connected rooms, routes to the marked return door, and restores End
-  Game outdoors; overlay close actions say Back to Game;
+  Game outdoors after a short repeated-input grace period; the stockroom entry
+  stays outside the return marker hit radius, and overlay close actions say
+  Back to Game;
 - stockroom hiding that ends active Animal Control pursuit, blocks remote
   pursuer spawning, switches to an immediate cut with Reduce motion, and
   becomes inaccessible while Leap Café is consumed;
