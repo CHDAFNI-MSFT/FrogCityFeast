@@ -137,7 +137,7 @@ Current prerequisite status:
 | App Store Connect app record | Created for **Frog City Feast** with primary locale `en-US`, bundle ID `com.chdafni.frogcityfeast`, and SKU `FROGCITYFEAST-IOS-001`. |
 | Apple Distribution certificate | Created and valid through August 30, 2027. Its private key and randomly generated `.p12` password exist only in the protected GitHub environment secret set. |
 | App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
-| App Store Connect API key | A Developer-role team key is configured in the protected `testflight` environment and passed authenticated upload operations. The approved double-gate workflow consumes it in place without copying or revealing the key. The previous Admin key was confirmed revoked and its local file was deleted. |
+| App Store Connect API key | A Developer-role team key is configured in the protected `testflight` environment and passed authenticated upload operations. It completed metadata read-only preflight in run `33616496541`, but Apple denied the first category write because Developer keys cannot change listing metadata. No metadata was changed. An App Manager-equivalent key is required for the protected metadata workflow. The previous Admin key was confirmed revoked and its local file was deleted. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
 | Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing data now covers the live support/privacy URLs, rating, category, review notes, marketing copy, pricing choice, storefront choice, and DSA choice. App Review contact remains pending through a protected process. |
 
@@ -150,14 +150,16 @@ all authorization gates in
 Developer-role API key can upload builds, but build selection, App Review
 submission, and release remain separate App Store Connect actions.
 
-The separate protected `App Store metadata sync` workflow can attempt the
+The separate protected `App Store metadata sync` workflow can apply the
 reviewed API-supported listing fields without uploading a build. Apple rejects
 primary-locale and content-rights updates on the existing app record even
 though those attributes remain in the current OpenAPI update schema, so those
-values require direct confirmation. Apple may also reject other metadata
-writes from the current Developer-role key; if so, the Account Holder must
-provide an App Manager-equivalent key through the same protected secret path
-before rerunning it. Do not broaden the key to Admin solely for metadata entry.
+values require direct confirmation. Run
+[33616496541](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33616496541)
+confirmed that the current Developer-role key can authenticate and read the
+record but cannot write listing metadata. The Account Holder must provide an
+App Manager-equivalent key through the same protected secret path before
+rerunning it. Do not broaden the key to Admin solely for metadata entry.
 
 The provisioning profile must use the same Team ID and exact bundle identifier
 configured in GitHub. The workflow rejects development, Ad Hoc, enterprise,

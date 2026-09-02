@@ -75,6 +75,11 @@ of signing secrets.
 - [ ] Run the protected `App Store metadata sync` workflow for the exact
   reviewed commit and confirm the API-supported product-page, category,
   manual-release, copyright, and age-rating values.
+- [ ] Replace the protected Developer-role App Store Connect API key with an
+  App Manager-equivalent key before retrying metadata synchronization. Run
+  [33616496541](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33616496541)
+  completed authenticated read-only preflight but Apple denied the first
+  category write with `403 FORBIDDEN_ERROR`; no metadata was changed.
 - [ ] Copy the validated `en-US` fields from
   `tools/app-store-metadata.json`.
 - [ ] Set Games > Casual with Adventure as the secondary Games subcategory.
