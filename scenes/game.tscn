@@ -167,6 +167,8 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.85, 1, 1)
 theme_override_font_sizes/font_size = 18
 text = ""
+text_overrun_behavior = 3
+clip_text = true
 
 [node name="Spacer" type="Control" parent="HUD/Root/TopMargin/TopBar"]
 layout_mode = 2
@@ -223,6 +225,7 @@ theme_override_constants/outline_size = 3
 text = "Tap the ground to move. Double-tap a target to eat it."
 horizontal_alignment = 1
 vertical_alignment = 1
+autowrap_mode = 2
 
 [node name="ControlLegendBackground" type="PanelContainer" parent="HUD/Root"]
 layout_mode = 1
@@ -321,8 +324,9 @@ show_percentage = false
 layout_mode = 2
 mouse_filter = 2
 theme_override_font_sizes/font_size = 20
-text = "Tap rapidly anywhere!"
+text = "Left-click/tap rapidly anywhere!"
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="ChallengePanel" type="PanelContainer" parent="HUD/Root"]
 unique_name_in_owner = true
@@ -495,7 +499,7 @@ custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 21
-text = "Return to City"
+text = "Back to Game"
 
 [node name="GuideOverlay" type="Control" parent="HUD/Root"]
 unique_name_in_owner = true
@@ -615,7 +619,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 21
-text = "Return to City"
+text = "Back to Game"
 
 [node name="OptionsOverlay" type="Control" parent="HUD/Root"]
 unique_name_in_owner = true
@@ -877,7 +881,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(210, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 21
-text = "Return to City"
+text = "Back to Game"
 
 [node name="TutorialPanel" type="PanelContainer" parent="HUD/Root"]
 unique_name_in_owner = true

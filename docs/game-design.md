@@ -354,6 +354,15 @@ minute. The progression milestone also adds:
 - a Bubble Shield that blocks one eligible pursuit hit and otherwise expires
   after 30 seconds.
 
+Temporary powers activate immediately when their source item is digested.
+There is no separate activation button. The HUD uses full power names and
+remaining seconds instead of letter abbreviations. To preserve all top-bar
+actions with large text and safe-area insets, it shows the most recently
+activated named power plus the number of other active powers; its desktop
+tooltip lists every active named timer. The activation message states the
+automatic behavior. Flight uses the normal click/tap destination control while
+allowing the route to cross ground walls and obstacles.
+
 Power durations count active play only and pause while the Belly, Field Guide,
 or Options overlay or a room-transition fade pauses player control. Powers
 persist through connected-room transitions. Recollecting the same power keeps
@@ -470,7 +479,11 @@ things to eat.
   associated with their rooms when restocked, and reward exploring the space.
 - Leap Café also has the game's first separate room: a marked rear door
   leads through a short fade to a compact stockroom with solid shelving, a
-  centered room camera, a return door, and a Stockroom Coffee Tin target.
+  centered room camera, a return door, and a Stockroom Coffee Tin target. The
+  normal End Game HUD action becomes Exit Room while any connected room is
+  active, routes to that room's marked return door, and changes back after
+  returning outdoors. Belly, Guide, and Options use Back to Game rather than
+  claiming that closing an overlay returns to the city.
   Entering hides the frog from active Animal Control pursuit. Reduce motion
   replaces the fade with an immediate cut, and consuming the café disables the
   stockroom entrance until the building is restored.
@@ -688,7 +701,10 @@ clear 0.8-second aim warning before one draw-only net travels along the locked
 path. The net sweeps its full radius against building collision, so walls and
 corners stop it, and moving out of the telegraphed line dodges it. A hit
 interrupts an active tongue struggle, roots the frog for a three-second escape,
-and reuses the existing rapid-tap panel. Six taps tear through the net without
+and reuses the existing rapid-tap panel. The panel explicitly states that only
+the net temporarily locks movement and directs desktop players to left-click
+rapidly or touch players to tap rapidly anywhere; Hold Assist accepts a
+continuous press. Six inputs tear through the net without
 changing score or progression; timing out applies a 22-point capped loss and
 knockback. Flight and Enormous growth are immune. Reduce motion removes
 the telegraph and escape scale pulses while preserving the gameplay timing and
@@ -802,9 +818,12 @@ If a pursuer catches the frog:
 - points are lost, but the score never drops below zero. Contact costs 20
   points for Animal Control, 16 for Security, and 12 for the Watchdog.
 
-The frog can escape by outrunning pursuers, hiding inside buildings, losing
-them in crowds, or using temporary powers. Once sufficiently large, the frog
-can also eat its pursuers.
+Ordinary pursuit never disables movement. The frog can escape by clicking or
+tapping ground to outrun pursuers, hiding inside buildings, losing them in
+crowds, or using temporary powers. Animal Control only roots the frog after a
+net hit, and movement returns after either breaking the net or taking its
+bounded timeout penalty. Once sufficiently large, the frog can also eat its
+pursuers.
 
 ## Additional goals
 

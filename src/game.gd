@@ -164,7 +164,7 @@ const PURSUIT_TRAP_ANCHORS := [
 const NET_ESCAPE_DURATION := 3.0
 const NET_ESCAPE_TAPS := 6
 const TARGET_STRUGGLE_TITLE := "It is trying to escape!"
-const TARGET_STRUGGLE_HINT := "Tap rapidly anywhere!"
+const TARGET_STRUGGLE_HINT := "Left-click/tap rapidly anywhere!"
 const CAMERA_AUTO_ALIGN_DELAY := 1.8
 const CAMERA_AUTO_ALIGN_SPEED := 2.0
 const STOCKROOM_ID := "leap_cafe_stockroom"
@@ -628,6 +628,7 @@ var _reward_time := 0.0
 var _pending_hud_pulse := false
 var _discovery_banner_time := 0.0
 var _challenge_pulse_times: Dictionary = {}
+var _most_recent_power_id := ""
 var _reduce_motion_enabled := false
 var _larger_text_controls_enabled := false
 var _input_assist_mode := AccessibilityPresentation.INPUT_ASSIST_STANDARD
@@ -659,7 +660,7 @@ func _ready() -> void:
 	_belly_button.pressed.connect(_open_belly)
 	_guide_button.pressed.connect(_open_guide)
 	_options_button.pressed.connect(_open_options)
-	_end_button.pressed.connect(_end_game)
+	_end_button.pressed.connect(_on_context_action_pressed)
 	_digest_all_button.pressed.connect(_digest_all)
 	_end_game_belly_button.pressed.connect(_end_game)
 	_close_belly_button.pressed.connect(_close_belly)
@@ -1411,6 +1412,7 @@ func activate_audio_context() -> void:
 
 func _process(delta: float) -> void:
 	_update_hud_feedback(delta)
+	_update_context_action_button()
 
 	if _status_time > 0.0:
 		_status_time -= delta
@@ -1709,7 +1711,7 @@ func _update_input_assistance(delta: float) -> void:
 
 func _handle_world_tap(screen_position: Vector2) -> void:
 	if _net_escape_active:
-		_show_status("Tap rapidly anywhere to break free from the net!")
+		_show_status(_net_escape_status_text())
 		return
 	if is_instance_valid(_pull_target):
 		_show_status("The tongue is pulling the frog right now.")
@@ -1783,8 +1785,8 @@ func _try_handle_interior_transition_tap(world_position: Vector2) -> bool:
 				_pending_interior_transition = destination
 				_pending_interior_portal_id = portal_id
 				_show_status(
-					"Moving to the %s passage."
-					% active_room.display_name
+					"Moving to %s."
+					% str(portal.get("label", "the room exit"))
 				)
 			else:
 				_pending_interior_transition = ""
@@ -2142,6 +2144,7 @@ func _begin_interior_transition(
 	_set_interior_fade_alpha(0.0)
 	_interior_transition_fade.visible = true
 	_sync_overlay_pause()
+	_update_context_action_button()
 
 
 func _update_interior_transition(delta: float) -> void:
@@ -2244,7 +2247,11 @@ func _complete_interior_transfer() -> void:
 		_camera.position_smoothing_enabled = false
 		if is_instance_valid(_pursuer):
 			_pursuer._escape()
-		_show_status("Entered the %s." % room.display_name)
+		_show_status(
+			"Inside %s. Use Exit Room or the marked return door to leave."
+			% room.display_name,
+			6.0
+		)
 	else:
 		var building := _building_for_interior_room(_active_interior_id)
 		_active_interior_id = ""
@@ -2279,6 +2286,7 @@ func _finish_interior_transition() -> void:
 	_set_interior_fade_alpha(0.0)
 	_frog.movement_enabled = true
 	_sync_overlay_pause()
+	_update_context_action_button()
 
 
 func _set_interior_fade_alpha(value: float) -> void:
@@ -2499,26 +2507,56 @@ func _fail_struggle() -> void:
 	var response_name := PrototypePursuer.display_name_for(
 		pursuer_archetype
 	)
+	var pursuit_guidance := _pursuit_start_guidance(pursuer_archetype)
 	if building_repelled:
 		_show_status(
-			"%s shook the frog off and called %s!"
-			% [escaped_target.display_name, response_name]
+			"%s shook the frog off and called %s! %s"
+			% [
+				escaped_target.display_name,
+				response_name,
+				pursuit_guidance,
+			],
+			6.0
 		)
 	elif interior_building != null:
 		_show_status(
-			"%s hid inside %s and called %s!"
+			"%s hid inside %s and called %s! %s"
 			% [
 				escaped_target.display_name,
 				interior_building.display_name,
 				response_name,
-			]
+				pursuit_guidance,
+			],
+			6.0
 		)
 	else:
 		_show_status(
-			"%s escaped and called %s!"
-			% [escaped_target.display_name, response_name]
+			"%s escaped and called %s! %s"
+			% [
+				escaped_target.display_name,
+				response_name,
+				pursuit_guidance,
+			],
+			6.0
 		)
 	_spawn_pursuer(pursuer_archetype)
+
+
+func _pursuit_start_guidance(archetype_id: String) -> String:
+	if archetype_id == PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL:
+		if (
+			_input_assist_mode
+			== AccessibilityPresentation.INPUT_ASSIST_HOLD
+		):
+			return (
+				"Click/tap ground to run. If netted, press and hold "
+				+ "anywhere to break free."
+			)
+		return (
+			"Click/tap ground to run. If netted, click/tap rapidly "
+			+ "anywhere to break free."
+		)
+	return "Click/tap ground to run, or enter a room to hide."
 
 
 func _pursuer_archetype_for_escape(target: EdibleTarget) -> String:
@@ -2935,6 +2973,10 @@ func _guide_pages() -> Array[Dictionary]:
 	)
 
 	lines = []
+	lines.append(
+		"Powers activate on digestion with no button; Flight uses normal "
+		+ "click/tap movement across walls."
+	)
 	for entry in ProgressionCatalog.power_entries():
 		var power_id := str(entry["id"])
 		lines.append(
@@ -3719,6 +3761,7 @@ func _update_hud() -> void:
 	_score_label.text = "Score: %d" % _score
 	_guide_button.disabled = _tutorial != null and _tutorial.active
 	_belly_button.text = "Belly (%d)" % _belly.size()
+	_update_context_action_button()
 	if _growth_tier >= GROWTH_THRESHOLDS.size():
 		_growth_label.text = "Growth: MAX"
 	else:
@@ -5264,13 +5307,13 @@ func _on_pursuer_netted(source_position: Vector2) -> void:
 	_net_source_position = source_position
 	_struggle_progress.max_value = _net_escape_required_taps
 	_struggle_progress.value = 0
-	_struggle_title.text = "Caught in Animal Control's net!"
-	_struggle_hint.text = _struggle_input_hint()
+	_struggle_title.text = "Animal Control: NETTED"
+	_struggle_hint.text = _net_escape_input_hint()
 	_struggle_panel.visible = true
 	_cancel_frog_navigation()
 	_frog.movement_enabled = false
 	_reset_touch_input_state()
-	_show_status("Animal Control netted you! Tap rapidly to escape.")
+	_show_status(_net_escape_status_text(), NET_ESCAPE_DURATION)
 
 
 func _update_net_escape(delta: float) -> void:
@@ -5584,7 +5627,8 @@ func _activate_power(power_id: String, duration: float = -1.0) -> void:
 	if power_id == TemporaryPowerState.FLIGHT:
 		_start_flight()
 	_apply_power_effects()
-	_show_status(_power_activation_message(power_id))
+	_most_recent_power_id = power_id
+	_show_status(_power_activation_message(power_id), 6.0)
 	_update_power_label()
 
 
@@ -5648,15 +5692,30 @@ func _adjusted_tongue_recovery(duration: float) -> float:
 func _power_activation_message(power_id: String) -> String:
 	match power_id:
 		TemporaryPowerState.FLIGHT:
-			return "Flight power! The frog can fly over walls for one minute."
+			return (
+				"FLIGHT ACTIVE: click/tap destinations to fly over walls. "
+				+ "No power button is needed."
+			)
 		TemporaryPowerState.SPEED_BURST:
-			return "Speed Burst! Ground movement is faster for 20 seconds."
+			return (
+				"SPEED ACTIVE: ground movement is automatically faster "
+				+ "for 20 seconds."
+			)
 		TemporaryPowerState.LONG_TONGUE:
-			return "Long Tongue! Range is longer and recovery is faster for 30 seconds."
+			return (
+				"LONG TONGUE ACTIVE: shots automatically reach farther "
+				+ "for 30 seconds."
+			)
 		TemporaryPowerState.CAMOUFLAGE:
-			return "Camouflage! Pursuers lose the frog for 20 seconds."
+			return (
+				"CAMOUFLAGE ACTIVE: pursuers automatically lose the frog "
+				+ "for 20 seconds."
+			)
 		TemporaryPowerState.BUBBLE_SHIELD:
-			return "Bubble Shield! The next pursuit hit is blocked."
+			return (
+				"SHIELD READY: the next pursuit hit is blocked "
+				+ "automatically."
+			)
 	return "Temporary power activated."
 
 
@@ -5676,22 +5735,44 @@ func _land_frog_safely() -> bool:
 
 
 func _update_power_label() -> void:
+	var active_ids := _power_state.active_ids()
+	if active_ids.is_empty():
+		_power_label.text = ""
+		_power_label.tooltip_text = ""
+		return
 	var labels := PackedStringArray()
-	var abbreviations := {
-		TemporaryPowerState.FLIGHT: "F",
-		TemporaryPowerState.SPEED_BURST: "S",
-		TemporaryPowerState.LONG_TONGUE: "T",
-		TemporaryPowerState.CAMOUFLAGE: "C",
-		TemporaryPowerState.BUBBLE_SHIELD: "B",
-	}
-	for power_id in _power_state.active_ids():
+	for power_id in active_ids:
+		var entry := ProgressionCatalog.power_entry(power_id)
+		var power_name := str(entry.get("name", power_id))
 		labels.append(
-			"%s%d" % [
-				abbreviations[power_id],
+			"%s %ds" % [
+				power_name,
 				ceili(_power_state.remaining(power_id)),
 			]
 		)
-	_power_label.text = " ".join(labels)
+	var primary_power_id := (
+		_most_recent_power_id
+		if active_ids.has(_most_recent_power_id)
+		else active_ids[0]
+	)
+	var primary_names := {
+		TemporaryPowerState.FLIGHT: "Flight",
+		TemporaryPowerState.SPEED_BURST: "Speed",
+		TemporaryPowerState.LONG_TONGUE: "Long Tongue",
+		TemporaryPowerState.CAMOUFLAGE: "Camouflage",
+		TemporaryPowerState.BUBBLE_SHIELD: "Shield",
+	}
+	_power_label.text = "%s %ds%s" % [
+		str(primary_names.get(primary_power_id, "Power")),
+		ceili(_power_state.remaining(primary_power_id)),
+		" (+%d)" % (active_ids.size() - 1)
+		if active_ids.size() > 1
+		else "",
+	]
+	_power_label.tooltip_text = (
+		"Active automatically: %s. No separate power button is used."
+		% " | ".join(labels)
+	)
 
 
 func _update_day_night(delta: float) -> void:
@@ -6070,8 +6151,8 @@ func _on_camera_sensitivity_changed(_value: float) -> void:
 
 func _refresh_active_input_assistance() -> void:
 	_end_assisted_hold()
-	_struggle_hint.text = _struggle_input_hint()
 	if is_instance_valid(_struggle_target):
+		_struggle_hint.text = _struggle_input_hint()
 		_struggle_required_taps = (
 			AccessibilityPresentation.assisted_struggle_taps(
 				GAMEPLAY_TUNING_SCRIPT.struggle_taps_required(
@@ -6087,6 +6168,7 @@ func _refresh_active_input_assistance() -> void:
 		if _struggle_taps >= _struggle_required_taps:
 			_complete_struggle()
 	elif _net_escape_active:
+		_struggle_hint.text = _net_escape_input_hint()
 		_net_escape_required_taps = (
 			AccessibilityPresentation.assisted_struggle_taps(
 				NET_ESCAPE_TAPS,
@@ -6301,6 +6383,15 @@ func _play_haptic(duration_msec: int) -> void:
 
 
 func _default_status_text() -> String:
+	if not _active_interior_id.is_empty():
+		return "Click/tap to move. Use Exit Room or the marked return door."
+	if _power_state.is_active(TemporaryPowerState.FLIGHT):
+		return (
+			"Flight is active: click/tap to fly over walls. "
+			+ "No power button is needed."
+		)
+	if not _power_state.active_ids().is_empty():
+		return "Temporary powers are active automatically. No button is needed."
 	match _input_assist_mode:
 		AccessibilityPresentation.INPUT_ASSIST_RELAXED:
 			return "Tap to move. Double-tap targets with extra time to eat."
@@ -6318,6 +6409,92 @@ func _struggle_input_hint() -> String:
 			== AccessibilityPresentation.INPUT_ASSIST_HOLD
 		)
 		else TARGET_STRUGGLE_HINT
+	)
+
+
+func _net_escape_input_hint() -> String:
+	if (
+		_input_assist_mode
+		== AccessibilityPresentation.INPUT_ASSIST_HOLD
+	):
+		return (
+			"Movement locked by net. Press and hold anywhere "
+			+ "to break free."
+		)
+	return (
+		"Movement locked by net. Left-click/tap rapidly anywhere "
+		+ "to break free."
+	)
+
+
+func _net_escape_status_text() -> String:
+	return _net_escape_input_hint()
+
+
+func _on_context_action_pressed() -> void:
+	if _active_interior_id.is_empty():
+		_end_game()
+		return
+	_request_active_interior_exit()
+
+
+func _request_active_interior_exit() -> void:
+	if (
+		_interior_transition_phase != InteriorTransitionPhase.NONE
+		or _overlay_blocking()
+		or _net_escape_active
+		or is_instance_valid(_struggle_target)
+		or is_instance_valid(_pull_target)
+	):
+		return
+	var room := (
+		_interior_rooms.get(_active_interior_id)
+		as PrototypeInteriorRoom
+	)
+	if not is_instance_valid(room):
+		push_error(
+			"Active interior '%s' is missing its room."
+			% _active_interior_id
+		)
+		return
+	var portal := room.portal_by_id("return")
+	if portal.is_empty() or not bool(portal.get("visible", true)):
+		_show_status("This room has no available return door.")
+		return
+	_try_handle_interior_transition_tap(
+		room.portal_marker_position(portal)
+	)
+
+
+func _update_context_action_button() -> void:
+	var in_interior := not _active_interior_id.is_empty()
+	_end_button.text = "Exit Room" if in_interior else "End Game"
+	if not in_interior:
+		_end_button.tooltip_text = "End the current game and view the score."
+		_end_button.disabled = (
+			_interior_transition_phase != InteriorTransitionPhase.NONE
+		)
+		return
+	var room := (
+		_interior_rooms.get(_active_interior_id)
+		as PrototypeInteriorRoom
+	)
+	var portal := (
+		room.portal_by_id("return")
+		if is_instance_valid(room)
+		else {}
+	)
+	_end_button.tooltip_text = (
+		"Leave through %s."
+		% str(portal.get("label", "the marked return door"))
+	)
+	_end_button.disabled = (
+		_overlay_blocking()
+		or _net_escape_active
+		or is_instance_valid(_struggle_target)
+		or is_instance_valid(_pull_target)
+		or portal.is_empty()
+		or not bool(portal.get("visible", true))
 	)
 
 
@@ -7200,6 +7377,11 @@ func _build_prototype_city() -> void:
 		],
 		cafe.building_id,
 		"RETURN TO CAFE"
+	)
+	stockroom.set_portal_geometry(
+		"return",
+		Vector2(0, 300),
+		Vector2(0, 220)
 	)
 	var upper_hall := _spawn_interior_room(
 		CANAL_UPPER_HALL_ID,

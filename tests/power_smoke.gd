@@ -101,6 +101,16 @@ func _test_game_integration() -> void:
 		"Speed Burst and Long Tongue apply exact movement, range, and recovery rules."
 	)
 	_check(
+		game._power_label.text.contains("Long Tongue")
+		and game._power_label.text.contains("(+1)")
+		and game._power_label.tooltip_text.contains("Speed Burst")
+		and game._power_label.tooltip_text.contains("Long Tongue")
+		and game._status_label.text.contains("ACTIVE")
+		and not game._power_label.text.contains("S20")
+		and not game._power_label.text.contains("T30"),
+		"Active powers use readable names and explicitly announce automatic use."
+	)
+	_check(
 		discovered == [
 			TemporaryPowerState.SPEED_BURST,
 			TemporaryPowerState.LONG_TONGUE,
@@ -187,6 +197,30 @@ func _test_game_integration() -> void:
 			"Every Field Guide power source maps to one deterministic power: %s."
 			% target_id
 		)
+
+	game._activate_power(TemporaryPowerState.FLIGHT)
+	_check(
+		game._frog.is_flying
+		and game._status_label.text.contains("FLIGHT ACTIVE")
+		and game._status_label.text.contains("No power button")
+		and game._power_label.text.contains("Flight"),
+		"Flight starts immediately and explains normal click/tap movement."
+	)
+	game._activate_power(TemporaryPowerState.BUBBLE_SHIELD)
+	game._larger_text_controls_enabled = true
+	game._apply_accessibility_presentation()
+	game.apply_safe_area_insets(Vector4(44, 24, 44, 21))
+	await process_frame
+	var safe_right := game.get_viewport_rect().size.x - 44.0
+	_check(
+		game._power_state.active_ids().size() == 5
+		and game._power_label.text.contains("Shield")
+		and game._power_label.text.contains("(+4)")
+		and game._power_label.tooltip_text.contains("Flight")
+		and game._power_label.tooltip_text.contains("Camouflage")
+		and game._end_button.get_global_rect().end.x <= safe_right + 0.5,
+		"Five active powers stay readable without pushing actions outside the safe area."
+	)
 
 	game.queue_free()
 	await process_frame

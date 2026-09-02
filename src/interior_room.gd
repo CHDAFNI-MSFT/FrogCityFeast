@@ -304,9 +304,12 @@ func _draw() -> void:
 			false,
 			4.0
 		)
+		var label_baseline := portal_position + Vector2(-120, 56)
+		if label_baseline.y > room_size.y * 0.5 - 32.0:
+			label_baseline.y = portal_position.y - 38.0
 		draw_string(
 			ThemeDB.fallback_font,
-			portal_position + Vector2(-120, 56),
+			label_baseline,
 			str(portal.get("label", "EXIT")),
 			HORIZONTAL_ALIGNMENT_CENTER,
 			240,

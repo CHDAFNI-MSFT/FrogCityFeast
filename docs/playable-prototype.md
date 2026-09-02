@@ -70,7 +70,10 @@ The release scope includes:
   Enormous-growth Belly capture;
 - a deterministic Animal Control net attack with a 0.8-second warning, one
   wall-aware draw-only projectile, a dodge window, and a three-second six-tap
-  escape;
+  escape whose panel distinguishes the temporary movement lock and says to
+  left-click/tap rapidly anywhere, or hold with Hold Assist;
+- ordinary Animal Control pursuit that keeps movement enabled and presents
+  immediate run, hide, and net-escape guidance after a failed struggle;
 - net failure that applies a 22-point capped loss and knockback, while flight
   and Enormous growth prevent capture;
 - one deterministic physical Animal Control roadblock per pursuit, deployed
@@ -140,6 +143,9 @@ The release scope includes:
 - deterministic power replacement rules: the same power refreshes only to its
   standard duration, different powers coexist, overlays and room fades pause
   timers, and connected-room travel preserves active powers;
+- automatic power activation on digestion, a bounded readable named-power HUD
+  timer with an additional-power count and full desktop tooltip, and explicit
+  no-button guidance including normal click/tap flight movement;
 - a lightweight day and night cycle that changes the world tint, pedestrian
   crowd, secondary traffic, and streetlight glow;
 - deterministic Oddities Shop hours that raise its intact removable shutter
@@ -210,7 +216,7 @@ The release scope includes:
 - useful hints for unknown Field Guide entries, including the unusual
   full-growth Animal Control discovery path;
 - a touch-friendly, scrollable Guide overlay with discovery progress,
-  numbered story-clue postcards, Return to City, and End Game controls;
+  numbered story-clue postcards, Back to Game, and End Game controls;
 - a dedicated first-discovery banner that does not replace tutorial,
   accuracy, or building-weakness messages;
 - Field Guide progress on the player-selection menu;
@@ -238,6 +244,9 @@ The release scope includes:
 - a marked Leap Café stockroom door with a short fade, centered room camera,
   solid room walls and shelving, a return door, and a Stockroom Coffee Tin
   that remains scoped to the room when spat out or restocked;
+- an always-visible Exit Room action that replaces the top-bar End Game action
+  inside connected rooms, routes to the marked return door, and restores End
+  Game outdoors; overlay close actions say Back to Game;
 - stockroom hiding that ends active Animal Control pursuit, blocks remote
   pursuer spawning, switches to an immediate cut with Reduce motion, and
   becomes inaccessible while Leap Café is consumed;

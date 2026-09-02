@@ -2245,14 +2245,23 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 	game._spawn_pursuer()
 	var pursuer := game._pursuer
 	_check(
-		is_instance_valid(pursuer),
-		"Animal Control is available for the net-escape test."
+		is_instance_valid(pursuer)
+		and game._frog.movement_enabled,
+		"Ordinary Animal Control pursuit leaves frog movement enabled."
 	)
 	if not is_instance_valid(pursuer):
 		game.queue_free()
 		await process_frame
 		return
 	pursuer.set_physics_process(false)
+	game._input_assist_mode = AccessibilityPresentation.INPUT_ASSIST_HOLD
+	_check(
+		game._pursuit_start_guidance(
+			PrototypePursuer.ARCHETYPE_ANIMAL_CONTROL
+		).contains("press and hold"),
+		"Animal Control pursuit guidance honors Hold Assist."
+	)
+	game._input_assist_mode = AccessibilityPresentation.INPUT_ASSIST_STANDARD
 
 	var launch_position := pursuer.global_position
 	var original_frog_position := game._frog.global_position
@@ -2335,8 +2344,10 @@ func _test_pursuer_net_escape(game_scene: PackedScene) -> void:
 		and not game._frog.movement_enabled
 		and game._struggle_panel.visible
 		and game._struggle_title.text.contains("Animal Control")
+		and game._struggle_hint.text.contains("Movement locked")
+		and game._struggle_hint.text.contains("Left-click/tap rapidly")
 		and game._struggle_progress.max_value == FrogGame.NET_ESCAPE_TAPS,
-		"A net hit roots the frog and starts the shared rapid-tap escape panel."
+		"A net hit clearly explains the temporary movement lock and escape input."
 	)
 
 	game._frog._has_move_target = false
@@ -6059,6 +6070,8 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		and is_instance_valid(coffee_tin)
 		and game._interior_rooms.size() == 10
 		and stockroom.room_size == Vector2(1100, 820)
+		and stockroom.exit_marker_position()
+		== stockroom.global_position + Vector2(0, 300)
 		and stockroom._collision_body.get_child_count() == 8
 		and coffee_tin.building_id == FrogGame.STOCKROOM_ID
 		and coffee_tin.move_bounds == stockroom.interior_rect(),
@@ -6143,8 +6156,15 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 		== FrogGame.InteriorTransitionPhase.NONE
 		and not game._interior_transition_fade.visible
 		and game._frog.movement_enabled
-		and game._active_navigation_rect() == stockroom.interior_rect(),
-		"Completing entry resumes play with stockroom navigation bounds."
+		and game._active_navigation_rect() == stockroom.interior_rect()
+		and game._end_button.text == "Exit Room"
+		and not game._end_button.disabled
+		and game._end_button.custom_minimum_size.y >= 48.0
+		and game._status_label.text.contains("Exit Room")
+		and game._close_belly_button.text == "Back to Game"
+		and game._close_guide_button.text == "Back to Game"
+		and game._close_options_button.text == "Back to Game",
+		"Completing entry exposes a production-sized room exit and honest overlay labels."
 	)
 	game._rotate_camera(180.0, Vector2(640, 480))
 	_check(
@@ -6196,15 +6216,21 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 	)
 	game._swallow_target(spat_tin, 1.0)
 
-	game._frog.global_position = stockroom.exit_approach_position()
-	var handled_exit := game._try_handle_interior_transition_tap(
-		stockroom.exit_marker_position()
-	)
+	game._frog.global_position = stockroom.global_position
+	game._request_active_interior_exit()
 	_check(
-		handled_exit
-		and game._interior_transition_phase
+		game._pending_interior_transition == "city"
+		and game._pending_interior_portal_id == "return"
+		and game._frog._has_move_target
+		and game._status_label.text.contains("RETURN TO CAFE"),
+		"The Exit Room action routes toward the labelled stockroom return door."
+	)
+	game._frog.global_position = stockroom.exit_approach_position()
+	game._on_frog_move_reached(game._frog.global_position)
+	_check(
+		game._interior_transition_phase
 		== FrogGame.InteriorTransitionPhase.FADE_OUT,
-		"The stockroom return marker starts the same bounded transition."
+		"Reaching the routed stockroom exit starts the bounded transition."
 	)
 	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
 	game._update_interior_transition(FrogGame.INTERIOR_TRANSITION_DURATION)
@@ -6217,8 +6243,10 @@ func _test_cafe_stockroom(game_scene: PackedScene) -> void:
 			game._camera.rotation,
 			city_camera_rotation
 		)
-		and game._active_navigation_rect() == FrogGame.WORLD_RECT,
-		"Exiting restores the cafe position, city zoom, and city navigation bounds."
+		and game._active_navigation_rect() == FrogGame.WORLD_RECT
+		and game._end_button.text == "End Game"
+		and not game._end_button.disabled,
+		"Exiting restores the city state and the normal End Game action."
 	)
 	game._spit_item(0)
 	_check(
