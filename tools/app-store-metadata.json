@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "locale": "en-US",
+  "version": "0.1.0",
   "name": "Frog City Feast",
   "subtitle": "Eat, grow, explore forever",
   "promotional_text": "A mischievous frog, a storybook city, and an endless appetite. Explore changing districts, grow enormous, and uncover Starfall Quarter.",
@@ -10,8 +11,11 @@
   "primary_category": "Games",
   "primary_subcategory": "Casual",
   "secondary_subcategory": "Adventure",
-  "support_url": "REQUIRED_BEFORE_SUBMISSION",
-  "privacy_policy_url": "REQUIRED_BEFORE_SUBMISSION",
+  "support_url": "https://chdafni-msft.github.io/SamuelIcecream/support/",
+  "privacy_policy_url": "https://chdafni-msft.github.io/SamuelIcecream/privacy/",
   "marketing_url": "",
-  "copyright": "REQUIRED_BEFORE_SUBMISSION"
+  "copyright": "2026 Chase Dafnis",
+  "pricing": "free",
+  "storefronts": "all_except_china_mainland",
+  "eu_dsa_status": "non-trader"
 }

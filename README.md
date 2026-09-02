@@ -12,8 +12,8 @@ Godot 4.7.2 touch-first iPad game. The repository retains its original
 - [Clean-room environment rebuild runbook](docs/environment-rebuild-runbook.md)
 - [iOS build and App Store setup](docs/ios-release.md)
 - [App Store metadata template](docs/app-store-metadata.md)
-- [Privacy policy template](docs/privacy-policy.md)
-- [Support page template](docs/app-support.md)
+- [Privacy policy](docs/privacy-policy.md)
+- [Support page](docs/app-support.md)
 - [Public release checklist](docs/app-store-release-checklist.md)
 - [Asset provenance and reproduction](assets/README.md)
 

@@ -1,12 +1,16 @@
+---
+layout: page
+title: Frog City Feast Privacy Policy
+permalink: /privacy/
+---
+
 # Frog City Feast Privacy Policy
 
-**Effective date:** `REQUIRED_BEFORE_SUBMISSION`
+**Effective date:** September 1, 2026
 
-**Privacy contact:** `REQUIRED_BEFORE_SUBMISSION`
+**Privacy contact:** [Public privacy question form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=privacy-question.yml)
 
-This is the publication template for Frog City Feast. Replace every
-`REQUIRED_BEFORE_SUBMISSION` value and publish the completed policy at a stable
-HTTPS URL before entering the App Store privacy policy URL.
+This is the published privacy policy for Frog City Feast.
 
 ## Data collected by the app
 
@@ -38,14 +42,17 @@ delete.
 
 ## Support communications
 
-If a user chooses to contact support outside the app, the developer receives
-the contact details and message the user voluntarily provides. That information
-is used only to respond to the request, maintain necessary support records, and
-meet legal obligations. Users should not send passwords, signing credentials,
-financial information, or other sensitive data in a support request.
+If a user chooses to contact support outside the app, GitHub processes the
+public issue content and GitHub account information under its own terms and
+privacy policy. The developer uses the issue only to respond to the request,
+maintain necessary support records, and meet legal obligations. Users must not
+include names, email addresses, Apple account information, passwords, device
+identifiers, signing credentials, financial information, or other personal or
+sensitive data in a public issue.
 
-Support contact and retention details:
-`REQUIRED_BEFORE_SUBMISSION`
+Public support and privacy issues remain in the repository until they are no
+longer needed for support, maintenance, or legal obligations, at which point
+the developer may close or delete them subject to GitHub's retention behavior.
 
 ## Children's privacy
 
@@ -70,5 +77,7 @@ date above will identify the current version.
 
 For privacy questions, contact:
 
-`REQUIRED_BEFORE_SUBMISSION`
+[Public privacy question form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=privacy-question.yml)
 
+The form is public. Submit only general questions and do not include personal
+or sensitive information.

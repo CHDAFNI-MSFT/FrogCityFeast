@@ -20,11 +20,11 @@ work.
 | Primary language | English (U.S.), `en-US` |
 | Platform | iPadOS/iOS, iPad only |
 | Distribution | Normal public App Store |
-| Version | `1.0.0` release candidate; confirm before upload |
-| Copyright | `REQUIRED_BEFORE_SUBMISSION` |
-| Pricing | `REQUIRED_BEFORE_SUBMISSION`; no in-app purchases |
-| Support URL | `REQUIRED_BEFORE_SUBMISSION` |
-| Privacy policy URL | `REQUIRED_BEFORE_SUBMISSION` |
+| Version | `0.1.0` |
+| Copyright | `2026 Chase Dafnis` |
+| Pricing | Free; no in-app purchases |
+| Support URL | `https://chdafni-msft.github.io/SamuelIcecream/support/` |
+| Privacy policy URL | `https://chdafni-msft.github.io/SamuelIcecream/privacy/` |
 | Marketing URL | Optional; leave blank unless a maintained HTTPS page exists |
 
 ## Product-page copy
@@ -172,8 +172,8 @@ Use this draft after replacing bracketed release values:
 > account, network service, ads, analytics, or purchases. On first launch,
 > enter any local profile name or use the default name, then choose Start New
 > Game. The illustrated tutorial can be completed, skipped, or replayed from
-> the player-selection menu. The always-visible End Game action opens the score
-> epilogue and returns to the menu only after confirmation.
+> the player-selection menu. The top-bar action opens the score epilogue when
+> outdoors and becomes Exit Room inside connected rooms.
 >
 > The frog catches and swallows stylized cartoon targets, including harmless
 > living characters and pursuers, without blood, death, or injury detail.
@@ -216,9 +216,7 @@ Official reference:
 
 ## Availability recommendation
 
-Choose the intended public storefronts during release authorization. Exclude
-China mainland unless the release owner has obtained and verified the game
-approval number and other required publishing information. Complete any
-applicable EU Digital Services Act trader-status declaration before selecting
-EU storefronts.
-
+Select all available public storefronts except China mainland. The release
+owner selected EU Digital Services Act **non-trader** status. Keep China
+mainland excluded unless the release owner later obtains and verifies the
+required game approval number and publishing information.

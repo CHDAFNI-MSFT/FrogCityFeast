@@ -32,22 +32,26 @@ of signing secrets.
 - Signing material cleanup completed and verified.
 - The build was not selected for a version, submitted for App Review, or
   released.
+- This candidate is superseded by later gameplay and release-preparation
+  changes and must not be submitted.
 
 ## Required owner-supplied listing fields
 
-- [ ] Replace every `REQUIRED_BEFORE_SUBMISSION` value in
+- [x] Replace every `REQUIRED_BEFORE_SUBMISSION` value in
   `tools/app-store-metadata.json`, `docs/privacy-policy.md`, and
   `docs/app-support.md`.
-- [ ] Provide a maintained HTTPS support URL with reachable contact
-  information.
-- [ ] Provide a maintained HTTPS privacy policy URL.
-- [ ] Confirm copyright owner and year.
-- [ ] Choose free or paid-upfront pricing. Do not add in-app purchases without
+- [ ] Publish and verify the prepared HTTPS support URL and public GitHub Issue
+  contact form.
+- [ ] Publish and verify the prepared HTTPS privacy policy URL and public
+  privacy-question form.
+- [x] Confirm copyright owner and year: `2026 Chase Dafnis`.
+- [x] Choose free pricing with no in-app purchases. Do not add in-app
+  purchases without
   a separately reviewed product and privacy change.
-- [ ] Select public storefronts. Exclude China mainland unless the required
-  game approval and publishing information are complete.
-- [ ] Complete any applicable EU Digital Services Act trader-status
-  declaration and other regional compliance fields.
+- [x] Select all available storefronts except China mainland.
+- [x] Record the owner-selected EU Digital Services Act status as non-trader.
+  App Store Connect may still require the Account Holder to complete or
+  confirm the declaration.
 
 ## Final build and device acceptance
 
@@ -83,8 +87,9 @@ of signing secrets.
 - [ ] Enter current App Review contact information in international format
   where required.
 - [ ] Add the App Review notes from `docs/app-store-metadata.md`.
-- [ ] Upload 1 to 10 final iPad landscape screenshots without debug overlays
-  or placeholders and verify their dimensions in App Store Connect.
+- [ ] Generate the approved automated final iPad landscape screenshot set,
+  upload 1 to 10 images without debug overlays or placeholders, and verify
+  their dimensions in App Store Connect.
 - [ ] Choose **Manually release this version** so approval cannot publish the
   app automatically.
 
@@ -105,14 +110,15 @@ of signing secrets.
 
 ## Separate authorization gates
 
-- [x] **Explicit upload authorization:** authorize one exact commit, version,
-  and workflow run to upload a normal App Store candidate to App Store Connect.
-  The current authorization and workflow pin are for version `0.1.0`.
-- [x] Set the workflow's `confirm_upload` input, approve the protected
+- [ ] **Explicit upload authorization:** authorize one exact final commit,
+  version, and workflow run to upload a replacement normal App Store candidate
+  to App Store Connect. The earlier authorization was consumed by a superseded
+  source commit and does not apply to the replacement candidate.
+- [ ] Set the workflow's `confirm_upload` input, approve the protected
   `app-store` authorization job, and separately approve the protected
   `testflight` signing job.
-- [x] Confirm the workflow completed cleanup and produced no downloadable
-  signed artifact.
+- [ ] Confirm the replacement workflow completed cleanup and produced no
+  downloadable signed artifact.
 - [ ] Wait for Apple processing and inspect export compliance, symbols, icon,
   privacy manifest, supported devices, and build metadata.
 - [ ] **Explicit submission authorization:** authorize selection of the

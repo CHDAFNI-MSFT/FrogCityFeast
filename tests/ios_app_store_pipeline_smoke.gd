@@ -193,9 +193,9 @@ func _run() -> void:
 	_check(
 		support_doc.contains("Delete the app and its app data")
 			and support_doc.contains("no account")
-			and support_doc.contains("REQUIRED_BEFORE_SUBMISSION"),
-		"The support template explains local-data deletion and pending contact "
-			+ "details."
+			and support_doc.contains("public support issue form")
+			and support_doc.contains("personal or sensitive data"),
+		"The support page explains local-data deletion and safe public contact."
 	)
 	_check(
 		checklist.contains("Physical A16 iPad acceptance")
@@ -267,6 +267,22 @@ func _validate_metadata(source: String) -> void:
 				or value == "REQUIRED_BEFORE_SUBMISSION",
 			"Metadata field %s is HTTPS or explicitly pending." % field
 		)
+	_check(
+		str(metadata.get("version", "")) == "0.1.0"
+		and str(metadata.get("copyright", "")) == "2026 Chase Dafnis"
+		and str(metadata.get("pricing", "")) == "free"
+		and str(metadata.get("storefronts", ""))
+		== "all_except_china_mainland"
+		and str(metadata.get("eu_dsa_status", "")) == "non-trader",
+		"Owner-supplied listing choices remain exact and placeholder-free."
+	)
+	_check(
+		str(metadata.get("support_url", ""))
+		== "https://chdafni-msft.github.io/SamuelIcecream/support/"
+		and str(metadata.get("privacy_policy_url", ""))
+		== "https://chdafni-msft.github.io/SamuelIcecream/privacy/",
+		"Public support and privacy URLs remain canonical."
+	)
 
 
 func _read(path: String) -> String:

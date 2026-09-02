@@ -11,6 +11,17 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPORT_OPTIONS_SCRIPT = REPO_ROOT / "scripts" / "create-export-options.py"
 METADATA_PATH = REPO_ROOT / "tools" / "app-store-metadata.json"
+SUPPORT_PATH = REPO_ROOT / "docs" / "app-support.md"
+PRIVACY_PATH = REPO_ROOT / "docs" / "privacy-policy.md"
+PAGES_CONFIG_PATH = REPO_ROOT / "docs" / "_config.yml"
+SUPPORT_ISSUE_PATH = (
+    REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "game-support.yml"
+)
+PRIVACY_ISSUE_PATH = (
+    REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "privacy-question.yml"
+)
+SUPPORT_URL = "https://chdafni-msft.github.io/SamuelIcecream/support/"
+PRIVACY_URL = "https://chdafni-msft.github.io/SamuelIcecream/privacy/"
 
 
 def require(condition: bool, message: str) -> None:
@@ -135,11 +146,68 @@ def validate_metadata() -> None:
             or value == "REQUIRED_BEFORE_SUBMISSION",
             f"Metadata field {field} must be HTTPS or explicitly pending.",
         )
+    require(metadata.get("version") == "0.1.0", "Metadata version changed.")
+    require(
+        metadata.get("support_url") == SUPPORT_URL,
+        "The reviewed support URL changed.",
+    )
+    require(
+        metadata.get("privacy_policy_url") == PRIVACY_URL,
+        "The reviewed privacy URL changed.",
+    )
+    require(
+        metadata.get("copyright") == "2026 Chase Dafnis",
+        "The reviewed copyright changed.",
+    )
+    require(metadata.get("pricing") == "free", "Pricing must remain free.")
+    require(
+        metadata.get("storefronts") == "all_except_china_mainland",
+        "The reviewed storefront selection changed.",
+    )
+    require(
+        metadata.get("eu_dsa_status") == "non-trader",
+        "The reviewed EU DSA status changed.",
+    )
+
+
+def validate_public_support() -> None:
+    for path in (
+        SUPPORT_PATH,
+        PRIVACY_PATH,
+        PAGES_CONFIG_PATH,
+        SUPPORT_ISSUE_PATH,
+        PRIVACY_ISSUE_PATH,
+    ):
+        require(path.is_file(), f"Required public support file is missing: {path}")
+    support = SUPPORT_PATH.read_text(encoding="utf-8")
+    privacy = PRIVACY_PATH.read_text(encoding="utf-8")
+    require(
+        "REQUIRED_BEFORE_SUBMISSION" not in support + privacy,
+        "Published support and privacy pages retain a placeholder.",
+    )
+    require(SUPPORT_URL in support, "Support page omits its canonical URL.")
+    require(PRIVACY_URL in support, "Support page omits the privacy URL.")
+    require(
+        "issues/new?template=game-support.yml" in support,
+        "Support page omits the public support form.",
+    )
+    require(
+        "issues/new?template=privacy-question.yml" in privacy,
+        "Privacy page omits the public privacy form.",
+    )
+    for path in (SUPPORT_ISSUE_PATH, PRIVACY_ISSUE_PATH):
+        content = path.read_text(encoding="utf-8")
+        require(
+            "will be public" in content
+            and "sensitive information" in content,
+            f"Public issue form lacks its privacy warning: {path}",
+        )
 
 
 def main() -> None:
     validate_export_options()
     validate_metadata()
+    validate_public_support()
     print("App Store readiness checks passed.")
 
 

@@ -1,14 +1,19 @@
+---
+layout: page
+title: Frog City Feast Support
+permalink: /support/
+---
+
 # Frog City Feast Support
 
-This is the public support-page template. It must be published at a stable HTTPS
-URL before App Store submission.
+This is the official public support page for Frog City Feast.
 
 | Contact field | Required value |
 |---|---|
-| Support email | `REQUIRED_BEFORE_SUBMISSION` |
-| Support URL | `REQUIRED_BEFORE_SUBMISSION` |
-| Privacy policy URL | `REQUIRED_BEFORE_SUBMISSION` |
-| Legal contact details required for selected storefronts | `REQUIRED_BEFORE_SUBMISSION` |
+| Support contact | [Public support issue form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=game-support.yml) |
+| Support URL | [Frog City Feast Support](https://chdafni-msft.github.io/SamuelIcecream/support/) |
+| Privacy policy URL | [Frog City Feast Privacy Policy](https://chdafni-msft.github.io/SamuelIcecream/privacy/) |
+| EU DSA status | Non-trader |
 
 Frog City Feast is an offline, single-player iPad game. It has no account,
 cloud save, ads, in-app purchases, multiplayer, or online service.
@@ -63,7 +68,9 @@ no server account or cloud profile to remove.
 
 ## Contact support
 
-Send the following to `REQUIRED_BEFORE_SUBMISSION`:
+Open the
+[public support issue form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=game-support.yml)
+with:
 
 - Frog City Feast version and build number;
 - iPad model and iPadOS version;
@@ -71,6 +78,7 @@ Send the following to `REQUIRED_BEFORE_SUBMISSION`:
 - the exact visible error message; and
 - concise reproduction steps.
 
-Do not send Apple passwords, certificates, provisioning profiles, API keys,
-financial information, or other sensitive data.
-
+The issue and all entered information are public. Do not include names, email
+addresses, Apple account information, device identifiers, passwords,
+certificates, provisioning profiles, API keys, financial information, or
+other personal or sensitive data.

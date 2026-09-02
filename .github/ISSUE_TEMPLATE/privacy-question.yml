@@ -1,0 +1,22 @@
+name: Frog City Feast privacy question
+description: Ask a general question about the published privacy policy.
+title: "[Privacy] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue and everything entered below will be public. Frog City Feast has no developer-operated account or server and does not collect app data. Do not include names, email addresses, Apple account information, device identifiers, passwords, financial information, or other personal or sensitive data.
+  - type: textarea
+    id: question
+    attributes:
+      label: General privacy question
+      description: Ask only a question that is safe to publish publicly.
+    validations:
+      required: true
+  - type: checkboxes
+    id: public_confirmation
+    attributes:
+      label: Public issue confirmation
+      options:
+        - label: I understand this is public and have not included personal or sensitive information.
+          required: true

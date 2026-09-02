@@ -1,0 +1,65 @@
+name: Frog City Feast support
+description: Report a gameplay, accessibility, save, audio, or device problem.
+title: "[Support] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue and everything entered below will be public. Do not include names, email addresses, Apple account information, passwords, signing credentials, financial information, or other personal or sensitive data.
+  - type: input
+    id: version
+    attributes:
+      label: Game version and build
+      description: Copy the version and build shown for the installed game.
+      placeholder: "0.1.0 (build number)"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: iPad model and iPadOS version
+      placeholder: "iPad model; iPadOS version"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Problem area
+      options:
+        - Controls or movement
+        - Tongue, Belly, or growth
+        - Pursuit or temporary powers
+        - Rooms or navigation
+        - Save data
+        - Accessibility
+        - Audio or haptics
+        - Launch or lifecycle
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the visible result and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the shortest steps that reproduce the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Visible error text
+      description: Enter the exact in-game error text, if any.
+  - type: checkboxes
+    id: public_confirmation
+    attributes:
+      label: Public issue confirmation
+      options:
+        - label: I have not included personal, account, credential, financial, or other sensitive information.
+          required: true
