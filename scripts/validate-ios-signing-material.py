@@ -17,6 +17,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--certificate-pem", required=True, type=Path)
     parser.add_argument("--team-id", required=True)
     parser.add_argument("--bundle-id", required=True)
+    parser.add_argument(
+        "--distribution",
+        required=True,
+        choices=("app-store", "ad-hoc"),
+    )
+    parser.add_argument("--device-udid")
     return parser.parse_args()
 
 
@@ -53,13 +59,33 @@ def main() -> None:
     )
     require(
         entitlements.get("get-task-allow") is False,
-        "The provisioning profile is not an App Store distribution profile.",
+        "The provisioning profile permits development debugging.",
     )
-    require(
-        "ProvisionedDevices" not in profile
-        and profile.get("ProvisionsAllDevices") is not True,
-        "The provisioning profile is for device or enterprise distribution.",
-    )
+    if args.distribution == "app-store":
+        require(
+            "ProvisionedDevices" not in profile
+            and profile.get("ProvisionsAllDevices") is not True,
+            "The provisioning profile is not for App Store distribution.",
+        )
+    else:
+        require(
+            isinstance(args.device_udid, str) and bool(args.device_udid),
+            "An Ad Hoc device UDID is required.",
+        )
+        provisioned_devices = profile.get("ProvisionedDevices")
+        require(
+            isinstance(provisioned_devices, list)
+            and any(
+                isinstance(device_udid, str)
+                and device_udid.upper() == args.device_udid.upper()
+                for device_udid in provisioned_devices
+            ),
+            "The Ad Hoc profile does not include the protected device UDID.",
+        )
+        require(
+            profile.get("ProvisionsAllDevices") is not True,
+            "Enterprise provisioning is not permitted for Ad Hoc testing.",
+        )
     require(
         "iOS" in profile.get("Platform", []),
         "The provisioning profile does not support iOS.",
@@ -145,7 +171,10 @@ def main() -> None:
         "The provisioning profile does not include the supplied certificate.",
     )
 
-    print("Apple signing certificate and provisioning profile are consistent.")
+    print(
+        "Apple signing certificate and "
+        f"{args.distribution} provisioning profile are consistent."
+    )
 
 
 if __name__ == "__main__":

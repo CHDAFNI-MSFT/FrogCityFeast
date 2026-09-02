@@ -20,6 +20,8 @@ of signing secrets.
   Windows generator, and opaque-image validation are versioned.
 - [x] TestFlight is documented as unavailable for the target under-13 Apple
   Account and is not the selected installation path.
+- [x] A separate Ad Hoc validation path is prepared for the registered A16
+  iPad. It publishes no signed artifact and creates no private hosting.
 
 ## Uploaded candidate record
 
@@ -57,9 +59,15 @@ of signing secrets.
 
 ## Final build and device acceptance
 
-- [ ] Complete Windows validation on the exact release commit.
-- [ ] Complete Godot CI on the exact release commit.
-- [ ] Manually run the unsigned iOS smoke build on the exact release commit.
+- [x] Complete Windows validation on source commit
+  `2e4f60160db67f6715844aac234d6a47e4e40843`.
+- [x] Complete Godot CI on that source commit: run `33662838762`.
+- [x] Manually run the unsigned iOS smoke build on that source commit: run
+  `33664214769`.
+- [ ] Register the physical A16 iPad UDID and create its matching Ad Hoc
+  provisioning profile as documented in `docs/ios-ad-hoc-testing.md`.
+- [ ] Run the protected Ad Hoc validation workflow. It must retain no signed
+  IPA until a private delivery method is separately approved.
 - [ ] Physical A16 iPad acceptance: signed Release build sustains at least
   58 FPS over 30 seconds, targets 60 FPS, and meets the documented frame,
   process, physics, memory, draw, object, and primitive budgets.
@@ -118,6 +126,8 @@ of signing secrets.
 ## Protected GitHub environment
 
 - [ ] Confirm the `app-store` environment still allows only branch `main`.
+- [x] Confirm the `ad-hoc` environment allows only branch `main`, requires
+  `CHDAFNI-MSFT`, permits no administrator bypass, and contains no secrets.
 - [ ] Confirm `CHDAFNI-MSFT` remains the required reviewer.
 - [ ] Confirm administrators cannot bypass the `app-store` or `testflight`
   protection rules.
@@ -132,13 +142,13 @@ of signing secrets.
 
 ## Separate authorization gates
 
-- [ ] **Explicit upload authorization:** authorize one exact final commit,
-  version, and workflow run to upload a replacement normal App Store candidate
-  to App Store Connect. The earlier authorization was consumed by a superseded
-  source commit and does not apply to the replacement candidate.
+- [x] **Explicit upload authorization:** version `0.1.0` from exact source
+  commit `2e4f60160db67f6715844aac234d6a47e4e40843` was authorized for candidate
+  workflow run `33664620876`.
 - [ ] Set the workflow's `confirm_upload` input, approve the protected
   `app-store` authorization job, and separately approve the protected
-  `testflight` signing job.
+  `testflight` signing job. Run `33664620876` remains at its first protected
+  approval and has not uploaded a replacement candidate.
 - [ ] Confirm the replacement workflow completed cleanup and produced no
   downloadable signed artifact.
 - [ ] Wait for Apple processing and inspect export compliance, symbols, icon,

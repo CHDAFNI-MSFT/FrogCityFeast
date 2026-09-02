@@ -97,6 +97,7 @@ generated-project validator fails if those declarations drift.
 |---|---|---|---|
 | `Godot CI` | Push, pull request, manual | None | Import, start, and run deterministic project checks on Linux |
 | `iOS unsigned smoke build` | Manual | None | Export through Godot and compile an unsigned generic iOS device target |
+| `iOS Ad Hoc registered-device validation` | Manual from `main` with explicit confirmation | Protected `ad-hoc` authorization followed by protected `testflight` certificate and Ad Hoc profile secrets | Sign and validate a registered-iPad package without retaining or publishing the IPA |
 | `iOS App Store candidate upload` | Manual from `main` with explicit confirmation | Protected `app-store` authorization followed by protected `testflight` signing credentials | Archive, sign, and upload a normal App Store candidate without submitting it for review |
 | `iOS TestFlight release` | Manual from `main` or a `v*` tag | Protected `testflight` environment | Historical internal-only upload path; not usable by the target under-13 account |
 
@@ -113,6 +114,12 @@ SHA-512 checksums before use.
 The iOS preset explicitly targets iPad only, matching the documented product
 scope and 4:3 presentation. Supporting iPhone later requires a separately
 reviewed layout, device-testing, and export-preset change.
+
+The Ad Hoc path is documented in
+[`ios-ad-hoc-testing.md`](ios-ad-hoc-testing.md). It remains blocked until the
+physical A16 iPad UDID is registered and a matching Ad Hoc profile is placed in
+the protected environment. It intentionally retains no signed artifact and
+does not create private OTA hosting without separate approval.
 
 ## Apple account prerequisites
 
@@ -195,6 +202,12 @@ conditions, administrator bypass is disabled for this environment too, and the
 job still selects the normal `app-store` export mode. The historical TestFlight
 workflow remains unavailable to the target under-13 account.
 
+The registered-device workflow uses the same two-stage boundary. Its `ad-hoc`
+authorization environment allows only `main`, requires `CHDAFNI-MSFT`, has
+administrator bypass disabled, and stores no variables or secrets. Only after
+that approval does the job enter `testflight` for the certificate, protected
+UDID, and device-specific profile.
+
 Add these environment variables:
 
 | Variable | Value |
@@ -225,6 +238,14 @@ The signed job reads these existing `testflight` environment secrets:
 | `APP_STORE_CONNECT_KEY_ID` | App Store Connect API Key ID |
 | `APP_STORE_CONNECT_ISSUER_ID` | App Store Connect API Issuer ID |
 | `APP_STORE_CONNECT_PRIVATE_KEY_BASE64` | Base64-encoded App Store Connect `.p8` |
+
+Registered-device testing later adds these separate secrets without replacing
+the App Store profile:
+
+| Secret | Content |
+|---|---|
+| `IOS_AD_HOC_DEVICE_UDID` | Protected UDID of the registered A16 iPad |
+| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Base64-encoded Ad Hoc profile for that exact device, App ID, and certificate |
 
 On macOS, encode each binary or key file without adding line wrapping:
 

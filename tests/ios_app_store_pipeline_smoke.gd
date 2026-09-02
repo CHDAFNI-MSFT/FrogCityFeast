@@ -265,7 +265,7 @@ func _run() -> void:
 	)
 	_check(
 		export_options.contains(
-			'choices=("internal-testflight", "app-store")'
+			'choices=("internal-testflight", "app-store", "ad-hoc")'
 		)
 			and export_options.contains(
 				'if args.distribution == "internal-testflight":'

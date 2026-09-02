@@ -22,8 +22,8 @@ After completing this runbook, the new repository should have:
 5. Linux GitHub Actions validation for ordinary pushes and pull requests.
 6. A credential-free macOS workflow that exports the Godot project and compiles
    an unsigned generic iOS device target with Xcode.
-7. A separate, protected GitHub environment for an eventual signed TestFlight
-   release.
+7. Separate protected GitHub environments for any authorized signed App Store,
+   TestFlight, or registered-device workflow.
 8. No Apple signing material, generated build output, tool downloads, or local
    editor state committed to Git.
 9. No Azure dependency. Azure, Azure Key Vault, and Azure OIDC are not part of
@@ -54,9 +54,9 @@ An agent following this runbook must use these rules:
    ImageMagick, FFmpeg, or Git LFS.
 7. Do not disable unrelated startup entries. If an installer unexpectedly adds
    one, remove only the exact entry attributable to the installed tool.
-8. Do not run the signed TestFlight workflow until the new app has its own
-   explicit bundle identifier, provisioning profile, App Store Connect record,
-   and protected GitHub environment.
+8. Do not run a signed Apple workflow until the new app has its own explicit
+   bundle identifier, matching distribution profile, required Apple record or
+   registered device, and protected GitHub environment.
 9. Use Windows or Linux for routine development and CI. Use macOS only where
    Apple tooling is technically required.
 10. Stop and report a precise blocker instead of inventing Apple identifiers,
@@ -127,14 +127,17 @@ These files have different responsibilities:
 | `scripts/prepare-ios-signing.sh` | Temporary keychain and provisioning-profile setup | Copy and rename temporary files |
 | `scripts/create-export-options.py` | Xcode export options for manual signing | Copy |
 | `scripts/archive-and-upload-ios.sh` | Signed Xcode archive and direct App Store Connect upload | Copy and rename archive path |
+| `scripts/archive-and-export-ios-ad-hoc.sh` | Registered-device archive, release-testing export, and embedded-profile validation | Copy and rename archive path |
 | `scripts/cleanup-ios-signing.sh` | Always-run cleanup of decoded signing material | Copy and rename temporary files |
 | `scripts/sync-app-store-metadata.mjs` | Fail-closed metadata preflight and idempotent listing updates | Copy and replace approved app identity and metadata values |
 | `tools/app-store-metadata.json` | Reviewed machine-readable App Store values and rating answers | Copy and replace every app-specific value |
 | `.github/workflows/godot-ci.yml` | Routine Linux CI | Copy |
 | `.github/workflows/ios-smoke.yml` | Manual credential-free iOS integration test | Copy and change smoke bundle ID |
 | `.github/workflows/ios-testflight.yml` | Protected signed release | Copy |
+| `.github/workflows/ios-ad-hoc.yml` | Protected registered-device validation without artifact publication | Copy and replace the authorized version |
 | `.github/workflows/app-store-metadata.yml` | Manual protected metadata-only sync | Copy and replace the authorized version |
 | `tests/app_store_metadata_version_test.mjs` | Initial-version and malformed-response regression coverage | Copy |
+| `tests/ios_ad_hoc_pipeline_smoke.gd` | Ad Hoc workflow, profile, IPA, cleanup, and no-publication checks | Copy |
 | `.gitignore` | Excludes editor state, tools, builds, generated presets, and signing files | Copy or merge carefully |
 | `.github/copilot-instructions.md` | Durable repository rules for future agents | Copy and replace the product name |
 | `README.md` | Human entry point for setup and automation | Copy and rebrand, or reproduce all runbook links |
@@ -142,6 +145,7 @@ These files have different responsibilities:
 | `docs/development-setup.md` | Day-to-day workstation setup | Copy and rebrand |
 | `docs/game-stack-decision-guide.md` | Reusable engine-selection rationale | Copy if the same product constraints apply |
 | `docs/ios-release.md` | Apple and GitHub release configuration | Copy and replace examples |
+| `docs/ios-ad-hoc-testing.md` | Registered-device profile and private-delivery boundary | Copy and replace app identity |
 | `docs/apple-app-publishing-runbook.md` | Reusable App Store setup order, API failure lessons, and publication gates | Copy and replace app-specific evidence |
 
 Do not copy game-specific scenes, scripts, artwork, audio, branding, or narrative
@@ -674,6 +678,8 @@ Each new app requires:
 - Its own provisioning profile matching that exact bundle identifier.
 - GitHub environment variables `APPLE_TEAM_ID` and `IOS_BUNDLE_ID`.
 - The six environment secrets documented in `docs/ios-release.md`.
+- If Ad Hoc is selected, its own protected device UDID and device-specific
+  Ad Hoc profile.
 
 An Apple Distribution certificate can sign more than one app when Apple permits
 it, and an App Store Connect API key can cover more than one app depending on
@@ -687,7 +693,7 @@ repository's protected environment.
 
 ## 14. Signed-release design that must remain intact
 
-The TestFlight workflow and signing scripts are designed so that:
+The signed Apple workflows and signing scripts are designed so that:
 
 1. Decoded files exist only under the ephemeral runner's temporary directory.
 2. The provisioning profile UUID, Team ID, and exact application identifier are
@@ -696,8 +702,10 @@ The TestFlight workflow and signing scripts are designed so that:
 4. Only an Apple Distribution identity is accepted.
 5. Manual signing is used consistently during archive and export.
 6. Upload uses App Store Connect API-key authentication.
-7. No signed IPA or Xcode archive is uploaded to the repository.
-8. Cleanup runs with `if: always()` and removes the keychain, profile copies,
+7. Ad Hoc validation verifies the exported IPA's embedded application
+   identifier and device list without retaining or publishing the package.
+8. No signed IPA or Xcode archive is uploaded to the repository.
+9. Cleanup runs with `if: always()` and removes the keychain, profile copies,
    private key, decoded certificate, archive, and export output.
 
 Godot 4.7.2 has a release provisioning-profile environment-variable quirk. The
@@ -705,13 +713,14 @@ current signing setup exports both the debug and release UUID overrides while
 the release profile specifier still uses the release value. Preserve that
 workaround until a deliberate Godot upgrade confirms it is no longer needed.
 
-FrogCityFeast now has its app-specific Apple records and protected GitHub
-credentials configured, but it has not yet completed a real TestFlight
-submission. Those account resources and secrets do not transfer when this
-runbook is used for another repository. The successful unsigned smoke build
-validates Godot export and Xcode compilation only. Treat each new repository's
-first signed run as the integration test for certificate import, provisioning,
-archive export, API authentication, and App Store Connect processing.
+FrogCityFeast now has its app-specific Apple records and protected App Store
+credentials configured. Its Ad Hoc route still requires the physical iPad
+UDID and matching profile. Those account resources and secrets do not transfer
+when this runbook is used for another repository. The successful unsigned
+smoke build validates Godot export and Xcode compilation only. Treat each new
+repository's first signed run as the integration test for certificate import,
+provisioning, archive export, device membership, API authentication, or App
+Store Connect processing as applicable.
 
 ## 15. Items that cannot be copied from FrogCityFeast
 

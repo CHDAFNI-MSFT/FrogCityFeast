@@ -175,7 +175,7 @@ func _run() -> void:
 				"frogcityfeast-distribution.pem"
 			)
 			and cleanup_script.contains(
-				"frogcityfeast-app-store.mobileprovision"
+				"frogcityfeast-provisioning.mobileprovision"
 			)
 			and cleanup_script.contains("app-store-connect")
 			and cleanup_script.contains("ios-upload")
@@ -185,14 +185,19 @@ func _run() -> void:
 		"Cleanup verifies every temporary signing and upload path."
 	)
 	_check(
-		export_options.contains('"destination": "upload"')
-			and export_options.contains('"method": "app-store-connect"')
+		export_options.contains('options["destination"] = "upload"')
+			and export_options.contains(
+				'options["method"] = "app-store-connect"'
+			)
 			and export_options.contains('"signingStyle": "manual"')
 			and export_options.contains(
 				'if args.distribution == "internal-testflight":'
 			)
 			and export_options.contains(
 				'options["testFlightInternalTestingOnly"] = True'
+			)
+			and export_options.contains(
+				'options["method"] = "release-testing"'
 			)
 			and export_options.contains(
 				'"signingCertificate": "Apple Distribution"'

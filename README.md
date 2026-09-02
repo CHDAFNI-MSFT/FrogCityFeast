@@ -11,6 +11,7 @@ the published game name.
 - [Development toolchain setup](docs/development-setup.md)
 - [Clean-room environment rebuild runbook](docs/environment-rebuild-runbook.md)
 - [iOS build and App Store setup](docs/ios-release.md)
+- [iOS Ad Hoc registered-device testing](docs/ios-ad-hoc-testing.md)
 - [Reusable Apple app publishing runbook](docs/apple-app-publishing-runbook.md)
 - [App Store metadata template](docs/app-store-metadata.md)
 - [Privacy policy](docs/privacy-policy.md)
@@ -38,6 +39,8 @@ signing, and App Store candidate work.
   requests.
 - `iOS unsigned smoke build` manually validates the Godot-to-Xcode pipeline
   without Apple credentials.
+- `iOS Ad Hoc registered-device validation` is a manual, double-gated path
+  that validates signing for one registered iPad and then deletes the IPA.
 - `iOS App Store candidate upload` is a manual, protected, main-only path for
   an explicitly authorized normal App Store candidate. It requires separate
   public-upload and signing-credential environment approvals.
@@ -45,5 +48,5 @@ signing, and App Store candidate work.
   infrastructure but is not usable by the target under-13 Apple Account.
 
 Signed workflows intentionally publish no IPA or Xcode archive artifacts from
-this public repository. Candidate upload, App Review submission, public
-release, and Git tags each require separate authorization.
+this public repository. Private Ad Hoc delivery, candidate upload, App Review
+submission, public release, and Git tags each require separate authorization.

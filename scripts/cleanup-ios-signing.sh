@@ -44,15 +44,19 @@ if [[ -n "$runner_temp" ]]; then
   for path in \
     "$runner_temp/frogcityfeast-distribution.p12" \
     "$runner_temp/frogcityfeast-distribution.pem" \
-    "$runner_temp/frogcityfeast-app-store.mobileprovision" \
+    "$runner_temp/frogcityfeast-provisioning.mobileprovision" \
     "$runner_temp/frogcityfeast-profile.plist" \
     "$runner_temp/TestFlightExportOptions.plist" \
-    "$runner_temp/AppStoreExportOptions.plist"; do
+    "$runner_temp/AppStoreExportOptions.plist" \
+    "$runner_temp/AdHocExportOptions.plist" \
+    "$runner_temp/frogcityfeast-exported-profile.mobileprovision" \
+    "$runner_temp/frogcityfeast-exported-profile.plist"; do
     remove_file "$path"
   done
 
   remove_tree "$runner_temp/app-store-connect"
   remove_tree "$runner_temp/ios-upload"
+  remove_tree "$runner_temp/ios-ad-hoc-export"
 fi
 
 remove_file \

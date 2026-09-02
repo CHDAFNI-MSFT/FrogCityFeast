@@ -90,6 +90,8 @@ historical environment name:
 | `app-store-metadata` | App Manager API credentials used only for listing metadata |
 | `app-store-upload` | Approval for one exact candidate upload |
 | `app-store-signing` | Distribution certificate, password, provisioning profile, and upload API credentials |
+| `ad-hoc-authorization` | Approval for a registered-device validation build |
+| `ad-hoc-signing` | Distribution certificate, device UDID, and device-specific Ad Hoc profile |
 | `app-store-release` | Submission and release authorization, if automated later |
 
 Restrict each environment to the intended release branch, require an
@@ -107,6 +109,7 @@ Keep these values only as protected environment secrets:
 - Distribution certificate encoded from its `.p12`.
 - Certificate export password.
 - App-specific provisioning profile.
+- Registered-device UDIDs and Ad Hoc profiles, when that route is selected.
 - App Store Connect API Key ID.
 - App Store Connect API Issuer ID.
 - App Store Connect API `.p8` private key encoded as Base64.
@@ -267,10 +270,14 @@ Use this order:
 2. Run ordinary Linux CI on the exact commit.
 3. Run a credential-free macOS Godot export and unsigned generic-device Xcode
    compile.
-4. Run the signed physical-device acceptance plan.
-5. Obtain explicit authorization for one exact candidate upload.
-6. Upload without publishing a signed IPA or archive as a GitHub artifact.
-7. Wait for Apple processing and inspect symbols, icon, privacy manifest,
+4. If TestFlight is unavailable, register the target UDID, create an Ad Hoc
+   profile, and validate a signed `release-testing` export without publishing
+   it.
+5. Deliver the Ad Hoc package only through a separately approved private
+   route, then run the physical-device acceptance plan.
+6. Obtain explicit authorization for one exact candidate upload.
+7. Upload without publishing a signed IPA or archive as a GitHub artifact.
+8. Wait for Apple processing and inspect symbols, icon, privacy manifest,
    encryption declaration, supported devices, version, and build number.
 
 The physical-device pass should cover:
@@ -287,6 +294,12 @@ The physical-device pass should cover:
 
 Do not treat a desktop playtest, simulator run, unsigned compile, or uploaded
 candidate as a substitute for target-device acceptance.
+
+For an Ad Hoc route, keep the UDID and profile protected, reject profiles that
+omit the intended device, and delete the IPA after validation unless a private
+delivery mechanism has been explicitly approved. Public artifacts and public
+GitHub Pages are not private distribution. Obtain explicit approval before
+creating paid HTTPS hosting or other cloud infrastructure.
 
 ## 9. Preserve four separate authorization gates
 
@@ -329,6 +342,10 @@ has not bundled that action into the release decision.
 - [ ] Generate exact-commit screenshots and record their hashes.
 - [ ] Run local checks, Linux CI, and unsigned macOS iOS build on the exact
       release commit.
+- [ ] If using Ad Hoc, register the exact device, create its matching profile,
+      and run protected signing validation without publishing the IPA.
+- [ ] Obtain separate approval before creating private Ad Hoc hosting or
+      retaining a signed package for delivery.
 - [ ] Complete signed physical-device and final visual acceptance.
 - [ ] Obtain exact upload authorization and upload one candidate.
 - [ ] Inspect the processed build and complete all listing fields.

@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--distribution",
         required=True,
-        choices=("internal-testflight", "app-store"),
+        choices=("internal-testflight", "app-store", "ad-hoc"),
     )
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()
@@ -24,9 +24,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     options = {
-        "destination": "upload",
         "manageAppVersionAndBuildNumber": False,
-        "method": "app-store-connect",
         "provisioningProfiles": {
             args.bundle_id: args.profile_name,
         },
@@ -34,10 +32,16 @@ def main() -> None:
         "signingStyle": "manual",
         "stripSwiftSymbols": True,
         "teamID": args.team_id,
-        "uploadSymbols": True,
     }
-    if args.distribution == "internal-testflight":
-        options["testFlightInternalTestingOnly"] = True
+    if args.distribution == "ad-hoc":
+        options["destination"] = "export"
+        options["method"] = "release-testing"
+    else:
+        options["destination"] = "upload"
+        options["method"] = "app-store-connect"
+        options["uploadSymbols"] = True
+        if args.distribution == "internal-testflight":
+            options["testFlightInternalTestingOnly"] = True
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("wb") as output:

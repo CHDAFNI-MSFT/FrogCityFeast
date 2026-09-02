@@ -37,6 +37,8 @@ run_checked ios-release-pipeline-smoke --headless --path "$repo_root" \
   --script res://tests/ios_release_pipeline_smoke.gd
 run_checked ios-app-store-pipeline-smoke --headless --path "$repo_root" \
   --script res://tests/ios_app_store_pipeline_smoke.gd
+run_checked ios-ad-hoc-pipeline-smoke --headless --path "$repo_root" \
+  --script res://tests/ios_ad_hoc_pipeline_smoke.gd
 run_checked startup --headless --path "$repo_root" --quit-after 2
 run_checked navigation-smoke --headless --path "$repo_root" \
   --script res://tests/navigation_smoke.gd

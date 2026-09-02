@@ -1,0 +1,118 @@
+name: iOS Ad Hoc registered-device validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Authorized App marketing version (0.1.0)
+        required: true
+        type: string
+      confirm_build:
+        description: Build for the protected registered iPad profile
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ad-hoc-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Approve registered-device build
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_build &&
+      inputs.version == '0.1.0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: ad-hoc
+
+    steps:
+      - name: Record protected Ad Hoc approval
+        run: |
+          echo "Registered-device build approved for ${GITHUB_SHA}."
+          echo "Signing credentials remain isolated in the testflight environment."
+
+  ad-hoc:
+    name: Sign and validate registered-device package
+    needs: authorize
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_build &&
+      inputs.version == '0.1.0' &&
+      needs.authorize.result == 'success'
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment:
+      name: testflight
+    env:
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set protected build identity
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$REQUESTED_VERSION" != "0.1.0" ]]; then
+            echo "Only the explicitly authorized version 0.1.0 may build." >&2
+            exit 1
+          fi
+          {
+            echo "IOS_SHORT_VERSION=$REQUESTED_VERSION"
+            echo "IOS_BUILD_NUMBER=$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT"
+          } >> "$GITHUB_ENV"
+
+      - name: Select pinned Xcode
+        run: sudo xcode-select --switch /Applications/Xcode_26.6.app/Contents/Developer
+
+      - name: Cache pinned Godot downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            .tools/downloads/Godot_v4.7.2-stable_macos.universal.zip
+            .tools/downloads/Godot_v4.7.2-stable_export_templates.tpz
+          key: godot-macos-4.7.2-38aa16e5bba2083941fc5b3e54be0089bd4cc35e32415f5b9fd9a8a6a7b9818255d44532ea8ef94b5aef56c4b407c2d634fa4f657e4ebe681ebbf59b7bac69ca-ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079
+
+      - name: Install Godot and export templates
+        run: >
+          bash scripts/setup-unix.sh
+          --skip-system-tools
+          --install-export-templates
+
+      - name: Run release preflight
+        run: bash scripts/ios-preflight.sh release
+
+      - name: Prepare protected Ad Hoc signing
+        env:
+          IOS_SIGNING_DISTRIBUTION: ad-hoc
+          IOS_AD_HOC_DEVICE_UDID: ${{ secrets.IOS_AD_HOC_DEVICE_UDID }}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 }}
+        run: bash scripts/prepare-ios-signing.sh
+
+      - name: Export signed Xcode project
+        id: export
+        run: bash scripts/export-ios.sh
+
+      - name: Archive and validate Ad Hoc package
+        env:
+          IOS_XCODE_PROJECT: ${{ steps.export.outputs.xcode_project }}
+          IOS_XCODE_SCHEME: ${{ steps.export.outputs.xcode_scheme }}
+          IOS_AD_HOC_DEVICE_UDID: ${{ secrets.IOS_AD_HOC_DEVICE_UDID }}
+        run: bash scripts/archive-and-export-ios-ad-hoc.sh
+
+      - name: Remove temporary signing material
+        if: always()
+        run: bash scripts/cleanup-ios-signing.sh

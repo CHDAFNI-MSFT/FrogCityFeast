@@ -11,8 +11,26 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${APPLE_CERTIFICATE_PASSWORD:?APPLE_CERTIFICATE_PASSWORD is required.}"
 : "${APPLE_PROVISIONING_PROFILE_BASE64:?APPLE_PROVISIONING_PROFILE_BASE64 is required.}"
 
+signing_distribution="${IOS_SIGNING_DISTRIBUTION:-app-store}"
+case "$signing_distribution" in
+  app-store)
+    ;;
+  ad-hoc)
+    : "${IOS_AD_HOC_DEVICE_UDID:?IOS_AD_HOC_DEVICE_UDID is required.}"
+    if [[ ! "$IOS_AD_HOC_DEVICE_UDID" =~ ^([A-Fa-f0-9]{40}|[A-Fa-f0-9]{8}-[A-Fa-f0-9]{16})$ ]]; then
+      echo "IOS_AD_HOC_DEVICE_UDID has an unsupported format." >&2
+      exit 1
+    fi
+    echo "::add-mask::$IOS_AD_HOC_DEVICE_UDID"
+    ;;
+  *)
+    echo "IOS_SIGNING_DISTRIBUTION must be app-store or ad-hoc." >&2
+    exit 1
+    ;;
+esac
+
 certificate_path="$RUNNER_TEMP/frogcityfeast-distribution.p12"
-profile_path="$RUNNER_TEMP/frogcityfeast-app-store.mobileprovision"
+profile_path="$RUNNER_TEMP/frogcityfeast-provisioning.mobileprovision"
 profile_plist="$RUNNER_TEMP/frogcityfeast-profile.plist"
 certificate_pem="$RUNNER_TEMP/frogcityfeast-distribution.pem"
 keychain_path="$RUNNER_TEMP/frogcityfeast-signing.keychain-db"
@@ -80,11 +98,19 @@ if ! openssl pkcs12 \
 fi
 chmod 600 "$certificate_pem"
 
-python3 "$repo_root/scripts/validate-ios-signing-material.py" \
-  --profile-plist "$profile_plist" \
-  --certificate-pem "$certificate_pem" \
-  --team-id "$APPLE_TEAM_ID" \
+validation_args=(
+  --profile-plist "$profile_plist"
+  --certificate-pem "$certificate_pem"
+  --team-id "$APPLE_TEAM_ID"
   --bundle-id "$IOS_BUNDLE_ID"
+  --distribution "$signing_distribution"
+)
+if [[ "$signing_distribution" == "ad-hoc" ]]; then
+  validation_args+=(--device-udid "$IOS_AD_HOC_DEVICE_UDID")
+fi
+
+python3 "$repo_root/scripts/validate-ios-signing-material.py" \
+  "${validation_args[@]}"
 
 mkdir -p "$modern_profile_dir" "$legacy_profile_dir"
 cp "$profile_path" "$modern_profile_dir/$installed_profile_name"
