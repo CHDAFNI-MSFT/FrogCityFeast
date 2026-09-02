@@ -359,9 +359,9 @@ func _validate_metadata(source: String) -> void:
 	)
 	_check(
 		str(metadata.get("support_url", ""))
-		== "https://chdafni-msft.github.io/SamuelIcecream/support/"
+		== "https://chdafni-msft.github.io/FrogCityFeast/support/"
 		and str(metadata.get("privacy_policy_url", ""))
-		== "https://chdafni-msft.github.io/SamuelIcecream/privacy/",
+		== "https://chdafni-msft.github.io/FrogCityFeast/privacy/",
 		"Public support and privacy URLs remain canonical."
 	)
 

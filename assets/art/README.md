@@ -7,7 +7,7 @@ palette, teal environmental accents, dark ink outlines, and clean silhouettes.
 ## Provenance
 
 All files in this directory are original project assets created for
-`CHDAFNI-MSFT/SamuelIcecream` with GitHub Copilot assistance on September 1,
+`CHDAFNI-MSFT/FrogCityFeast` with GitHub Copilot assistance on September 1,
 2026. They do not copy or derive from copyrighted characters, commercial
 assets, stock illustrations, third-party fonts, or downloaded artwork.
 

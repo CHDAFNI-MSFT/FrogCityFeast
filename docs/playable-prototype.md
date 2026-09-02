@@ -648,7 +648,7 @@ authorized, secret-dependent release work.
 
 The manual `iOS unsigned smoke build` workflow is verified on the pinned
 `macos-26` arm64 runner. Run
-[`33327784555`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327784555)
+[`33327784555`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33327784555)
 successfully installed Godot 4.7.2 and its export templates, passed the Xcode
 26.6/iOS 26.5 preflight, generated the Xcode project, and compiled a Release
 build for a generic iOS device with code signing disabled.
@@ -665,7 +665,7 @@ the Apple export or Xcode build. The macOS workflow remains authoritative.
 
 The successful remote run built exact audio commit
 `73cfb5ef1cbc8d3d5e9eb71dbec44a4455d8fd76`. Godot CI run
-[`33327743256`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327743256)
+[`33327743256`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33327743256)
 also passed on that commit. Later gameplay commits require their own Godot CI
 result and remain outside the unsigned iOS integration run until that manual
 workflow is separately authorized. Known non-fatal generated-project warnings

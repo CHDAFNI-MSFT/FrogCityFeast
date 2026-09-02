@@ -25,8 +25,8 @@ protected process.
 | Version | `0.1.0` |
 | Copyright | `2026 Chase Dafnis` |
 | Pricing | Free; no in-app purchases |
-| Support URL | `https://chdafni-msft.github.io/SamuelIcecream/support/` |
-| Privacy policy URL | `https://chdafni-msft.github.io/SamuelIcecream/privacy/` |
+| Support URL | `https://chdafni-msft.github.io/FrogCityFeast/support/` |
+| Privacy policy URL | `https://chdafni-msft.github.io/FrogCityFeast/privacy/` |
 | Marketing URL | Optional; leave blank unless a maintained HTTPS page exists |
 | Release method | Manual release after approval |
 | Content rights | Developer owns or has rights to all content |
@@ -116,7 +116,7 @@ This answer is accurate for the reviewed build:
 
 The privacy policy URL is still required even when the App Privacy answer is
 No Data Collected. The completed policy is published at
-`https://chdafni-msft.github.io/SamuelIcecream/privacy/`.
+`https://chdafni-msft.github.io/FrogCityFeast/privacy/`.
 
 Official reference:
 [Manage app privacy](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy).

@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 45
     env:
       APPLE_TEAM_ID: "0000000000"
-      IOS_BUNDLE_ID: com.example.samuelicecream
+      IOS_BUNDLE_ID: com.example.frogcityfeast
       IOS_SHORT_VERSION: 0.0.0
       IOS_BUILD_NUMBER: ${{ github.run_number }}
 

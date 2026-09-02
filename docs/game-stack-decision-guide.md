@@ -2,7 +2,7 @@
 
 This guide selects a game-development stack based on the type of game,
 development workflow, and platform requirements. It is intended to be reused
-for SamuelIcecream and future personal game projects.
+for FrogCityFeast and future personal game projects.
 
 ## Current priorities
 

@@ -24,8 +24,8 @@ SUPPORT_ISSUE_PATH = (
 PRIVACY_ISSUE_PATH = (
     REPO_ROOT / ".github" / "ISSUE_TEMPLATE" / "privacy-question.yml"
 )
-SUPPORT_URL = "https://chdafni-msft.github.io/SamuelIcecream/support/"
-PRIVACY_URL = "https://chdafni-msft.github.io/SamuelIcecream/privacy/"
+SUPPORT_URL = "https://chdafni-msft.github.io/FrogCityFeast/support/"
+PRIVACY_URL = "https://chdafni-msft.github.io/FrogCityFeast/privacy/"
 
 
 def require(condition: bool, message: str) -> None:

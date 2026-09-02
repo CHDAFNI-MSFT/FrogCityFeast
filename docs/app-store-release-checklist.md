@@ -27,7 +27,7 @@ of signing secrets.
 - Build: `33576432175.1`
 - Source commit: `646011df800dc35aaed98d1ba8e8f775430341d8`
 - Workflow run:
-  [iOS App Store candidate upload 33576432175](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33576432175)
+  [iOS App Store candidate upload 33576432175](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33576432175)
 - Upload completed: September 1, 2026 at 20:46 EDT
 - App Store Connect status at workflow completion: package uploaded and
   processing.
@@ -42,10 +42,10 @@ of signing secrets.
 - [x] Replace every `REQUIRED_BEFORE_SUBMISSION` value in
   `tools/app-store-metadata.json`, `docs/privacy-policy.md`, and
   `docs/app-support.md`.
-- [x] Publish and verify the prepared HTTPS support URL and public GitHub Issue
-  contact form.
-- [x] Publish and verify the prepared HTTPS privacy policy URL and public
-  privacy-question form.
+- [ ] Re-verify the renamed HTTPS support URL and public GitHub Issue contact
+  form after the repository and Pages site move to `FrogCityFeast`.
+- [ ] Re-verify the renamed HTTPS privacy policy URL and public
+  privacy-question form after the repository and Pages site move.
 - [x] Confirm copyright owner and year: `2026 Chase Dafnis`.
 - [x] Choose free pricing with no in-app purchases. Do not add in-app
   purchases without
@@ -77,7 +77,7 @@ of signing secrets.
   manual-release, copyright, and age-rating values.
 - [ ] Replace the protected Developer-role App Store Connect API key with an
   App Manager-equivalent key before retrying metadata synchronization. Run
-  [33616496541](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33616496541)
+  [33616496541](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33616496541)
   completed authenticated read-only preflight but Apple denied the first
   category write with `403 FORBIDDEN_ERROR`; no metadata was changed.
 - [ ] Copy the validated `en-US` fields from

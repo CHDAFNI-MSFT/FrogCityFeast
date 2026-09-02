@@ -1,7 +1,7 @@
 # Frog City Feast
 
-Godot 4.7.2 touch-first iPad game. The repository retains its original
-`SamuelIcecream` name.
+Godot 4.7.2 touch-first iPad game. The `FrogCityFeast` repository name matches
+the published game name.
 
 ## Development planning
 

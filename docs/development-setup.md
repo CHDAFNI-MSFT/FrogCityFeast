@@ -1,6 +1,6 @@
 # Development Toolchain Setup
 
-SamuelIcecream uses a Windows-first Godot workflow. The repository pins the
+FrogCityFeast uses a Windows-first Godot workflow. The repository pins the
 Godot editor version and records the supporting asset tools in
 `tools/toolchain.json`.
 

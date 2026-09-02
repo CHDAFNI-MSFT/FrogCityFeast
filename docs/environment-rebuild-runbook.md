@@ -1,12 +1,12 @@
 # Environment Rebuild Runbook for a New Game Repository
 
 This document is the clean-room, agent-oriented procedure for reproducing the
-SamuelIcecream development and iOS build environment in a separate repository.
+FrogCityFeast development and iOS build environment in a separate repository.
 It is intentionally explicit so a developer or AI agent can perform the work
 without access to the conversation that originally created this repository.
 
 Use a separate repository for an independently released game. Do not maintain a
-second game on a permanent branch of SamuelIcecream. A branch is appropriate
+second game on a permanent branch of FrogCityFeast. A branch is appropriate
 for temporary work that will merge back into the same product; it is not an
 isolation boundary for another product, release history, or App Store record.
 
@@ -86,7 +86,7 @@ Windows or unsigned iOS setup.
 
 The production bundle identifier is permanent App Store identity, not merely a
 filename. Confirm it with the repository owner before creating Apple records.
-Do not copy `com.example.samuelicecream` or the SamuelIcecream provisioning
+Do not copy `com.example.frogcityfeast` or the FrogCityFeast provisioning
 profile into another app.
 
 ## 4. Reference architecture
@@ -105,9 +105,9 @@ a fresh GitHub-hosted runner, installs the pinned Godot editor and matching
 export templates, selects the pinned Xcode installation, performs its task, and
 is discarded.
 
-## 5. Authoritative files in SamuelIcecream
+## 5. Authoritative files in FrogCityFeast
 
-Use `CHDAFNI-MSFT/SamuelIcecream` as a known-good reference implementation.
+Use `CHDAFNI-MSFT/FrogCityFeast` as a known-good reference implementation.
 These files have different responsibilities:
 
 | File or directory | Responsibility | Reuse in a new repository |
@@ -146,12 +146,12 @@ temporary bootstrap only if they are intentionally rebranded or replaced.
 
 ## 6. Create and clone the new repository
 
-The new game should be a sibling of SamuelIcecream, not a nested Git repository.
+The new game should be a sibling of FrogCityFeast, not a nested Git repository.
 For example:
 
 ```text
 C:\Users\<user>\OneDrive\GitHub\
-|-- SamuelIcecream\
+|-- FrogCityFeast\
 `-- AnotherGame\
 ```
 
@@ -167,7 +167,7 @@ git status --short --branch
 
 If it does not exist, create it through the GitHub UI or an approved `gh repo
 create` command before cloning. Confirm the intended visibility. Do not assume a
-new game is public merely because SamuelIcecream is public.
+new game is public merely because FrogCityFeast is public.
 
 Before copying files, inspect both repositories for uncommitted work. Never
 overwrite a file in the new repository without reading and reconciling its
@@ -175,7 +175,7 @@ contents.
 
 ## 7. Transfer the reusable baseline
 
-Copy the reusable files listed in section 5 from SamuelIcecream into the new
+Copy the reusable files listed in section 5 from FrogCityFeast into the new
 repository. Preserve executable permissions on `scripts/setup-unix.sh` and
 `scripts/verify-unix.sh`. They are the two shell files invoked directly with
 `./`; workflow-only shell scripts are intentionally invoked with `bash` and do
@@ -206,12 +206,12 @@ After copying, run this mandatory search from the new repository root. The
 yet:
 
 ```powershell
-git grep --untracked -In -i -E "samuel ?icecream"
+git grep --untracked -In -i -E "frog ?city ?feast"
 ```
 
 `git grep` is used because it is included with Git and is not an additional
-workstation dependency. The expression catches `SamuelIcecream`,
-`samuelicecream`, and the spaced display form `Samuel Icecream`. Review every
+workstation dependency. The expression catches `FrogCityFeast`,
+`frogcityfeast`, and the spaced display form `Frog City Feast`. Review every
 result. At minimum, adapt the following:
 
 | Location | Required adaptation |
@@ -247,7 +247,7 @@ together. Keep the file-safe product name identical in:
 - `scripts/export-ios.sh` export target and Xcode project path.
 - `scripts/archive-and-upload-ios.sh` archive path.
 
-After replacement, rerun the search. Product-specific SamuelIcecream references
+After replacement, rerun the search. Product-specific FrogCityFeast references
 should be absent. A reference to this runbook or the reference repository may
 remain when it is clearly explanatory rather than executable configuration.
 
@@ -675,7 +675,7 @@ it, and an App Store Connect API key can cover more than one app depending on
 its role and access. Reuse them only when intentionally authorized. The
 provisioning profile and bundle identifier remain app-specific.
 
-Never copy GitHub secrets out of SamuelIcecream. GitHub does not reveal stored
+Never copy GitHub secrets out of FrogCityFeast. GitHub does not reveal stored
 secret values, and an agent must not attempt to recover them. Obtain approved
 credentials from the repository owner and enter them directly into the new
 repository's protected environment.
@@ -700,7 +700,7 @@ current signing setup exports both the debug and release UUID overrides while
 the release profile specifier still uses the release value. Preserve that
 workaround until a deliberate Godot upgrade confirms it is no longer needed.
 
-SamuelIcecream now has its app-specific Apple records and protected GitHub
+FrogCityFeast now has its app-specific Apple records and protected GitHub
 credentials configured, but it has not yet completed a real TestFlight
 submission. Those account resources and secrets do not transfer when this
 runbook is used for another repository. The successful unsigned smoke build
@@ -708,7 +708,7 @@ validates Godot export and Xcode compilation only. Treat each new repository's
 first signed run as the integration test for certificate import, provisioning,
 archive export, API authentication, and App Store Connect processing.
 
-## 15. Items that cannot be copied from SamuelIcecream
+## 15. Items that cannot be copied from FrogCityFeast
 
 Do not expect source files to recreate:
 
@@ -760,7 +760,7 @@ The environment is recreated only when all applicable items are true:
 
 ### Local workstation
 
-- [ ] The new repository is separate and not nested inside SamuelIcecream.
+- [ ] The new repository is separate and not nested inside FrogCityFeast.
 - [ ] `tools/toolchain.json` exists and remains internally consistent.
 - [ ] Windows setup completed using the repository script.
 - [ ] Windows verification reports the pinned versions.
@@ -773,7 +773,7 @@ The environment is recreated only when all applicable items are true:
 - [ ] No relevant startup command, scheduled task, service, or login launcher
       was added.
 - [ ] Generated directories and signing file patterns are ignored.
-- [ ] `git grep --untracked -In -i -E "samuel ?icecream"` returns no unintended
+- [ ] `git grep --untracked -In -i -E "frog ?city ?feast"` returns no unintended
       product-specific reference.
 
 ### Repository automation
@@ -830,10 +830,10 @@ The repository owner can use this prompt after creating the next repository:
 
 ```text
 Use docs/environment-rebuild-runbook.md from
-CHDAFNI-MSFT/SamuelIcecream as the authoritative clean-room procedure.
+CHDAFNI-MSFT/FrogCityFeast as the authoritative clean-room procedure.
 Prepare this new game repository and this computer for Windows-first Godot 2D
 and audio development. Reuse the pinned toolchain and CI architecture, replace
-all SamuelIcecream-specific identifiers, do not configure any application to
+all FrogCityFeast-specific identifiers, do not configure any application to
 run at startup, do not use Azure, and stop before signed TestFlight work if
 app-specific Apple credentials are unavailable. Verify every applicable
 definition-of-done item and provide the evidence listed in the runbook.

@@ -1,6 +1,6 @@
 # iOS Build and App Store Setup
 
-SamuelIcecream uses Windows for normal development and a GitHub-hosted macOS
+FrogCityFeast uses Windows for normal development and a GitHub-hosted macOS
 runner only for Apple-specific Godot export, Xcode compilation, signing, and
 submission.
 
@@ -30,15 +30,15 @@ explicit release authorization.
 ## Unsigned pipeline verification
 
 The credential-free pipeline is verified through
-[`iOS unsigned smoke build`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/workflows/ios-smoke.yml).
+[`iOS unsigned smoke build`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/workflows/ios-smoke.yml).
 Manual run
-[`33327784555`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327784555)
+[`33327784555`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33327784555)
 completed successfully on August 30, 2026 for audio commit
 `73cfb5ef1cbc8d3d5e9eb71dbec44a4455d8fd76`:
 
 - the pinned Godot 4.7.2 editor and export templates installed on `macos-26`;
 - the Xcode 26.6 and iOS 26.5 preflight passed;
-- Godot generated `SamuelIcecream.xcodeproj` with the `SamuelIcecream` scheme;
+- Godot generated `FrogCityFeast.xcodeproj` with the `FrogCityFeast` scheme;
 - Xcode compiled the Release configuration for a generic arm64 iOS device with
   signing disabled; and
 - no certificate, provisioning profile, App Store credential, or build artifact
@@ -52,7 +52,7 @@ toolchain, absence of secrets, generated project-only arm64 preset, temporary
 not replace the macOS integration run.
 
 Godot CI run
-[`33327743256`](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33327743256)
+[`33327743256`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33327743256)
 also passed on that exact commit. The successful unsigned run includes the
 generated-project validator, iPad-only target, explicit icon, privacy
 declarations, warning sanitation, original audio files,
@@ -155,7 +155,7 @@ reviewed API-supported listing fields without uploading a build. Apple rejects
 primary-locale and content-rights updates on the existing app record even
 though those attributes remain in the current OpenAPI update schema, so those
 values require direct confirmation. Run
-[33616496541](https://github.com/CHDAFNI-MSFT/SamuelIcecream/actions/runs/33616496541)
+[33616496541](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33616496541)
 confirmed that the current Developer-role key can authenticate and read the
 record but cannot write listing metadata. The Account Holder must provide an
 App Manager-equivalent key through the same protected secret path before
@@ -219,7 +219,7 @@ On macOS, encode each binary or key file without adding line wrapping:
 
 ```bash
 base64 -i Distribution.p12 | pbcopy
-base64 -i SamuelIcecream.mobileprovision | pbcopy
+base64 -i FrogCityFeast.mobileprovision | pbcopy
 base64 -i AuthKey_KEYID.p8 | pbcopy
 ```
 

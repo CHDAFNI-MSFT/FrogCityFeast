@@ -25,7 +25,7 @@ if [[ ! "$APP_STORE_CONNECT_ISSUER_ID" =~ ^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f
   exit 1
 fi
 
-archive_path="$repo_root/build/ios/SamuelIcecream.xcarchive"
+archive_path="$repo_root/build/ios/FrogCityFeast.xcarchive"
 export_path="$RUNNER_TEMP/ios-upload"
 api_key_dir="$RUNNER_TEMP/app-store-connect"
 

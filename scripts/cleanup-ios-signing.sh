@@ -3,7 +3,7 @@ set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runner_temp="${RUNNER_TEMP:-}"
-installed_profile_name="SamuelIcecream-CI.mobileprovision"
+installed_profile_name="FrogCityFeast-CI.mobileprovision"
 cleanup_failed=0
 
 remove_file() {
@@ -29,7 +29,7 @@ remove_tree() {
 }
 
 if [[ -n "$runner_temp" ]]; then
-  keychain_path="$runner_temp/samuelicecream-signing.keychain-db"
+  keychain_path="$runner_temp/frogcityfeast-signing.keychain-db"
   if [[ -e "$keychain_path" || -L "$keychain_path" ]]; then
     if ! security delete-keychain "$keychain_path" 2>/dev/null; then
       echo "Failed to delete the temporary signing keychain." >&2
@@ -42,10 +42,10 @@ if [[ -n "$runner_temp" ]]; then
   fi
 
   for path in \
-    "$runner_temp/samuelicecream-distribution.p12" \
-    "$runner_temp/samuelicecream-distribution.pem" \
-    "$runner_temp/samuelicecream-app-store.mobileprovision" \
-    "$runner_temp/samuelicecream-profile.plist" \
+    "$runner_temp/frogcityfeast-distribution.p12" \
+    "$runner_temp/frogcityfeast-distribution.pem" \
+    "$runner_temp/frogcityfeast-app-store.mobileprovision" \
+    "$runner_temp/frogcityfeast-profile.plist" \
     "$runner_temp/TestFlightExportOptions.plist" \
     "$runner_temp/AppStoreExportOptions.plist"; do
     remove_file "$path"

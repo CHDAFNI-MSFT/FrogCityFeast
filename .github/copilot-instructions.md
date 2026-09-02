@@ -1,4 +1,4 @@
-# SamuelIcecream repository instructions
+# FrogCityFeast repository instructions
 
 ## Technology
 

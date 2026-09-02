@@ -4,8 +4,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 godot_bin="${GODOT_BIN:-$repo_root/.tools/bin/godot}"
 build_root="$repo_root/build/ios"
-export_target="$build_root/SamuelIcecream"
-xcode_project="$build_root/SamuelIcecream.xcodeproj"
+export_target="$build_root/FrogCityFeast"
+xcode_project="$build_root/FrogCityFeast.xcodeproj"
 logs_dir="$repo_root/build/logs"
 ios_display_name="Frog City Feast"
 

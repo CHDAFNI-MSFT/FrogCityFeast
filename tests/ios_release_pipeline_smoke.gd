@@ -167,15 +167,15 @@ func _run() -> void:
 			+ "assets in the Apple portal."
 	)
 	_check(
-		cleanup_script.contains("samuelicecream-signing.keychain-db")
+		cleanup_script.contains("frogcityfeast-signing.keychain-db")
 			and cleanup_script.contains(
-				"samuelicecream-distribution.p12"
+				"frogcityfeast-distribution.p12"
 			)
 			and cleanup_script.contains(
-				"samuelicecream-distribution.pem"
+				"frogcityfeast-distribution.pem"
 			)
 			and cleanup_script.contains(
-				"samuelicecream-app-store.mobileprovision"
+				"frogcityfeast-app-store.mobileprovision"
 			)
 			and cleanup_script.contains("app-store-connect")
 			and cleanup_script.contains("ios-upload")

@@ -10,9 +10,9 @@ This is the official public support page for Frog City Feast.
 
 | Contact field | Required value |
 |---|---|
-| Support contact | [Public support issue form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=game-support.yml) |
-| Support URL | [Frog City Feast Support](https://chdafni-msft.github.io/SamuelIcecream/support/) |
-| Privacy policy URL | [Frog City Feast Privacy Policy](https://chdafni-msft.github.io/SamuelIcecream/privacy/) |
+| Support contact | [Public support issue form](https://github.com/CHDAFNI-MSFT/FrogCityFeast/issues/new?template=game-support.yml) |
+| Support URL | [Frog City Feast Support](https://chdafni-msft.github.io/FrogCityFeast/support/) |
+| Privacy policy URL | [Frog City Feast Privacy Policy](https://chdafni-msft.github.io/FrogCityFeast/privacy/) |
 | EU DSA status | Non-trader |
 
 Frog City Feast is an offline, single-player iPad game. It has no account,
@@ -69,7 +69,7 @@ no server account or cloud profile to remove.
 ## Contact support
 
 Open the
-[public support issue form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=game-support.yml)
+[public support issue form](https://github.com/CHDAFNI-MSFT/FrogCityFeast/issues/new?template=game-support.yml)
 with:
 
 - Frog City Feast version and build number;

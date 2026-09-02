@@ -102,7 +102,7 @@ func _run() -> void:
 	_check(
 		workflow.contains('APPLE_TEAM_ID: "0000000000"')
 			and workflow.contains(
-				"IOS_BUNDLE_ID: com.example.samuelicecream"
+				"IOS_BUNDLE_ID: com.example.frogcityfeast"
 			),
 		"The unsigned workflow uses only synthetic Apple identity values."
 	)
@@ -165,7 +165,7 @@ func _run() -> void:
 	)
 	rendered_template = rendered_template.replace(
 		"@IOS_BUNDLE_ID@",
-		"com.example.samuelicecream"
+		"com.example.frogcityfeast"
 	)
 	rendered_template = rendered_template.replace(
 		"@IOS_SHORT_VERSION@",

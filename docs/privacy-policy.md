@@ -8,7 +8,7 @@ permalink: /privacy/
 
 **Effective date:** September 1, 2026
 
-**Privacy contact:** [Public privacy question form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=privacy-question.yml)
+**Privacy contact:** [Public privacy question form](https://github.com/CHDAFNI-MSFT/FrogCityFeast/issues/new?template=privacy-question.yml)
 
 This is the published privacy policy for Frog City Feast.
 
@@ -77,7 +77,7 @@ date above will identify the current version.
 
 For privacy questions, contact:
 
-[Public privacy question form](https://github.com/CHDAFNI-MSFT/SamuelIcecream/issues/new?template=privacy-question.yml)
+[Public privacy question form](https://github.com/CHDAFNI-MSFT/FrogCityFeast/issues/new?template=privacy-question.yml)
 
 The form is public. Submit only general questions and do not include personal
 or sensitive information.
