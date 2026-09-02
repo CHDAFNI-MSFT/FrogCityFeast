@@ -141,7 +141,7 @@ Current prerequisite status:
 | App Store Connect app record | Created for **Frog City Feast** with primary locale `en-US`, bundle ID `com.chdafni.frogcityfeast`, and SKU `FROGCITYFEAST-IOS-001`. |
 | Apple Distribution certificate | Created and valid through August 30, 2027. Its private key and randomly generated `.p12` password exist only in the protected GitHub environment secret set. |
 | App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
-| App Store Connect API key | An App Manager-role team key is configured in the protected `testflight` environment. Run `33648261223` used it to apply the Games categories and app-information localization before version creation failed. Run `33653860478` then reused and renamed Apple's initial editable version to `0.1.0` before a first-release `whatsNew` state error stopped version-localization and age-rating updates. The previous Developer key lacked metadata write permission; the previous Admin key was confirmed revoked and its local file was deleted. |
+| App Store Connect API key | An App Manager-role team key is configured in the protected `testflight` environment. After two partial runs exposed Apple's initial-version and first-release `whatsNew` constraints, run `33661855538` successfully applied the reviewed app-information localization, Games categories, editable version `0.1.0`, version localization, copyright, manual-release mode, and age-rating declaration. The previous Developer key lacked metadata write permission; the previous Admin key was confirmed revoked and its local file was deleted. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
 | Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing data now covers the live support/privacy URLs, rating, category, review notes, marketing copy, pricing choice, storefront choice, and DSA choice. App Review contact remains pending through a protected process. |
 
@@ -166,9 +166,11 @@ broadening it to Admin. Runs
 [33648261223](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33648261223)
 and
 [33653860478](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33653860478)
-partially applied the categories, app-information localization, and editable
-`0.1.0` version. Version-localization and age-rating writes still require a
-successful protected rerun after the first-release `whatsNew` payload fix.
+exposed and partially applied the initial-version path. Run
+[33661855538](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33661855538)
+then completed the metadata sync, including version localization and the age
+rating. Pricing, storefronts, App Privacy, content rights, DSA status,
+screenshots, and App Review contact still require direct confirmation.
 
 The provisioning profile must use the same Team ID and exact bundle identifier
 configured in GitHub. The workflow rejects development, Ad Hoc, enterprise,

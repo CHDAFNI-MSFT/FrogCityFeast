@@ -166,15 +166,11 @@ The Frog City Feast runs directly confirmed that the protected API workflow
 can manage:
 
 - app name, subtitle, and privacy-policy URL localization;
+- description, keywords, promotional text, support URL, and marketing URL in
+  the version localization;
 - Games category and subcategories;
 - copyright and manual-release mode; and
-- the editable App Store version string.
-
-The workflow also implements these operations, but they remain unconfirmed
-until a complete protected run succeeds:
-
-- description, keywords, promotional text, support URL, and marketing URL in
-  the version localization; and
+- the editable App Store version string; and
 - age-rating declaration answers.
 
 For the first App Store version, validate that the committed `whats_new` value
@@ -356,6 +352,8 @@ These runs document the concrete failures behind this runbook:
   version already existed.
 - `33653860478`: the corrected version logic reused and updated the initial
   version, then Apple rejected `whatsNew: null` for the first release.
+- `33661855538`: the hardened preflight and first-release payload completed
+  successfully, including version localization and age-rating answers.
 - `33576432175`: candidate upload succeeded, but later changes superseded its
   source commit before submission.
 

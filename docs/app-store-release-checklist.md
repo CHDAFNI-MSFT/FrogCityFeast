@@ -72,22 +72,24 @@ of signing secrets.
 
 ## App Store Connect listing
 
-- [ ] Run the protected `App Store metadata sync` workflow for the exact
+- [x] Run the protected `App Store metadata sync` workflow for the exact
   reviewed commit and confirm the API-supported product-page, category,
-  manual-release, copyright, and age-rating values.
+  manual-release, copyright, and age-rating values. Run
+  [33661855538](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33661855538)
+  completed successfully from commit `6202d2833a69a60cfe15d19cf000bc5b30b18d6c`.
 - [x] Replace the protected Developer-role App Store Connect API key with an
   App Manager-equivalent key before retrying metadata synchronization. Run
   [33616496541](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33616496541)
   completed authenticated read-only preflight but Apple denied the first
   category write with `403 FORBIDDEN_ERROR`; no metadata was changed.
-- [ ] Complete a protected metadata rerun after the first-release `whatsNew`
+- [x] Complete a protected metadata rerun after the first-release `whatsNew`
   payload fix. Runs
   [33648261223](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33648261223)
   and
   [33653860478](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33653860478)
   applied the Games categories, app-information localization, and editable
-  version `0.1.0`. Version-localization and age-rating updates remain
-  unconfirmed.
+  version `0.1.0`; run `33661855538` then completed version-localization and
+  age-rating updates.
 - [ ] Copy the validated `en-US` fields from
   `tools/app-store-metadata.json`.
 - [ ] Set Games > Casual with Adventure as the secondary Games subcategory.
