@@ -199,6 +199,153 @@ assert.equal(
   }, "2026-09-02").complete,
   true,
 );
+assert.equal(
+  summarizePriceSchedule({
+    type: "appPriceSchedules",
+    id: "price-id",
+    relationships: {
+      baseTerritory: {
+        data: { type: "territories", id: "USA" },
+      },
+    },
+  }, {
+    data: [{
+      type: "appPrices",
+      id: "active-price-id",
+      attributes: {
+        manual: true,
+        startDate: "2026-01-01",
+        endDate: null,
+      },
+      relationships: {
+        appPricePoint: {
+          data: { type: "appPricePoints", id: "free-point-id" },
+        },
+      },
+    }],
+    included: [{
+      type: "appPricePoints",
+      id: "free-point-id",
+      attributes: { customerPrice: "0.00" },
+      relationships: {
+        territory: {
+          data: { type: "territories", id: "USA" },
+        },
+      },
+    }],
+  }, "2026-09-02").complete,
+  true,
+);
+const nonBaseFallbackPrice = summarizePriceSchedule({
+  type: "appPriceSchedules",
+  id: "price-id",
+  relationships: {
+    baseTerritory: {
+      data: { type: "territories", id: "USA" },
+    },
+  },
+}, {
+  data: [{
+    type: "appPrices",
+    id: "active-price-id",
+    attributes: {
+      manual: true,
+      startDate: "2026-01-01",
+      endDate: null,
+    },
+    relationships: {
+      appPricePoint: {
+        data: { type: "appPricePoints", id: "free-point-id" },
+      },
+    },
+  }],
+  included: [{
+    type: "appPricePoints",
+    id: "free-point-id",
+    attributes: { customerPrice: "0.00" },
+    relationships: {
+      territory: {
+        data: { type: "territories", id: "CAN" },
+      },
+    },
+  }],
+}, "2026-09-02");
+assert.equal(nonBaseFallbackPrice.activeManualPriceCount, 1);
+assert.equal(nonBaseFallbackPrice.activeBasePricePresent, false);
+assert.equal(nonBaseFallbackPrice.activeBasePriceFree, false);
+assert.equal(nonBaseFallbackPrice.complete, false);
+assert.throws(
+  () => summarizePriceSchedule({
+    type: "appPriceSchedules",
+    id: "price-id",
+    relationships: {
+      baseTerritory: {
+        data: { type: "territories", id: "USA" },
+      },
+    },
+  }, {
+    data: [{
+      type: "appPrices",
+      id: "active-price-id",
+      attributes: {
+        manual: true,
+        startDate: "2026-01-01",
+        endDate: null,
+      },
+      relationships: {
+        appPricePoint: {
+          data: { type: "appPricePoints", id: "free-point-id" },
+        },
+      },
+    }],
+    included: [{
+      type: "appPricePoints",
+      id: "free-point-id",
+      attributes: { customerPrice: "0.00" },
+    }],
+  }, "2026-09-02"),
+  /active app price territory is invalid/,
+);
+assert.throws(
+  () => summarizePriceSchedule({
+    type: "appPriceSchedules",
+    id: "price-id",
+    relationships: {
+      baseTerritory: {
+        data: { type: "territories", id: "USA" },
+      },
+    },
+  }, {
+    data: [{
+      type: "appPrices",
+      id: "active-price-id",
+      attributes: {
+        manual: true,
+        startDate: "2026-01-01",
+        endDate: null,
+      },
+      relationships: {
+        territory: {
+          data: { type: "storefronts", id: "USA" },
+        },
+        appPricePoint: {
+          data: { type: "appPricePoints", id: "free-point-id" },
+        },
+      },
+    }],
+    included: [{
+      type: "appPricePoints",
+      id: "free-point-id",
+      attributes: { customerPrice: "0.00" },
+      relationships: {
+        territory: {
+          data: { type: "territories", id: "USA" },
+        },
+      },
+    }],
+  }, "2026-09-02"),
+  /active app price territory is invalid/,
+);
 assert.equal(summarizePriceSchedule(null).complete, false);
 assert.equal(
   summarizePriceSchedule({

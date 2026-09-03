@@ -299,13 +299,7 @@ export function summarizePriceSchedule(
     pricePayload.data,
     currentDate,
   );
-  const activeBasePrices = activeManualPrices.filter(
-    (price) => (
-      price.relationships.territory.data.id === baseTerritory.id
-    ),
-  );
-  const activeBasePricePresent = activeBasePrices.length === 1;
-  const customerPrice = (price) => {
+  const matchingPricePoint = (price) => {
     const pricePoint = price.relationships?.appPricePoint?.data;
     if (
       pricePoint?.type !== "appPricePoints" ||
@@ -324,14 +318,45 @@ export function summarizePriceSchedule(
       matchingPoints.map((entry) => entry.attributes?.customerPrice),
     );
     if (
-      matchingPoints.length < 1 ||
+      matchingPoints.length !== 1 ||
       matchingPrices.size !== 1 ||
       typeof matchingPoints[0].attributes?.customerPrice !== "string"
     ) {
       fail("The active app price point is invalid.");
     }
+    return matchingPoints[0];
+  };
+  const territoryId = (price) => {
+    const directTerritory = price.relationships?.territory?.data;
+    if (directTerritory !== undefined && directTerritory !== null) {
+      if (
+        directTerritory?.type !== "territories" ||
+        typeof directTerritory.id !== "string" ||
+        !directTerritory.id.trim()
+      ) {
+        fail("The active app price territory is invalid.");
+      }
+      return directTerritory.id;
+    }
+    const pricePointTerritory = matchingPricePoint(price)
+      .relationships?.territory?.data;
+    if (
+      pricePointTerritory?.type !== "territories" ||
+      typeof pricePointTerritory.id !== "string" ||
+      !pricePointTerritory.id.trim()
+    ) {
+      fail("The active app price territory is invalid.");
+    }
+    return pricePointTerritory.id;
+  };
+  const activeBasePrices = activeManualPrices.filter(
+    (price) => territoryId(price) === baseTerritory.id,
+  );
+  const activeBasePricePresent = activeBasePrices.length === 1;
+  const customerPrice = (price) => {
+    const pricePoint = matchingPricePoint(price);
     const value = Number(
-      matchingPoints[0].attributes.customerPrice,
+      pricePoint.attributes.customerPrice,
     );
     if (!Number.isFinite(value)) {
       fail("The active app price point is not numeric.");
@@ -394,16 +419,8 @@ function selectActiveManualPrices(prices, currentDate) {
     if (!isActive) {
       return false;
     }
-    const territory = price.relationships?.territory?.data;
     if (attributes.manual !== true) {
       fail("An active app price is not marked manual.");
-    }
-    if (
-      territory?.type !== "territories" ||
-      typeof territory.id !== "string" ||
-      !territory.id.trim()
-    ) {
-      fail("An active app price lacks territory linkage.");
     }
     return true;
   });
@@ -636,7 +653,8 @@ export async function priceScheduleSummary(token, appId) {
       token,
       "GET",
       `/v3/appPricePoints/${pricePointId}?${query({
-        "fields[appPricePoints]": "customerPrice",
+        "fields[appPricePoints]": "customerPrice,territory",
+        include: "territory",
       })}`,
     );
     pricePoints.push(payload.data);
