@@ -52,13 +52,6 @@ jobs:
     env:
       IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
       IOS_BUILD_NUMBER: 33770597608.1
-      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
-      APP_REVIEW_CONTACT_FIRST_NAME: ${{ secrets.APP_REVIEW_CONTACT_FIRST_NAME }}
-      APP_REVIEW_CONTACT_LAST_NAME: ${{ secrets.APP_REVIEW_CONTACT_LAST_NAME }}
-      APP_REVIEW_CONTACT_EMAIL: ${{ secrets.APP_REVIEW_CONTACT_EMAIL }}
-      APP_REVIEW_CONTACT_PHONE: ${{ secrets.APP_REVIEW_CONTACT_PHONE }}
 
     steps:
       - name: Check out submission tooling
@@ -83,12 +76,20 @@ jobs:
         shell: powershell
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass `
-            -File .\candidate-source\scripts\generate-app-store-screenshots.ps1 `
+            -File .\scripts\generate-app-store-screenshots.ps1 `
+            -ProjectDirectory .\candidate-source `
             -OutputDirectory "$env:RUNNER_TEMP\app-store-screenshots"
 
       - name: Upload screenshots and prepare review
         shell: powershell
         env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+          APP_REVIEW_CONTACT_FIRST_NAME: ${{ secrets.APP_REVIEW_CONTACT_FIRST_NAME }}
+          APP_REVIEW_CONTACT_LAST_NAME: ${{ secrets.APP_REVIEW_CONTACT_LAST_NAME }}
+          APP_REVIEW_CONTACT_EMAIL: ${{ secrets.APP_REVIEW_CONTACT_EMAIL }}
+          APP_REVIEW_CONTACT_PHONE: ${{ secrets.APP_REVIEW_CONTACT_PHONE }}
           APP_STORE_SCREENSHOT_PACKAGE: ${{ runner.temp }}\app-store-screenshots\release-package.json
           APP_STORE_SCREENSHOT_DIRECTORY: ${{ runner.temp }}\app-store-screenshots\ipad-13-inch
         run: node scripts/prepare-app-store-submission.mjs

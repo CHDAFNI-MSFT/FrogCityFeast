@@ -10,6 +10,7 @@ const INSPECTION_WORKFLOW := (
 const INSPECTION_SCRIPT := "res://scripts/inspect-app-store-candidate.mjs"
 const PREP_WORKFLOW := "res://.github/workflows/app-store-submission-prep.yml"
 const PREP_SCRIPT := "res://scripts/prepare-app-store-submission.mjs"
+const SCREENSHOT_SCRIPT := "res://scripts/generate-app-store-screenshots.ps1"
 const REVIEW_JSON := "res://tools/app-store-review.json"
 const ARCHIVE_SCRIPT := "res://scripts/archive-and-upload-ios.sh"
 const CLEANUP_SCRIPT := "res://scripts/cleanup-ios-signing.sh"
@@ -38,6 +39,7 @@ func _run() -> void:
 	var inspection_script := _read(INSPECTION_SCRIPT)
 	var prep_workflow := _read(PREP_WORKFLOW)
 	var prep_script := _read(PREP_SCRIPT)
+	var screenshot_script := _read(SCREENSHOT_SCRIPT)
 	var review_json := _read(REVIEW_JSON)
 	var archive_script := _read(ARCHIVE_SCRIPT)
 	var cleanup_script := _read(CLEANUP_SCRIPT)
@@ -311,14 +313,33 @@ func _run() -> void:
 				"IOS_BUILD_NUMBER: 33770597608.1"
 			)
 			and prep_workflow.contains(
-				"generate-app-store-screenshots.ps1"
+				"-File .\\scripts\\generate-app-store-screenshots.ps1"
 			)
+			and prep_workflow.contains(
+				"-ProjectDirectory .\\candidate-source"
+			)
+			and prep_workflow.count("APP_STORE_CONNECT_KEY_ID:") == 1
+			and prep_workflow.find("APP_STORE_CONNECT_KEY_ID:")
+				> prep_workflow.find(
+					"- name: Upload screenshots and prepare review"
+				)
 			and prep_workflow.contains(
 				"Remove generated submission files"
 			)
 			and not prep_workflow.contains("actions/upload-artifact"),
 		"Submission preparation is exact-source, double-gated, and retains "
 			+ "no screenshot artifact."
+	)
+	_check(
+		screenshot_script.find("--import") >= 0
+			and screenshot_script.find(
+				"--script res://tools/app_store_screenshot_harness.gd"
+			) >= 0
+			and screenshot_script.find("--import")
+				< screenshot_script.find(
+					"--script res://tools/app_store_screenshot_harness.gd"
+				),
+		"Fresh checkouts import Godot resources before screenshot generation."
 	)
 	for secret_name in [
 		"APP_REVIEW_CONTACT_FIRST_NAME",

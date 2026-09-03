@@ -1,11 +1,21 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+    [string]$ProjectDirectory
 )
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = if ($ProjectDirectory) {
+    $projectPath = if ([IO.Path]::IsPathRooted($ProjectDirectory)) {
+        $ProjectDirectory
+    } else {
+        Join-Path (Get-Location) $ProjectDirectory
+    }
+    [IO.Path]::GetFullPath($projectPath)
+} else {
+    Split-Path -Parent $PSScriptRoot
+}
 $manifestPath = Join-Path $repoRoot "tools\app-store-screenshot-manifest.json"
 $toolchainPath = Join-Path $repoRoot "tools\toolchain.json"
 $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
@@ -25,6 +35,8 @@ $godotIgnorePath = Join-Path $outputRoot ".gdignore"
 $logsDirectory = Join-Path $repoRoot "build\logs"
 $stdoutPath = Join-Path $logsDirectory "app-store-screenshots.stdout.log"
 $stderrPath = Join-Path $logsDirectory "app-store-screenshots.stderr.log"
+$importStdoutPath = Join-Path $logsDirectory "app-store-screenshots-import.stdout.log"
+$importStderrPath = Join-Path $logsDirectory "app-store-screenshots-import.stderr.log"
 
 function Find-GodotConsoleExecutable {
     $command = Get-Command "godot-console" -ErrorAction SilentlyContinue
@@ -114,6 +126,31 @@ New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 New-Item -ItemType Directory -Force -Path $logsDirectory | Out-Null
 Write-Utf8NoBom -Path $godotIgnorePath -Content ""
 
+$importArguments = '--headless --path "{0}" --import' -f (
+    $repoRoot.Replace('"', '\"')
+)
+$importProcess = Start-Process `
+    -FilePath $godotConsole `
+    -ArgumentList $importArguments `
+    -WorkingDirectory $repoRoot `
+    -Wait `
+    -PassThru `
+    -NoNewWindow `
+    -RedirectStandardOutput $importStdoutPath `
+    -RedirectStandardError $importStderrPath
+$importOutput = @(
+    Get-Content -LiteralPath $importStdoutPath -ErrorAction SilentlyContinue
+    Get-Content -LiteralPath $importStderrPath -ErrorAction SilentlyContinue
+)
+$importOutput | ForEach-Object { Write-Host $_ }
+if ($importProcess.ExitCode -ne 0) {
+    throw "Godot import exited with code $($importProcess.ExitCode)."
+}
+$errorPattern = "SCRIPT ERROR:|Parse Error:|Failed to load script|ERROR:"
+if ($importOutput -match $errorPattern) {
+    throw "Godot reported errors during App Store screenshot import."
+}
+
 $godotArguments = (
     '--path "{0}" --resolution 2752x2064 ' +
     '--script res://tools/app_store_screenshot_harness.gd -- ' +
@@ -139,7 +176,6 @@ $output | ForEach-Object { Write-Host $_ }
 if ($process.ExitCode -ne 0) {
     throw "Godot screenshot generation exited with code $($process.ExitCode)."
 }
-$errorPattern = "SCRIPT ERROR:|Parse Error:|Failed to load script|ERROR:"
 if ($output -match $errorPattern) {
     throw "Godot reported errors during App Store screenshot generation."
 }
