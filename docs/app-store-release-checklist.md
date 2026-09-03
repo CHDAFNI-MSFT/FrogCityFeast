@@ -82,6 +82,11 @@ of signing secrets.
 - [x] Run the protected Ad Hoc validation workflow without retaining a signed
   IPA. Run `33703681354`, build `33703681354.1`, completed signing, export,
   embedded-profile validation, and verified cleanup.
+- [x] Run the separately authorized private OTA workflow. Run `33768105238`,
+  build `33768105238.1`, uploaded the private IPA and manifest, confirmed both
+  reject anonymous access, retained no GitHub artifact, and verified cleanup.
+- [ ] Install build `33768105238.1` on each of the three registered iPads by
+  scanning the private local QR and confirming the iOS installation prompt.
 - [ ] Physical A16 iPad acceptance: signed Release build sustains at least
   58 FPS over 30 seconds, targets 60 FPS, and meets the documented frame,
   process, physics, memory, draw, object, and primitive budgets.

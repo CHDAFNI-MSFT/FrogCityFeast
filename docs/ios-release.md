@@ -126,6 +126,12 @@ private Azure storage path documented in `ios-ad-hoc-testing.md`. Protected run
 [`33703681354`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33703681354)
 completed device/profile reconciliation, signing, `release-testing` export,
 embedded-profile validation, and verified cleanup for build `33703681354.1`.
+Protected run
+[`33768105238`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33768105238)
+then completed the separately authorized private OTA upload for build
+`33768105238.1`, confirmed anonymous access remained denied, retained no
+GitHub artifact, and verified cleanup. This private registered-device build
+does not submit, approve, or release the normal App Store version.
 
 ## Apple account prerequisites
 

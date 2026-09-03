@@ -54,6 +54,14 @@ validated build `33703681354.1`, reported IPA SHA-256
 `a44bed89626b6b4a6da6db8d3d2a984cde0583ecbc98d08fda2e22ee08cac50d`,
 then verified removal of the IPA and all temporary signing material.
 
+The first private installation build succeeded in workflow run
+[`33768105238`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33768105238)
+from commit `a3f4ab084e04fa8a1977c4d5cca555c65423e6b7`. The workflow validated
+build `33768105238.1`, reported IPA SHA-256
+`4ab80672e8cbf22d32754fd1fd4283e277c68224103dac36555e436bb25ede3e`,
+uploaded the private IPA and manifest, proved both reject anonymous access,
+retained no GitHub artifact, and verified runner cleanup.
+
 ## Protected inputs
 
 The historical `testflight` environment has these provisioning inputs
@@ -188,6 +196,23 @@ Installing without a Mac uses this private HTTPS route:
 
 Do not use public GitHub Pages or a workflow artifact for the IPA. Do not log
 or commit a signed installation URL.
+
+For each registered iPad:
+
+1. Display the locally generated private installation QR on the authorized
+   Windows computer. Treat the QR as a bearer credential and do not share,
+   copy, commit, or publish it.
+2. Scan the QR with the iPad Camera app and open the result. If prompted,
+   choose Safari.
+3. Tap **Install** in the iOS confirmation dialog and wait for the Frog City
+   Feast icon to finish installing.
+4. Launch the app and complete the physical acceptance checks below.
+
+The QR works only while the private blobs and `device-install` stored policy
+remain available. The Ad Hoc signature limits installation to the exact three
+registered devices even if the bearer URL is disclosed. Revoke access by
+changing or deleting the stored policy, deleting the blobs, or deleting the
+storage account or resource group.
 
 ## Physical acceptance after installation
 
