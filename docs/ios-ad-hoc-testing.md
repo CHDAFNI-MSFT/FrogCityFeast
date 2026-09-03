@@ -45,6 +45,14 @@ No signed IPA is retained, uploaded as a GitHub artifact, or published. The
 workflow is a provisioning and build validator until a separately approved
 private delivery path exists.
 
+The first complete protected validation succeeded in workflow run
+[`33703681354`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33703681354)
+from commit `bd2e1d9f9c98c9f27c5da7a25a3a73b57f98b40b`. Apple reconciled all
+three device records and the exact profile as existing resources. The workflow
+validated build `33703681354.1`, reported IPA SHA-256
+`a44bed89626b6b4a6da6db8d3d2a984cde0583ecbc98d08fda2e22ee08cac50d`,
+then verified removal of the IPA and all temporary signing material.
+
 ## Protected inputs
 
 The historical `testflight` environment has these provisioning inputs
@@ -94,7 +102,8 @@ No manual profile download or Ad Hoc profile secret is needed. The workflow:
 1. resolves exactly one iOS or Universal bundle ID matching the protected
    product identifier and never modifies it;
 2. compares the protected `.p12` certificate fingerprint and serial against
-   the active, sufficiently unexpired `DISTRIBUTION` API certificate;
+   the sufficiently unexpired `DISTRIBUTION` API certificate. Apple's
+   `activated` field is not used as a Distribution-certificate validity signal;
 3. derives a deterministic profile name from committed product identity,
    generation token, and hashes of the sorted device set, bundle, and
    certificate, without embedding a raw UDID;

@@ -20,8 +20,8 @@ of signing secrets.
   Windows generator, and opaque-image validation are versioned.
 - [x] TestFlight is documented as unavailable for the target under-13 Apple
   Account and is not the selected installation path.
-- [x] A separate Ad Hoc validation path is prepared for the registered A16
-  iPad. It publishes no signed artifact and creates no private hosting.
+- [x] A separate Ad Hoc validation path is prepared for the three registered
+  iPads. It publishes no signed artifact and creates no private hosting.
 - [x] Store the three supplied iPad identifiers as separate masked secrets in
   the protected signing environment without recording their values in Git.
 - [x] Configure the separate Admin Team API key for protected provisioning
@@ -71,11 +71,13 @@ of signing secrets.
 - [x] Complete Godot CI on that source commit: run `33662838762`.
 - [x] Manually run the unsigned iOS smoke build on that source commit: run
   `33664214769`.
-- [ ] Let the protected Ad Hoc workflow register only missing exact iPad
+- [x] Let the protected Ad Hoc workflow register only missing exact iPad
   records and create or reuse one matching profile containing exactly the
   three configured devices as documented in `docs/ios-ad-hoc-testing.md`.
-- [ ] Run the protected Ad Hoc validation workflow. It must retain no signed
-  IPA until a private delivery method is separately approved.
+  Run `33703681354` reused all three device records and the exact profile.
+- [x] Run the protected Ad Hoc validation workflow without retaining a signed
+  IPA. Run `33703681354`, build `33703681354.1`, completed signing, export,
+  embedded-profile validation, and verified cleanup.
 - [ ] Physical A16 iPad acceptance: signed Release build sustains at least
   58 FPS over 30 seconds, targets 60 FPS, and meets the documented frame,
   process, physics, memory, draw, object, and primitive budgets.

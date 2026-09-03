@@ -130,6 +130,7 @@ These files have different responsibilities:
 | `scripts/archive-and-export-ios-ad-hoc.sh` | Registered-device archive, release-testing export, and embedded-profile validation | Copy and rename archive path |
 | `scripts/cleanup-ios-signing.sh` | Always-run cleanup of decoded signing material | Copy and rename temporary files |
 | `scripts/provision-ios-ad-hoc.mjs` | Fail-closed Apple API device registration, certificate matching, exact Ad Hoc profile reconciliation, and constrained path handoff | Copy and replace product identity/generation token |
+| `scripts/convert-ios-profile-plist.py` | Plistlib conversion of profile dates and certificate data into validation-safe JSON | Copy |
 | `scripts/sync-app-store-metadata.mjs` | Fail-closed metadata preflight and idempotent listing updates | Copy and replace approved app identity and metadata values |
 | `tools/app-store-metadata.json` | Reviewed machine-readable App Store values and rating answers | Copy and replace every app-specific value |
 | `.github/workflows/godot-ci.yml` | Routine Linux CI | Copy |
@@ -141,6 +142,7 @@ These files have different responsibilities:
 | `tests/ios_ad_hoc_provisioning_test.mjs` | Synthetic device, bundle, certificate, profile-name, relationship, and Base64 regression coverage | Copy |
 | `tests/ios_ad_hoc_pipeline_smoke.gd` | Ad Hoc workflow, profile, IPA, cleanup, and no-publication checks | Copy |
 | `tests/ios_signing_device_set_test.py` | Exact Ad Hoc device-set validation, including duplicate and extra-device rejection | Copy |
+| `tests/ios_profile_plist_json_test.py` | Provisioning-profile date and certificate-data conversion regression coverage | Copy |
 | `.gitignore` | Excludes editor state, tools, builds, generated presets, and signing files | Copy or merge carefully |
 | `.github/copilot-instructions.md` | Durable repository rules for future agents | Copy and replace the product name |
 | `README.md` | Human entry point for setup and automation | Copy and rebrand, or reproduce all runbook links |
@@ -728,11 +730,12 @@ key configured. The owner requested that the Admin key remain retained for
 future protected provisioning. The Ad Hoc workflow creates or reuses the exact
 profile automatically, so no manual profile download is required. Those
 account resources and secrets do not transfer when this runbook is used for
-another repository. The successful unsigned smoke build validates Godot export
-and Xcode compilation only. Treat each new repository's first signed run as the
-integration test for certificate import, provisioning, archive export, exact
-device membership, API authentication, or App Store Connect processing as
-applicable.
+another repository. FrogCityFeast protected run `33703681354` completed the
+full Ad Hoc reconciliation, signing, export, validation, and cleanup path. The
+unsigned smoke build alone validates only Godot export and Xcode compilation.
+Treat each new repository's first signed run as the integration test for
+certificate import, provisioning, archive export, exact device membership, API
+authentication, or App Store Connect processing as applicable.
 
 ## 15. Items that cannot be copied from FrogCityFeast
 

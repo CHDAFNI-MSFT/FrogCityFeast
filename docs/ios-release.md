@@ -121,7 +121,10 @@ separate provisioning-only Admin key are configured. The protected workflow
 now registers missing devices and creates or reuses the exact matching profile
 through Apple's API; no manual profile download is needed. It intentionally
 retains no signed artifact and does not create private OTA hosting without
-separate approval.
+separate approval. Protected run
+[`33703681354`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33703681354)
+completed device/profile reconciliation, signing, `release-testing` export,
+embedded-profile validation, and verified cleanup for build `33703681354.1`.
 
 ## Apple account prerequisites
 
@@ -150,7 +153,8 @@ Current prerequisite status:
 | App Store Connect app record | Created for **Frog City Feast** with primary locale `en-US`, bundle ID `com.chdafni.frogcityfeast`, and SKU `FROGCITYFEAST-IOS-001`. |
 | Apple Distribution certificate | Created and valid through August 30, 2027. Its private key and randomly generated `.p12` password exist only in the protected GitHub environment secret set. |
 | App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
-| App Store Connect API keys | An App Manager-role team key remains configured for metadata and upload work. A separate Admin Team API key is configured only for protected device/profile provisioning and is retained for future provisioning per the repository owner's request. Both use the existing issuer; their Key IDs and private-key secrets remain distinct. No local `.p8` file is retained. |
+| App Store Connect API keys | An App Manager-role team key remains configured for metadata and upload work. A separate Admin Team API key is configured only for protected device/profile provisioning and is retained for future provisioning per the repository owner's request. Both use the existing issuer; their Key IDs and private-key secrets remain distinct. Neither private key is committed or retained on a GitHub runner. |
+| Ad Hoc registered-device path | Validated successfully in protected run `33703681354` for the exact three configured devices and matching profile. The signed IPA was validated, not uploaded or published, and removed during verified cleanup. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
 | Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing data now covers the live support/privacy URLs, rating, category, review notes, marketing copy, pricing choice, storefront choice, and DSA choice. App Review contact remains pending through a protected process. |
 
@@ -230,7 +234,8 @@ authenticated App Store Connect validation. The approved route leaves them
 there and keeps `app-store` free of signing secrets. The separate Admin Team
 key is retained only for future protected provisioning as requested by the
 owner. No local copy of the certificate private key, `.p12`, password, CSR,
-certificate, profile, or API private key is retained.
+certificate, profile, or API private key is retained by the repository or
+workflow runner.
 
 The signed job reads these existing `testflight` environment secrets:
 
