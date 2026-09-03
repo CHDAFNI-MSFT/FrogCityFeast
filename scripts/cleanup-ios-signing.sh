@@ -55,13 +55,19 @@ if [[ -n "$runner_temp" ]]; then
     "$runner_temp/AppStoreExportOptions.plist" \
     "$runner_temp/AdHocExportOptions.plist" \
     "$runner_temp/frogcityfeast-exported-profile.mobileprovision" \
-    "$runner_temp/frogcityfeast-exported-profile.plist"; do
+    "$runner_temp/frogcityfeast-exported-profile.plist" \
+    "$runner_temp/frogcityfeast-ota-manifest.plist" \
+    "$runner_temp/frogcityfeast-ota-ipa.headers" \
+    "$runner_temp/frogcityfeast-ota-manifest.headers" \
+    "$runner_temp/frogcityfeast-ota-anonymous.headers" \
+    "$runner_temp/frogcityfeast-ota-rollback.headers"; do
     remove_file "$path"
   done
 
   remove_tree "$runner_temp/app-store-connect"
   remove_tree "$runner_temp/ios-upload"
   remove_tree "$runner_temp/ios-ad-hoc-export"
+  remove_tree "$runner_temp/ios-ad-hoc-ipa-validation"
 fi
 
 remove_file \

@@ -10,6 +10,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${IOS_PROVISIONING_PROFILE_NAME:?IOS_PROVISIONING_PROFILE_NAME is required.}"
 : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required.}"
 : "${IOS_BUNDLE_ID:?IOS_BUNDLE_ID is required.}"
+: "${GITHUB_ENV:?GITHUB_ENV is required.}"
 
 ad_hoc_device_env_names=(
   IOS_AD_HOC_DEVICE_UDID_1
@@ -30,8 +31,9 @@ export_path="$RUNNER_TEMP/ios-ad-hoc-export"
 export_options_path="$RUNNER_TEMP/AdHocExportOptions.plist"
 exported_profile="$RUNNER_TEMP/frogcityfeast-exported-profile.mobileprovision"
 exported_profile_plist="$RUNNER_TEMP/frogcityfeast-exported-profile.plist"
+ipa_validation_path="$RUNNER_TEMP/ios-ad-hoc-ipa-validation"
 
-rm -rf -- "$archive_path" "$export_path"
+rm -rf -- "$archive_path" "$export_path" "$ipa_validation_path"
 rm -f -- "$export_options_path" "$exported_profile" "$exported_profile_plist"
 
 xcodebuild \
@@ -94,7 +96,28 @@ if (( app_path_count != 1 )); then
 fi
 codesign --verify --deep --strict "${app_paths[0]}"
 
-if ! unzip -p "$ipa_path" "Payload/*.app/embedded.mobileprovision" > "$exported_profile"; then
+mkdir -p "$ipa_validation_path"
+ditto -x -k "$ipa_path" "$ipa_validation_path"
+exported_app_paths=()
+exported_app_path_count=0
+while IFS= read -r -d '' candidate; do
+  exported_app_paths+=("$candidate")
+  exported_app_path_count=$((exported_app_path_count + 1))
+done < <(
+  find "$ipa_validation_path/Payload" \
+    -maxdepth 1 \
+    -type d \
+    -name "*.app" \
+    -print0
+)
+if (( exported_app_path_count != 1 )); then
+  echo "Expected exactly one exported app; found $exported_app_path_count." >&2
+  exit 1
+fi
+exported_app_path="${exported_app_paths[0]}"
+codesign --verify --deep --strict "$exported_app_path"
+
+if ! cp "$exported_app_path/embedded.mobileprovision" "$exported_profile"; then
   echo "The exported IPA does not contain a provisioning profile." >&2
   exit 1
 fi
@@ -151,4 +174,8 @@ PY
 
 ipa_sha256="$(shasum -a 256 "$ipa_path" | awk '{print $1}')"
 echo "Ad Hoc IPA validated with SHA-256 $ipa_sha256."
-echo "No signed package was uploaded or published."
+{
+  echo "IOS_AD_HOC_IPA_PATH=$ipa_path"
+  echo "IOS_AD_HOC_IPA_SHA256=$ipa_sha256"
+} >> "$GITHUB_ENV"
+echo "The validated IPA remains only for an optional protected delivery step."

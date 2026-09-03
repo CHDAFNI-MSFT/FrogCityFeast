@@ -41,9 +41,10 @@ configured there; their values are not recorded in the repository. The owner
 requested that this Admin key remain retained for future protected
 provisioning. It must not replace or rename the App Manager metadata key.
 
-No signed IPA is retained, uploaded as a GitHub artifact, or published. The
-workflow is a provisioning and build validator until a separately approved
-private delivery path exists.
+No signed IPA is uploaded as a GitHub artifact or published anonymously. By
+default the workflow remains a provisioning and build validator. Private OTA
+upload is a separate opt-in mode that requires the exact
+`UPLOAD_PRIVATE_OTA` confirmation and the same two protected approvals.
 
 The first complete protected validation succeeded in workflow run
 [`33703681354`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33703681354)
@@ -130,33 +131,58 @@ After the protected inputs are confirmed:
 
 1. Run `iOS Ad Hoc registered-device validation` from `main`.
 2. Enter version `0.1.0` and enable `confirm_build`.
-3. Approve the `ad-hoc` authorization job.
-4. Separately approve the protected `testflight` credential job.
-5. Confirm signing, archive, `release-testing` export, embedded-profile
-   validation, and cleanup all succeed.
+3. For validation only, leave `publish_private_ota` disabled and
+   `confirm_private_ota` empty.
+4. For an explicitly authorized private installation build, enable
+   `publish_private_ota` and enter `UPLOAD_PRIVATE_OTA`.
+5. Approve the `ad-hoc` authorization job.
+6. Separately approve the protected `testflight` credential job.
+7. Confirm signing, archive, exported-IPA signature and profile validation,
+   optional private upload, and runner cleanup all succeed.
 
-The workflow intentionally produces no downloadable artifact. A successful run
-proves that Apple signing and the registered-device profile work, but it does
-not install the app.
+The validation-only mode intentionally produces no downloadable artifact. A
+successful validation-only run proves that Apple signing and the
+registered-device profile work, but it does not install the app.
 
-## Private delivery remains blocked
+## Protected private OTA delivery
 
-Installing without a Mac requires a private HTTPS OTA route containing:
+The owner approved a private Azure Blob Storage delivery path retained until
+manual deletion:
+
+- subscription `ME-MngEnvMCAP328671-chdafni-2`;
+- resource group `rg-mobile-ota-delivery`;
+- storage account `stmobileota2041340e8c`;
+- private container `ios-delivery`; and
+- resource-only governance exclusion `SecurityControl=Ignore` on the storage
+  account. The resource group has no exclusion tag.
+
+The resource exclusion permits Shared Key authorization and public network
+reachability for this storage account only. Anonymous access remains disabled;
+HTTPS and TLS 1.2 remain required, and the container has no public access
+level. Two revocable stored access policies are configured:
+
+- `workflow-upload` permits the protected workflow to create, validate, and
+  roll back its own blobs; and
+- `device-install` is read-only for the IPA and manifest installation URLs.
+
+Their SAS values are protected `testflight` environment secrets. The account
+and container names are protected environment variables. The workflow masks
+both SAS values, never prints or commits an installation URL, verifies the
+exported IPA signature and exact embedded device profile before upload, uses
+collision-safe blob names, verifies content MD5 and run-owned metadata, checks
+that anonymous access is denied, and rolls back incomplete uploads. The IPA
+and manifest remain private until their blobs, access policy, storage account,
+or resource group is deleted.
+
+Installing without a Mac uses this private HTTPS route:
 
 - the signed Ad Hoc IPA;
-- an HTTPS manifest referencing that IPA;
+- an HTTPS Apple manifest referencing that IPA;
 - an `itms-services` installation link; and
-- access controls that prevent unrestricted signed-artifact distribution.
+- the read-only `device-install` policy.
 
-Do not use public GitHub Pages or a public workflow artifact for the IPA. Do
-not log or commit a signed URL. Creating paid storage, a private delivery
-service, or other cloud infrastructure requires explicit approval before any
-resource is provisioned.
-
-Once private delivery is approved, extend the protected workflow so the
-plaintext IPA exists only on the ephemeral runner and approved private host,
-the installation URL is short-lived and protected, and cleanup still runs on
-every outcome.
+Do not use public GitHub Pages or a workflow artifact for the IPA. Do not log
+or commit a signed installation URL.
 
 ## Physical acceptance after installation
 

@@ -5,6 +5,8 @@ const PROVISIONING_SCRIPT := "res://scripts/provision-ios-ad-hoc.mjs"
 const SIGNING_SCRIPT := "res://scripts/prepare-ios-signing.sh"
 const SIGNING_VALIDATOR := "res://scripts/validate-ios-signing-material.py"
 const ARCHIVE_SCRIPT := "res://scripts/archive-and-export-ios-ad-hoc.sh"
+const OTA_UPLOAD_SCRIPT := "res://scripts/upload-ios-ad-hoc-ota.sh"
+const OTA_MANIFEST_SCRIPT := "res://scripts/create-ios-ota-manifest.py"
 const EXPORT_OPTIONS_SCRIPT := "res://scripts/create-export-options.py"
 const CLEANUP_SCRIPT := "res://scripts/cleanup-ios-signing.sh"
 const CHECK_SCRIPT := "res://scripts/check-project.sh"
@@ -23,6 +25,8 @@ func _run() -> void:
 	var signing_script := _read(SIGNING_SCRIPT)
 	var signing_validator := _read(SIGNING_VALIDATOR)
 	var archive_script := _read(ARCHIVE_SCRIPT)
+	var ota_upload_script := _read(OTA_UPLOAD_SCRIPT)
+	var ota_manifest_script := _read(OTA_MANIFEST_SCRIPT)
 	var export_options := _read(EXPORT_OPTIONS_SCRIPT)
 	var cleanup_script := _read(CLEANUP_SCRIPT)
 	var check_script := _read(CHECK_SCRIPT)
@@ -36,6 +40,9 @@ func _run() -> void:
 	)
 	_check(
 		workflow.contains("confirm_build:")
+			and workflow.contains("publish_private_ota:")
+			and workflow.contains("confirm_private_ota:")
+			and workflow.contains("UPLOAD_PRIVATE_OTA")
 			and workflow.count("inputs.version == '0.1.0'") == 2
 			and workflow.contains("github.ref == 'refs/heads/main'")
 			and workflow.contains(
@@ -56,7 +63,7 @@ func _run() -> void:
 			and not workflow.contains("APP_STORE_CONNECT_PRIVATE_KEY_BASE64")
 			and not workflow.contains("actions/upload-artifact")
 			and not workflow.contains("upload-artifact"),
-		"The Ad Hoc workflow cannot publish a package or access upload keys."
+		"The Ad Hoc workflow cannot publish a GitHub artifact or access App Store upload keys."
 	)
 	for secret_name in [
 		"APPLE_CERTIFICATE_BASE64",
@@ -67,6 +74,8 @@ func _run() -> void:
 		"IOS_AD_HOC_DEVICE_UDID_1",
 		"IOS_AD_HOC_DEVICE_UDID_2",
 		"IOS_AD_HOC_DEVICE_UDID_3",
+		"AZURE_OTA_UPLOAD_SAS",
+		"AZURE_OTA_INSTALL_SAS",
 	]:
 		_check(
 			workflow.contains("${{ secrets.%s }}" % secret_name),
@@ -99,8 +108,15 @@ func _run() -> void:
 			and workflow.contains(
 				"- name: Remove temporary signing material\n"
 					+ "        if: always()"
-			),
-		"The Ad Hoc job selects device signing, validates the IPA, and cleans up."
+			)
+			and workflow.contains(
+				"bash scripts/upload-ios-ad-hoc-ota.sh"
+			)
+			and workflow.find("Archive and validate Ad Hoc package")
+				< workflow.find("Upload protected private OTA package")
+			and workflow.find("Upload protected private OTA package")
+				< workflow.find("Remove temporary signing material"),
+		"The Ad Hoc job validates before optional private upload and always cleans up."
 	)
 	_check(
 		provisioning_script.contains(
@@ -226,7 +242,13 @@ func _run() -> void:
 	_check(
 		archive_script.contains("codesign --verify --deep --strict")
 			and not archive_script.contains("mapfile")
-			and archive_script.count("-print0") == 2
+			and archive_script.count("-print0") == 3
+			and archive_script.contains(
+				"ios-ad-hoc-ipa-validation"
+			)
+			and archive_script.contains(
+				'codesign --verify --deep --strict "$exported_app_path"'
+			)
 			and archive_script.contains(
 				"embedded.mobileprovision"
 			)
@@ -240,11 +262,53 @@ func _run() -> void:
 				'"$IOS_AD_HOC_DEVICE_UDID_'
 			)
 			and archive_script.contains(
-				"No signed package was uploaded or published."
+				"IOS_AD_HOC_IPA_PATH="
 			)
 			and not archive_script.contains("-authenticationKeyPath")
 			and not archive_script.contains("upload-artifact"),
-		"The exported IPA is verified for the registered device and never uploaded."
+		"The exported IPA is verified and handed only to the protected delivery step."
+	)
+	_check(
+		ota_upload_script.contains("::add-mask::")
+			and ota_upload_script.contains("si=workflow-upload")
+			and ota_upload_script.contains("si=device-install")
+			and ota_upload_script.contains("spr=https")
+			and ota_upload_script.contains("If-None-Match: *")
+			and ota_upload_script.contains("Content-MD5:")
+			and ota_upload_script.contains("blob.core.windows.net")
+			and ota_upload_script.contains(
+				"rollback_incomplete_upload"
+			)
+			and ota_upload_script.contains(
+				"x-ms-meta-frogcityfeast-build"
+			)
+			and ota_upload_script.contains(
+				"require_blob_absent"
+			)
+			and ota_upload_script.contains(
+				"verify_anonymous_access_denied"
+			)
+			and ota_upload_script.contains(
+				"A private OTA blob is accessible without authorization."
+			)
+			and ota_upload_script.contains(
+				"PublicAccessNotPermitted"
+			)
+			and ota_upload_script.contains(
+				"Incomplete private OTA blobs were removed."
+			)
+			and ota_upload_script.contains(
+				"create-ios-ota-manifest.py"
+			)
+			and ota_upload_script.contains(
+				"The signed installation URL was not printed or committed."
+			)
+			and not ota_upload_script.contains("set -x")
+			and not ota_upload_script.contains("upload-artifact")
+			and ota_manifest_script.contains("device-install")
+			and ota_manifest_script.contains("software-package")
+			and ota_manifest_script.contains("plistlib.FMT_XML"),
+		"Private OTA upload is policy-bound, integrity-checked, and does not expose its URL."
 	)
 	_check(
 		cleanup_script.contains("AdHocExportOptions.plist")
@@ -266,14 +330,23 @@ func _run() -> void:
 			)
 			and cleanup_script.contains(
 				"frogcityfeast-signing-identity.pem"
+			)
+			and cleanup_script.contains(
+				"frogcityfeast-ota-manifest.plist"
+			)
+			and cleanup_script.contains(
+				"ios-ad-hoc-ipa-validation"
 			),
 		"Cleanup removes every temporary Ad Hoc API and export path."
 	)
 	_check(
 		check_script.contains(
 			'node "$repo_root/tests/ios_ad_hoc_provisioning_test.mjs"'
+		)
+			and check_script.contains(
+				'python3 "$repo_root/tests/ios_ota_manifest_test.py"'
 		),
-		"The normal project check runs the Node provisioning regression tests."
+		"The normal project check runs provisioning and OTA regression tests."
 	)
 	_check(
 		guide.contains("UDID")
@@ -283,10 +356,13 @@ func _run() -> void:
 			and guide.contains("APPLE_PROVISIONING_KEY_ID")
 			and guide.contains("automatically")
 			and not guide.contains("APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64")
-			and guide.contains("No signed IPA is retained")
-			and guide.contains("explicit approval")
+			and guide.contains("publish_private_ota")
+			and guide.contains("UPLOAD_PRIVATE_OTA")
+			and guide.contains("SecurityControl=Ignore")
+			and guide.contains("resource group has no exclusion tag")
+			and guide.contains("Anonymous access remains disabled")
 			and guide.contains("private HTTPS"),
-		"The Ad Hoc guide records the blocked inputs and delivery boundary."
+		"The Ad Hoc guide records the protected inputs and private delivery boundary."
 	)
 
 	_finish()

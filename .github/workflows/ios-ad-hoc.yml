@@ -12,6 +12,16 @@ on:
         required: true
         type: boolean
         default: false
+      publish_private_ota:
+        description: Upload the validated IPA to protected private OTA storage
+        required: true
+        type: boolean
+        default: false
+      confirm_private_ota:
+        description: Enter UPLOAD_PRIVATE_OTA when private upload is enabled
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -34,7 +44,15 @@ jobs:
 
     steps:
       - name: Record protected Ad Hoc approval
+        env:
+          PUBLISH_PRIVATE_OTA: ${{ inputs.publish_private_ota }}
+          PRIVATE_OTA_CONFIRMATION: ${{ inputs.confirm_private_ota }}
         run: |
+          if [[ "$PUBLISH_PRIVATE_OTA" == "true" &&
+                "$PRIVATE_OTA_CONFIRMATION" != "UPLOAD_PRIVATE_OTA" ]]; then
+            echo "Private OTA upload requires the exact confirmation value." >&2
+            exit 1
+          fi
           echo "Registered-device build approved for ${GITHUB_SHA}."
           echo "Signing credentials remain isolated in the testflight environment."
 
@@ -127,6 +145,15 @@ jobs:
           IOS_AD_HOC_DEVICE_UDID_2: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_2 }}
           IOS_AD_HOC_DEVICE_UDID_3: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_3 }}
         run: bash scripts/archive-and-export-ios-ad-hoc.sh
+
+      - name: Upload protected private OTA package
+        if: inputs.publish_private_ota
+        env:
+          AZURE_OTA_STORAGE_ACCOUNT: ${{ vars.AZURE_OTA_STORAGE_ACCOUNT }}
+          AZURE_OTA_CONTAINER: ${{ vars.AZURE_OTA_CONTAINER }}
+          AZURE_OTA_UPLOAD_SAS: ${{ secrets.AZURE_OTA_UPLOAD_SAS }}
+          AZURE_OTA_INSTALL_SAS: ${{ secrets.AZURE_OTA_INSTALL_SAS }}
+        run: bash scripts/upload-ios-ad-hoc-ota.sh
 
       - name: Remove temporary signing material
         if: always()

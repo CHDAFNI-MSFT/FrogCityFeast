@@ -119,9 +119,10 @@ The Ad Hoc path is documented in
 [`ios-ad-hoc-testing.md`](ios-ad-hoc-testing.md). Its three device secrets and
 separate provisioning-only Admin key are configured. The protected workflow
 now registers missing devices and creates or reuses the exact matching profile
-through Apple's API; no manual profile download is needed. It intentionally
-retains no signed artifact and does not create private OTA hosting without
-separate approval. Protected run
+through Apple's API; no manual profile download is needed. Its default mode
+retains no signed artifact. The separately confirmed private OTA mode uploads
+only after final IPA signature and embedded-profile validation, using the
+private Azure storage path documented in `ios-ad-hoc-testing.md`. Protected run
 [`33703681354`](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33703681354)
 completed device/profile reconciliation, signing, `release-testing` export,
 embedded-profile validation, and verified cleanup for build `33703681354.1`.
@@ -215,7 +216,10 @@ administrator bypass disabled, and stores no variables or secrets. Only after
 that approval does the job enter `testflight` for the certificate, three
 protected UDIDs, and provisioning-only Admin key. The Admin credentials are
 passed only to the automatic device/profile provisioning step and are not
-available to signing, archiving, upload, or metadata mutation steps.
+available to signing, archiving, OTA upload, or metadata mutation steps. The
+OTA step receives only its dedicated revocable Azure policies when the manual
+`publish_private_ota` input is enabled and `confirm_private_ota` exactly equals
+`UPLOAD_PRIVATE_OTA`.
 
 Add these environment variables:
 
@@ -223,10 +227,14 @@ Add these environment variables:
 |---|---|
 | `APPLE_TEAM_ID` | `CV7JQ487YU` |
 | `IOS_BUNDLE_ID` | `com.chdafni.frogcityfeast` |
+| `AZURE_OTA_STORAGE_ACCOUNT` | `stmobileota2041340e8c` |
+| `AZURE_OTA_CONTAINER` | `ios-delivery` |
 
-Configure both variables in `app-store` as reviewable identifiers. Keep the
-same values in `testflight`, where the signed job reads them. Never use
-repository-level variables or secrets for this workflow.
+Configure `APPLE_TEAM_ID` and `IOS_BUNDLE_ID` in `app-store` as reviewable
+identifiers and keep the same values in `testflight`. Configure the two
+`AZURE_OTA_*` variables only in `testflight`, where the opt-in private upload
+step reads them. Never use repository-level variables or secrets for these
+workflows.
 
 The normal App Store signing and App Manager values remain in the protected
 historical `testflight` environment and passed certificate, profile, and
@@ -256,6 +264,8 @@ replacing the App Store profile or App Manager credentials:
 | `IOS_AD_HOC_DEVICE_UDID_1` through `_3` | Three independently masked protected iPad UDIDs |
 | `APPLE_PROVISIONING_KEY_ID` | Key ID for the provisioning-only Admin Team API key |
 | `APPLE_PROVISIONING_PRIVATE_KEY_BASE64` | Base64-encoded private key for that provisioning-only Admin key |
+| `AZURE_OTA_UPLOAD_SAS` | Revocable HTTPS-only `workflow-upload` stored-policy SAS |
+| `AZURE_OTA_INSTALL_SAS` | Revocable HTTPS-only read-only `device-install` stored-policy SAS |
 
 The existing `APP_STORE_CONNECT_ISSUER_ID`, distribution certificate, and
 certificate password are reused by the provisioning step. The device and Admin

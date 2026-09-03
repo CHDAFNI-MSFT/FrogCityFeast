@@ -21,7 +21,11 @@ of signing secrets.
 - [x] TestFlight is documented as unavailable for the target under-13 Apple
   Account and is not the selected installation path.
 - [x] A separate Ad Hoc validation path is prepared for the three registered
-  iPads. It publishes no signed artifact and creates no private hosting.
+  iPads. Its default mode publishes no signed artifact.
+- [x] Create the separately authorized private Azure OTA path with a
+  resource-only governance exclusion, private container, revocable upload and
+  read policies, explicit workflow confirmation, anonymous-access rejection,
+  incomplete-upload rollback, and no GitHub artifact publication.
 - [x] Store the three supplied iPad identifiers as separate masked secrets in
   the protected signing environment without recording their values in Git.
 - [x] Configure the separate Admin Team API key for protected provisioning

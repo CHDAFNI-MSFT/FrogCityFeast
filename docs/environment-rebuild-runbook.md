@@ -128,6 +128,8 @@ These files have different responsibilities:
 | `scripts/create-export-options.py` | Xcode export options for manual signing | Copy |
 | `scripts/archive-and-upload-ios.sh` | Signed Xcode archive and direct App Store Connect upload | Copy and rename archive path |
 | `scripts/archive-and-export-ios-ad-hoc.sh` | Registered-device archive, release-testing export, and embedded-profile validation | Copy and rename archive path |
+| `scripts/upload-ios-ad-hoc-ota.sh` | Explicitly confirmed private Azure OTA upload, integrity checks, anonymous-access rejection, and rollback | Copy and replace the approved host identity |
+| `scripts/create-ios-ota-manifest.py` | Strict Apple OTA manifest generation without logging the signed package URL | Copy and replace product metadata |
 | `scripts/cleanup-ios-signing.sh` | Always-run cleanup of decoded signing material | Copy and rename temporary files |
 | `scripts/provision-ios-ad-hoc.mjs` | Fail-closed Apple API device registration, certificate matching, exact Ad Hoc profile reconciliation, and constrained path handoff | Copy and replace product identity/generation token |
 | `scripts/convert-ios-profile-plist.py` | Plistlib conversion of profile dates and certificate data into validation-safe JSON | Copy |
@@ -143,6 +145,7 @@ These files have different responsibilities:
 | `tests/ios_ad_hoc_pipeline_smoke.gd` | Ad Hoc workflow, profile, IPA, cleanup, and no-publication checks | Copy |
 | `tests/ios_signing_device_set_test.py` | Exact Ad Hoc device-set validation, including duplicate and extra-device rejection | Copy |
 | `tests/ios_profile_plist_json_test.py` | Provisioning-profile date and certificate-data conversion regression coverage | Copy |
+| `tests/ios_ota_manifest_test.py` | HTTPS Azure package URL, read-policy, signature, and Apple manifest regression coverage | Copy |
 | `.gitignore` | Excludes editor state, tools, builds, generated presets, and signing files | Copy or merge carefully |
 | `.github/copilot-instructions.md` | Durable repository rules for future agents | Copy and replace the product name |
 | `README.md` | Human entry point for setup and automation | Copy and rebrand, or reproduce all runbook links |
