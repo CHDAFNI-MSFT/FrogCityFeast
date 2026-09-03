@@ -395,13 +395,15 @@ function selectActiveManualPrices(prices, currentDate) {
       return false;
     }
     const territory = price.relationships?.territory?.data;
+    if (attributes.manual !== true) {
+      fail("An active app price is not marked manual.");
+    }
     if (
-      attributes.manual !== true ||
       territory?.type !== "territories" ||
       typeof territory.id !== "string" ||
       !territory.id.trim()
     ) {
-      fail("An active app price response is invalid.");
+      fail("An active app price lacks territory linkage.");
     }
     return true;
   });

@@ -361,7 +361,7 @@ assert.throws(
     }],
     included: [],
   }, "2026-09-02"),
-  /active app price response is invalid/,
+  /active app price is not marked manual/,
 );
 assert.equal(
   summarizePriceSchedule({
