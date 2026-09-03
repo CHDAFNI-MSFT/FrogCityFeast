@@ -184,16 +184,36 @@ async function apiRequest(
   body = undefined,
   options = {},
 ) {
-  const response = await fetch(`${API_ORIGIN}${path}`, {
-    method,
-    headers: {
+  const timeoutMs = options.timeoutMs ?? 30_000;
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    fail("App Store Connect request timeout must be a positive integer.");
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  let response;
+  let text;
+  try {
+    response = await fetch(`${API_ORIGIN}${path}`, {
+      method,
+      headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
       ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await response.text();
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    text = await response.text();
+  } catch (error) {
+    if (controller.signal.aborted) {
+      fail(`App Store Connect ${method} ${path} timed out.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   let payload = {};
   if (text) {
     try {

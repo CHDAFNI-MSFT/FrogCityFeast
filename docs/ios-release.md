@@ -34,6 +34,15 @@ reports build validity, export-compliance state, selected-build status,
 without printing contact values or selecting, submitting, or releasing a
 build.
 
+The separately authorized
+[`App Store submission preparation`](../.github/workflows/app-store-submission-prep.yml)
+workflow runs on Windows, checks out the exact uploaded candidate source,
+regenerates and validates the approved seven-image package, uploads screenshots
+directly to Apple, creates or updates the App Review detail from protected
+contact secrets, and selects only the exact processed build. Generated images
+remain runner-local and are always removed. The workflow cannot create a
+review submission or release request.
+
 No signing, upload, App Store submission, publication, release, or tag is
 authorized by this decision. Public distribution remains blocked until the
 production pass, metadata, privacy disclosures, age-rating inputs, target-iPad

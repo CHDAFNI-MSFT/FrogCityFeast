@@ -51,5 +51,5 @@
   "pricing": "free",
   "storefronts": "all_except_china_mainland",
   "eu_dsa_status": "non-trader",
-  "app_review_contact_status": "pending_protected_owner_input"
+  "app_review_contact_status": "configured_protected"
 }

@@ -72,6 +72,10 @@ creating an ambiguous release package.
 - The screenshots are original renderings of repository-owned game code and
   art. They inherit the source asset provenance in `assets/README.md`.
 - No Git LFS storage is needed for ignored, reproducible release output.
+- The protected App Store submission-preparation workflow checks out the exact
+  uploaded candidate source, regenerates this package on a Windows runner,
+  verifies every SHA-256 value, uploads directly to Apple, and removes all
+  generated images without creating a GitHub artifact.
 - Do not run with `--perf-overlay`, substitute private profile data, or add
   signing/build information. Re-run from the exact publication build, perform
   the deferred visual review once, and upload only after separate owner

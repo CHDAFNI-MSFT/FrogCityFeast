@@ -30,6 +30,15 @@ CANDIDATE_INSPECTION_WORKFLOW = (
     / "workflows"
     / "app-store-candidate-inspection.yml"
 )
+SUBMISSION_PREP_SCRIPT = (
+    REPO_ROOT / "scripts" / "prepare-app-store-submission.mjs"
+)
+SUBMISSION_PREP_TEST = (
+    REPO_ROOT / "tests" / "app_store_submission_prep_test.mjs"
+)
+SUBMISSION_PREP_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "app-store-submission-prep.yml"
+)
 SUPPORT_PATH = REPO_ROOT / "docs" / "app-support.md"
 PRIVACY_PATH = REPO_ROOT / "docs" / "privacy-policy.md"
 PAGES_CONFIG_PATH = REPO_ROOT / "docs" / "_config.yml"
@@ -279,6 +288,12 @@ def validate_metadata_sync() -> None:
         and CANDIDATE_INSPECTION_WORKFLOW.is_file(),
         "The protected App Store candidate inspection path is missing.",
     )
+    require(
+        SUBMISSION_PREP_SCRIPT.is_file()
+        and SUBMISSION_PREP_TEST.is_file()
+        and SUBMISSION_PREP_WORKFLOW.is_file(),
+        "The protected App Store submission preparation path is missing.",
+    )
     result = subprocess.run(
         ["node", str(METADATA_SYNC_SCRIPT), "--print-values"],
         check=True,
@@ -304,12 +319,20 @@ def validate_metadata_sync() -> None:
         capture_output=True,
         text=True,
     )
+    subprocess.run(
+        ["node", str(SUBMISSION_PREP_TEST)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     workflow = METADATA_WORKFLOW.read_text(encoding="utf-8")
     sync_script = METADATA_SYNC_SCRIPT.read_text(encoding="utf-8")
     inspection_workflow = CANDIDATE_INSPECTION_WORKFLOW.read_text(
         encoding="utf-8"
     )
     inspection_script = CANDIDATE_INSPECTION_SCRIPT.read_text(encoding="utf-8")
+    prep_workflow = SUBMISSION_PREP_WORKFLOW.read_text(encoding="utf-8")
+    prep_script = SUBMISSION_PREP_SCRIPT.read_text(encoding="utf-8")
     require(
         "workflow_dispatch:" in workflow
         and "confirm_sync:" in workflow
@@ -413,6 +436,51 @@ def validate_metadata_sync() -> None:
         'const EXPECTED_BUILD_NUMBER = "33770597608.1"' in inspection_script
         and "failForBlockers(blockers);" in inspection_script,
         "The candidate inspector is not pinned or does not fail on blockers.",
+    )
+    require(
+        "workflow_dispatch:" in prep_workflow
+        and "PREPARE_APP_REVIEW" in prep_workflow
+        and prep_workflow.count("inputs.version == '0.1.0'") == 2
+        and "name: app-store" in prep_workflow
+        and "name: testflight" in prep_workflow
+        and "runs-on: windows-2025" in prep_workflow
+        and "ref: cab65511405f5c6b17865d2283d4a636a59da8be"
+        in prep_workflow
+        and "IOS_BUILD_NUMBER: 33770597608.1" in prep_workflow,
+        "Submission preparation is not pinned, Windows-based, and double-gated.",
+    )
+    require(
+        "permissions:\n  contents: read" in prep_workflow
+        and "persist-credentials: false" in prep_workflow
+        and "actions/upload-artifact" not in prep_workflow
+        and "reviewSubmissions" not in prep_script
+        and "appStoreVersionSubmissions" not in prep_script
+        and "appStoreVersionReleaseRequests" not in prep_script,
+        "Submission preparation can submit, release, or publish an artifact.",
+    )
+    require(
+        all(
+            f"${{{{ secrets.{name} }}}}" in prep_workflow
+            for name in (
+                "APP_REVIEW_CONTACT_FIRST_NAME",
+                "APP_REVIEW_CONTACT_LAST_NAME",
+                "APP_REVIEW_CONTACT_EMAIL",
+                "APP_REVIEW_CONTACT_PHONE",
+            )
+        )
+        and "sourceCommit !== EXPECTED_SOURCE_COMMIT" in prep_script
+        and "validateUploadOperations" in prep_script
+        and "readUploadPart" in prep_script
+        and "waitForScreenshots" in prep_script
+        and "SCREENSHOT_PROCESSING_TIMEOUT_MS" in prep_script
+        and "SCREENSHOT_UPLOAD_TIMEOUT_MS" in prep_script
+        and "tokenFromEnvironment()," in prep_script
+        and "sourceFileChecksum" in prep_script
+        and "relationships/build" in prep_script
+        and prep_script.index("selectedBeforePreparation")
+        < prep_script.index("const screenshots = await ensureScreenshots")
+        and "Remove generated submission files" in prep_workflow,
+        "Submission preparation does not protect contact data or validate assets.",
     )
 
 

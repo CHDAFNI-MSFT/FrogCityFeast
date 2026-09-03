@@ -1,0 +1,106 @@
+name: App Store submission preparation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Authorized App Store version (0.1.0)
+        required: true
+        type: string
+      confirm_prepare:
+        description: Enter PREPARE_APP_REVIEW
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-store-submission-prep-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Approve App Review preparation
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.version == '0.1.0' &&
+      inputs.confirm_prepare == 'PREPARE_APP_REVIEW'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: app-store
+
+    steps:
+      - name: Record protected preparation approval
+        run: |
+          echo "App Review preparation approved for candidate build 33770597608.1."
+          echo "No App Review submission or release is authorized by this workflow."
+
+  prepare:
+    name: Prepare App Store submission
+    needs: authorize
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.version == '0.1.0' &&
+      inputs.confirm_prepare == 'PREPARE_APP_REVIEW' &&
+      needs.authorize.result == 'success'
+    runs-on: windows-2025
+    timeout-minutes: 45
+    environment:
+      name: testflight
+    env:
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+      IOS_BUILD_NUMBER: 33770597608.1
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+      APP_REVIEW_CONTACT_FIRST_NAME: ${{ secrets.APP_REVIEW_CONTACT_FIRST_NAME }}
+      APP_REVIEW_CONTACT_LAST_NAME: ${{ secrets.APP_REVIEW_CONTACT_LAST_NAME }}
+      APP_REVIEW_CONTACT_EMAIL: ${{ secrets.APP_REVIEW_CONTACT_EMAIL }}
+      APP_REVIEW_CONTACT_PHONE: ${{ secrets.APP_REVIEW_CONTACT_PHONE }}
+
+    steps:
+      - name: Check out submission tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Check out exact candidate source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: cab65511405f5c6b17865d2283d4a636a59da8be
+          path: candidate-source
+          persist-credentials: false
+
+      - name: Install pinned Windows production tools
+        shell: powershell
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass
+          -File .\candidate-source\scripts\setup-windows.ps1
+
+      - name: Generate exact candidate screenshots
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass `
+            -File .\candidate-source\scripts\generate-app-store-screenshots.ps1 `
+            -OutputDirectory "$env:RUNNER_TEMP\app-store-screenshots"
+
+      - name: Upload screenshots and prepare review
+        shell: powershell
+        env:
+          APP_STORE_SCREENSHOT_PACKAGE: ${{ runner.temp }}\app-store-screenshots\release-package.json
+          APP_STORE_SCREENSHOT_DIRECTORY: ${{ runner.temp }}\app-store-screenshots\ipad-13-inch
+        run: node scripts/prepare-app-store-submission.mjs
+
+      - name: Remove generated submission files
+        if: always()
+        shell: powershell
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP "app-store-screenshots"
+          if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Recurse -Force
+          }
+          if (Test-Path -LiteralPath $path) {
+            throw "Generated App Store screenshot files remain after cleanup."
+          }

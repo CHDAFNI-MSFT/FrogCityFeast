@@ -8,6 +8,9 @@ const INSPECTION_WORKFLOW := (
 	"res://.github/workflows/app-store-candidate-inspection.yml"
 )
 const INSPECTION_SCRIPT := "res://scripts/inspect-app-store-candidate.mjs"
+const PREP_WORKFLOW := "res://.github/workflows/app-store-submission-prep.yml"
+const PREP_SCRIPT := "res://scripts/prepare-app-store-submission.mjs"
+const REVIEW_JSON := "res://tools/app-store-review.json"
 const ARCHIVE_SCRIPT := "res://scripts/archive-and-upload-ios.sh"
 const CLEANUP_SCRIPT := "res://scripts/cleanup-ios-signing.sh"
 const EXPORT_OPTIONS_SCRIPT := "res://scripts/create-export-options.py"
@@ -33,6 +36,9 @@ func _run() -> void:
 	var metadata_sync_script := _read(METADATA_SYNC_SCRIPT)
 	var inspection_workflow := _read(INSPECTION_WORKFLOW)
 	var inspection_script := _read(INSPECTION_SCRIPT)
+	var prep_workflow := _read(PREP_WORKFLOW)
+	var prep_script := _read(PREP_SCRIPT)
+	var review_json := _read(REVIEW_JSON)
 	var archive_script := _read(ARCHIVE_SCRIPT)
 	var cleanup_script := _read(CLEANUP_SCRIPT)
 	var export_options := _read(EXPORT_OPTIONS_SCRIPT)
@@ -286,6 +292,67 @@ func _run() -> void:
 			),
 		"The candidate inspector is read-only and checks processing, review, "
 			+ "and screenshot prerequisites."
+	)
+	_check(
+		prep_workflow.contains("on:\n  workflow_dispatch:")
+			and prep_workflow.contains("PREPARE_APP_REVIEW")
+			and prep_workflow.count("inputs.version == '0.1.0'") == 2
+			and prep_workflow.contains(
+				"    environment:\n      name: app-store"
+			)
+			and prep_workflow.contains(
+				"    environment:\n      name: testflight"
+			)
+			and prep_workflow.contains("runs-on: windows-2025")
+			and prep_workflow.contains(
+				"ref: cab65511405f5c6b17865d2283d4a636a59da8be"
+			)
+			and prep_workflow.contains(
+				"IOS_BUILD_NUMBER: 33770597608.1"
+			)
+			and prep_workflow.contains(
+				"generate-app-store-screenshots.ps1"
+			)
+			and prep_workflow.contains(
+				"Remove generated submission files"
+			)
+			and not prep_workflow.contains("actions/upload-artifact"),
+		"Submission preparation is exact-source, double-gated, and retains "
+			+ "no screenshot artifact."
+	)
+	for secret_name in [
+		"APP_REVIEW_CONTACT_FIRST_NAME",
+		"APP_REVIEW_CONTACT_LAST_NAME",
+		"APP_REVIEW_CONTACT_EMAIL",
+		"APP_REVIEW_CONTACT_PHONE",
+	]:
+		_check(
+			prep_workflow.contains("${{ secrets.%s }}" % secret_name),
+			"Submission preparation references protected secret %s."
+				% secret_name
+		)
+	_check(
+		prep_script.contains("validateUploadOperations")
+			and prep_script.contains("readUploadPart")
+			and prep_script.contains("waitForScreenshots")
+			and prep_script.contains("SCREENSHOT_PROCESSING_TIMEOUT_MS")
+			and prep_script.contains("SCREENSHOT_UPLOAD_TIMEOUT_MS")
+			and prep_script.contains("tokenFromEnvironment(),")
+			and prep_script.contains("sourceFileChecksum")
+			and prep_script.contains("appScreenshotSets")
+			and prep_script.contains("appStoreReviewDetails")
+			and prep_script.contains("relationships/build")
+			and prep_script.contains("submissionPerformed: false")
+			and prep_script.contains("releasePerformed: false")
+			and prep_script.find("selectedBeforePreparation")
+				< prep_script.find("const screenshots = await ensureScreenshots")
+			and not prep_script.contains("reviewSubmissions")
+			and not prep_script.contains("appStoreVersionSubmissions")
+			and not prep_script.contains("appStoreVersionReleaseRequests")
+			and review_json.contains('"build": "33770597608.1"')
+			and review_json.contains('"demo_account_required": false'),
+		"Submission preparation validates approved assets and cannot submit "
+			+ "or release."
 	)
 
 	for variable_name in ["APPLE_TEAM_ID", "IOS_BUNDLE_ID"]:

@@ -9,8 +9,8 @@ description, and keyword limits.
 The release owner supplied the public listing choices and authorized metadata
 entry. The protected metadata workflow can apply the API-supported fields
 without uploading a build, selecting a build, submitting for review, or
-releasing the app. App Review contact information remains pending through a
-protected process.
+releasing the app. App Review contact information is stored only in protected
+GitHub environment secrets and is never committed or printed.
 
 ## App identity
 
@@ -31,7 +31,7 @@ protected process.
 | Release method | Manual release after approval |
 | Content rights | Developer owns or has rights to all content |
 | App Privacy | No Data Collected |
-| App Review contact | Pending protected owner input |
+| App Review contact | Configured through protected environment secrets |
 
 ## Product-page copy
 

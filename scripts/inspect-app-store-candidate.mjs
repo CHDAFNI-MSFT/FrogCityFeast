@@ -161,7 +161,7 @@ export function failForBlockers(blockers) {
   }
 }
 
-function tokenFromEnvironment() {
+export function tokenFromEnvironment() {
   const keyId = requiredEnvironment("APP_STORE_CONNECT_KEY_ID");
   const issuerId = requiredEnvironment("APP_STORE_CONNECT_ISSUER_ID");
   const privateKeyBase64 = requiredEnvironment(
@@ -177,7 +177,7 @@ function tokenFromEnvironment() {
   return createToken(keyId, issuerId, privateKeyPem);
 }
 
-async function findCandidateBuild(
+export async function findCandidateBuild(
   token,
   appId,
   expectedBuildNumber,
@@ -203,7 +203,7 @@ async function findCandidateBuild(
   return selectCandidateBuild(payload, expectedBuildNumber);
 }
 
-async function waitForCandidateBuild(
+export async function waitForCandidateBuild(
   token,
   appId,
   expectedBuildNumber,

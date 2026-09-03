@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "version": "0.1.0",
+  "build": "33770597608.1",
+  "demo_account_required": false,
+  "notes_template": "Frog City Feast is a fully offline, single-player iPad game with no login, account, network service, ads, analytics, or purchases. On first launch, enter any local profile name or use the default name, then choose Start New Game. The illustrated tutorial can be completed, skipped, or replayed from the player-selection menu. The top-bar action opens the score epilogue when outdoors and becomes Exit Room inside connected rooms.\n\nThe frog catches and swallows stylized cartoon targets, including harmless living characters and pursuers, without blood, death, or injury detail. Player-entered profile names, progress, scores, and settings are stored only in the app sandbox. The App ID has Apple's immutable In-App Purchase feature, but this build contains no StoreKit integration, products, purchase UI, or paid digital content.\n\nBuild version: {VERSION} ({BUILD}). Test device: iPad in landscape."
+}
