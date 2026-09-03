@@ -23,6 +23,7 @@ python3 "$repo_root/tests/ios_ota_manifest_test.py"
 node "$repo_root/tests/ios_ad_hoc_provisioning_test.mjs"
 node "$repo_root/tests/app_store_candidate_inspection_test.mjs"
 node "$repo_root/tests/app_store_submission_prep_test.mjs"
+node "$repo_root/tests/app_store_review_submission_test.mjs"
 
 run_checked() {
   local label="$1"

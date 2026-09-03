@@ -10,6 +10,10 @@ const INSPECTION_WORKFLOW := (
 const INSPECTION_SCRIPT := "res://scripts/inspect-app-store-candidate.mjs"
 const PREP_WORKFLOW := "res://.github/workflows/app-store-submission-prep.yml"
 const PREP_SCRIPT := "res://scripts/prepare-app-store-submission.mjs"
+const SUBMISSION_WORKFLOW := (
+	"res://.github/workflows/app-store-review-submission.yml"
+)
+const SUBMISSION_SCRIPT := "res://scripts/submit-app-store-review.mjs"
 const SCREENSHOT_SCRIPT := "res://scripts/generate-app-store-screenshots.ps1"
 const REVIEW_JSON := "res://tools/app-store-review.json"
 const ARCHIVE_SCRIPT := "res://scripts/archive-and-upload-ios.sh"
@@ -39,6 +43,8 @@ func _run() -> void:
 	var inspection_script := _read(INSPECTION_SCRIPT)
 	var prep_workflow := _read(PREP_WORKFLOW)
 	var prep_script := _read(PREP_SCRIPT)
+	var submission_workflow := _read(SUBMISSION_WORKFLOW)
+	var submission_script := _read(SUBMISSION_SCRIPT)
 	var screenshot_script := _read(SCREENSHOT_SCRIPT)
 	var review_json := _read(REVIEW_JSON)
 	var archive_script := _read(ARCHIVE_SCRIPT)
@@ -51,6 +57,21 @@ func _run() -> void:
 	var support_doc := _read(SUPPORT_DOC)
 	var checklist := _read(RELEASE_CHECKLIST)
 	var publishing_runbook := _read(PUBLISHING_RUNBOOK)
+
+	for mutation_workflow in [
+		workflow,
+		metadata_workflow,
+		prep_workflow,
+		submission_workflow,
+	]:
+		_check(
+			mutation_workflow.contains(
+				"group: app-store-connect-mutation-${{ github.ref }}"
+			)
+				and mutation_workflow.contains("cancel-in-progress: false")
+				and mutation_workflow.contains("queue: max"),
+			"App Store mutation workflows must share a lossless queue."
+		)
 
 	_check(
 		not publishing_runbook.is_empty()
@@ -341,6 +362,43 @@ func _run() -> void:
 					"--script res://tools/app_store_screenshot_harness.gd"
 				),
 		"Fresh checkouts import Godot resources before screenshot generation."
+	)
+	_check(
+		submission_workflow.contains("on:\n  workflow_dispatch:")
+			and submission_workflow.contains("SUBMIT_APP_REVIEW")
+			and submission_workflow.contains("queue: max")
+			and submission_workflow.count("inputs.version == '0.1.0'") == 2
+			and submission_workflow.contains(
+				"    environment:\n      name: app-store"
+			)
+			and submission_workflow.contains(
+				"    environment:\n      name: testflight"
+			)
+			and submission_workflow.contains(
+				"IOS_BUILD_NUMBER: 33770597608.1"
+			)
+			and submission_workflow.contains("runs-on: windows-2025")
+			and submission_workflow.contains(
+				"ref: cab65511405f5c6b17865d2283d4a636a59da8be"
+			)
+			and not submission_workflow.contains("actions/upload-artifact"),
+		"App Review submission is exact-build, manual, and double-gated."
+	)
+	_check(
+		submission_script.contains(
+			'const EXPECTED_BUILD_NUMBER = "33770597608.1"'
+		)
+			and submission_script.contains("/v1/reviewSubmissions")
+			and submission_script.contains("/v1/reviewSubmissionItems")
+			and submission_script.contains("submitted: true")
+			and submission_script.contains("canceled: true")
+			and submission_script.contains("loadScreenshotPackage")
+			and submission_script.contains("reviewDetailMismatches")
+			and submission_script.contains("releasePerformed: false")
+			and not submission_script.contains(
+				"appStoreVersionReleaseRequests"
+			),
+		"App Review submission has no public release path."
 	)
 	for secret_name in [
 		"APP_REVIEW_CONTACT_FIRST_NAME",

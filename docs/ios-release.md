@@ -43,6 +43,14 @@ contact secrets, and selects only the exact processed build. Generated images
 remain runner-local and are always removed. The workflow cannot create a
 review submission or release request.
 
+The separately authorized
+[`App Store review submission`](../.github/workflows/app-store-review-submission.yml)
+workflow rechecks the exact version, selected build, screenshots, review
+details, processing state, export compliance, and manual release type. It
+creates or safely resumes one iOS review submission, adds only version `0.1.0`,
+and submits it to App Review. It cannot request release, create a tag, publish
+a GitHub release, or change the version from manual release.
+
 No signing, upload, App Store submission, publication, release, or tag is
 authorized by this decision. Public distribution remains blocked until the
 production pass, metadata, privacy disclosures, age-rating inputs, target-iPad

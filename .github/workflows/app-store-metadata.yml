@@ -17,8 +17,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: app-store-metadata-${{ github.ref }}
+  group: app-store-connect-mutation-${{ github.ref }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   authorize:

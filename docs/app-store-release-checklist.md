@@ -117,29 +117,30 @@ of signing secrets.
   applied the Games categories, app-information localization, and editable
   version `0.1.0`; run `33661855538` then completed version-localization and
   age-rating updates.
-- [ ] Copy the validated `en-US` fields from
+- [x] Copy the validated `en-US` fields from
   `tools/app-store-metadata.json`.
-- [ ] Set Games > Casual with Adventure as the secondary Games subcategory.
-- [ ] Confirm content rights using the repository asset provenance ledgers.
-- [ ] Answer App Privacy with **No, we do not collect data from this app**.
-- [ ] Enter the live privacy policy URL.
-- [ ] Complete the current age-rating questionnaire with the inputs in
+- [x] Set Games > Casual with Adventure as the secondary Games subcategory.
+- [x] Confirm content rights using the repository asset provenance ledgers.
+- [x] Answer App Privacy with **No, we do not collect data from this app**.
+- [x] Enter the live privacy policy URL.
+- [x] Complete the current age-rating questionnaire with the inputs in
   `docs/app-store-metadata.md`, including **Frequent** cartoon or fantasy
   violence.
-- [ ] Accept Apple's calculated regional rating. Do not lower answers or bypass
+- [x] Accept Apple's calculated regional rating. Do not lower answers or bypass
   restrictions if the under-13 Apple Account cannot install it.
-- [ ] Confirm non-exempt encryption is **No**.
-- [ ] Confirm no ads, tracking, account, Game Center, cloud save, StoreKit
+- [x] Confirm non-exempt encryption is **No**.
+- [x] Confirm no ads, tracking, account, Game Center, cloud save, StoreKit
   products, subscriptions, or purchases are declared.
-- [ ] Enter current App Review contact information in international format
+- [x] Enter current App Review contact information in international format
   where required.
-- [ ] Add the App Review notes from `docs/app-store-metadata.md`.
-- [ ] Re-run the approved automated final iPad landscape screenshot set from
+- [x] Add the App Review notes from `docs/app-store-metadata.md`.
+- [x] Re-run the approved automated final iPad landscape screenshot set from
   the exact publication build using
   `scripts\generate-app-store-screenshots.ps1`, perform the deferred visual
   review, upload its seven images without debug overlays or placeholders, and
-  verify their dimensions in App Store Connect.
-- [ ] Choose **Manually release this version** so approval cannot publish the
+  verify their dimensions in App Store Connect. Protected run `33784524004`
+  uploaded and processed all seven exact-source images.
+- [x] Choose **Manually release this version** so approval cannot publish the
   app automatically.
 
 ## Protected GitHub environment
@@ -167,19 +168,22 @@ of signing secrets.
 ## Separate authorization gates
 
 - [x] **Explicit upload authorization:** version `0.1.0` from exact source
-  commit `2e4f60160db67f6715844aac234d6a47e4e40843` was authorized for candidate
-  workflow run `33664620876`.
-- [ ] Set the workflow's `confirm_upload` input, approve the protected
+  commit `cab65511405f5c6b17865d2283d4a636a59da8be` was authorized and uploaded
+  as build `33770597608.1` in workflow run `33770597608`.
+- [x] Set the workflow's `confirm_upload` input, approve the protected
   `app-store` authorization job, and separately approve the protected
-  `testflight` signing job. Run `33664620876` remains at its first protected
-  approval and has not uploaded a replacement candidate.
-- [ ] Confirm the replacement workflow completed cleanup and produced no
+  `testflight` signing job for the exact replacement run.
+- [x] Confirm the replacement workflow completed cleanup and produced no
   downloadable signed artifact.
-- [ ] Wait for Apple processing and inspect export compliance, symbols, icon,
-  privacy manifest, supported devices, and build metadata.
-- [ ] **Explicit submission authorization:** authorize selection of the
+- [x] Wait for Apple processing and inspect export compliance, minimum OS,
+  exact build selection, screenshots, review detail, and build metadata.
+  Read-only run `33784856453` reported a valid build and no API-visible
+  blockers.
+- [x] **Explicit submission authorization:** authorize selection of the
   processed build and submission to App Review. Upload authorization alone is
   not submission authorization.
+- [ ] Run the separately protected exact-build App Review submission workflow
+  and confirm Apple acknowledges the submission.
 - [ ] Resolve only accurate App Review questions; do not change age, privacy,
   content, or account answers to evade a restriction.
 - [ ] **Explicit release authorization:** after approval, authorize manual

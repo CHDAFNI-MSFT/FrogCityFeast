@@ -39,6 +39,15 @@ SUBMISSION_PREP_TEST = (
 SUBMISSION_PREP_WORKFLOW = (
     REPO_ROOT / ".github" / "workflows" / "app-store-submission-prep.yml"
 )
+REVIEW_SUBMISSION_SCRIPT = (
+    REPO_ROOT / "scripts" / "submit-app-store-review.mjs"
+)
+REVIEW_SUBMISSION_TEST = (
+    REPO_ROOT / "tests" / "app_store_review_submission_test.mjs"
+)
+REVIEW_SUBMISSION_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "app-store-review-submission.yml"
+)
 SUPPORT_PATH = REPO_ROOT / "docs" / "app-support.md"
 PRIVACY_PATH = REPO_ROOT / "docs" / "privacy-policy.md"
 PAGES_CONFIG_PATH = REPO_ROOT / "docs" / "_config.yml"
@@ -294,6 +303,12 @@ def validate_metadata_sync() -> None:
         and SUBMISSION_PREP_WORKFLOW.is_file(),
         "The protected App Store submission preparation path is missing.",
     )
+    require(
+        REVIEW_SUBMISSION_SCRIPT.is_file()
+        and REVIEW_SUBMISSION_TEST.is_file()
+        and REVIEW_SUBMISSION_WORKFLOW.is_file(),
+        "The protected App Store review submission path is missing.",
+    )
     result = subprocess.run(
         ["node", str(METADATA_SYNC_SCRIPT), "--print-values"],
         check=True,
@@ -325,6 +340,12 @@ def validate_metadata_sync() -> None:
         capture_output=True,
         text=True,
     )
+    subprocess.run(
+        ["node", str(REVIEW_SUBMISSION_TEST)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     workflow = METADATA_WORKFLOW.read_text(encoding="utf-8")
     sync_script = METADATA_SYNC_SCRIPT.read_text(encoding="utf-8")
     inspection_workflow = CANDIDATE_INSPECTION_WORKFLOW.read_text(
@@ -333,6 +354,10 @@ def validate_metadata_sync() -> None:
     inspection_script = CANDIDATE_INSPECTION_SCRIPT.read_text(encoding="utf-8")
     prep_workflow = SUBMISSION_PREP_WORKFLOW.read_text(encoding="utf-8")
     prep_script = SUBMISSION_PREP_SCRIPT.read_text(encoding="utf-8")
+    submission_workflow = REVIEW_SUBMISSION_WORKFLOW.read_text(
+        encoding="utf-8"
+    )
+    submission_script = REVIEW_SUBMISSION_SCRIPT.read_text(encoding="utf-8")
     require(
         "workflow_dispatch:" in workflow
         and "confirm_sync:" in workflow
@@ -481,6 +506,37 @@ def validate_metadata_sync() -> None:
         < prep_script.index("const screenshots = await ensureScreenshots")
         and "Remove generated submission files" in prep_workflow,
         "Submission preparation does not protect contact data or validate assets.",
+    )
+    require(
+        "workflow_dispatch:" in submission_workflow
+        and "SUBMIT_APP_REVIEW" in submission_workflow
+        and submission_workflow.count("inputs.version == '0.1.0'") == 2
+        and "name: app-store" in submission_workflow
+        and "name: testflight" in submission_workflow
+        and "queue: max" in submission_workflow
+        and "runs-on: windows-2025" in submission_workflow
+        and "ref: cab65511405f5c6b17865d2283d4a636a59da8be"
+        in submission_workflow
+        and "IOS_BUILD_NUMBER: 33770597608.1" in submission_workflow
+        and "permissions:\n  contents: read" in submission_workflow
+        and "persist-credentials: false" in submission_workflow
+        and "actions/upload-artifact" not in submission_workflow,
+        "Review submission is not exact, manual, double-gated, and private.",
+    )
+    require(
+        'const EXPECTED_BUILD_NUMBER = "33770597608.1"'
+        in submission_script
+        and "/v1/reviewSubmissions" in submission_script
+        and "/v1/reviewSubmissionItems" in submission_script
+        and "submitted: true" in submission_script
+        and "canceled: true" in submission_script
+        and "loadScreenshotPackage" in submission_script
+        and "reviewDetailMismatches" in submission_script
+        and "releaseType" in submission_script
+        and "releasePerformed: false" in submission_script
+        and "appStoreVersionReleaseRequests" not in submission_script
+        and "appStoreVersionSubmissions" not in submission_script,
+        "Review submission is not exact-build or has a release path.",
     )
 
 

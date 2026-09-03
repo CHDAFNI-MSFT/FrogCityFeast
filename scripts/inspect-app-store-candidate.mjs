@@ -6,7 +6,7 @@ import {
   apiRequest,
   createToken,
   findApp,
-  findVersion,
+  findVersionByString,
   findVersionLocalization,
   query,
   requiredEnvironment,
@@ -239,7 +239,7 @@ export async function waitForCandidateBuild(
   fail(`Build ${expectedBuildNumber} processing wait ended unexpectedly.`);
 }
 
-async function selectedBuildId(token, versionId) {
+export async function selectedBuildId(token, versionId) {
   const response = await apiRequest(
     token,
     "GET",
@@ -268,7 +268,7 @@ export function selectedBuildIdFromResponse(payload) {
   return linkage.id;
 }
 
-async function reviewDetail(token, versionId) {
+export async function reviewDetail(token, versionId) {
   const response = await apiRequest(
     token,
     "GET",
@@ -318,7 +318,7 @@ export function reviewDetailIdFromResponse(payload) {
   return linkage.id;
 }
 
-async function screenshotSummary(token, localizationId) {
+export async function screenshotSummary(token, localizationId) {
   const setsPayload = await apiRequest(
     token,
     "GET",
@@ -388,7 +388,7 @@ async function main() {
   }
   const token = tokenFromEnvironment();
   const app = await findApp(token, bundleId);
-  const version = await findVersion(token, app.id, metadata);
+  const version = await findVersionByString(token, app.id, metadata);
   if (!version || version.attributes?.versionString !== metadata.version) {
     fail(`Editable App Store version ${metadata.version} was not found.`);
   }

@@ -1,14 +1,14 @@
-name: App Store submission preparation
+name: App Store review submission
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Authorized App Store version (0.1.0)
+        description: App Store marketing version (0.1.0)
         required: true
         type: string
-      confirm_prepare:
-        description: Enter PREPARE_APP_REVIEW
+      confirm_submit:
+        description: Type SUBMIT_APP_REVIEW to submit the exact candidate
         required: true
         type: string
 
@@ -22,32 +22,33 @@ concurrency:
 
 jobs:
   authorize:
-    name: Approve App Review preparation
+    name: Approve App Review submission
     if: >-
       github.ref == 'refs/heads/main' &&
       inputs.version == '0.1.0' &&
-      inputs.confirm_prepare == 'PREPARE_APP_REVIEW'
+      inputs.confirm_submit == 'SUBMIT_APP_REVIEW'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment:
       name: app-store
 
     steps:
-      - name: Record protected preparation approval
+      - name: Record exact submission approval
         run: |
-          echo "App Review preparation approved for candidate build 33770597608.1."
-          echo "No App Review submission or release is authorized by this workflow."
+          echo "App Review submission approved for build 33770597608.1."
+          echo "The version remains configured for manual release."
+          echo "No public release, tag, or GitHub release is authorized."
 
-  prepare:
-    name: Prepare App Store submission
+  submit:
+    name: Submit exact App Store candidate
     needs: authorize
     if: >-
       github.ref == 'refs/heads/main' &&
       inputs.version == '0.1.0' &&
-      inputs.confirm_prepare == 'PREPARE_APP_REVIEW' &&
+      inputs.confirm_submit == 'SUBMIT_APP_REVIEW' &&
       needs.authorize.result == 'success'
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 30
     environment:
       name: testflight
     env:
@@ -73,7 +74,7 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass
           -File .\candidate-source\scripts\setup-windows.ps1
 
-      - name: Generate exact candidate screenshots
+      - name: Regenerate exact candidate screenshots
         shell: powershell
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass `
@@ -81,7 +82,7 @@ jobs:
             -ProjectDirectory .\candidate-source `
             -OutputDirectory "$env:RUNNER_TEMP\app-store-screenshots"
 
-      - name: Upload screenshots and prepare review
+      - name: Submit candidate to App Review
         shell: powershell
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -93,7 +94,7 @@ jobs:
           APP_REVIEW_CONTACT_PHONE: ${{ secrets.APP_REVIEW_CONTACT_PHONE }}
           APP_STORE_SCREENSHOT_PACKAGE: ${{ runner.temp }}\app-store-screenshots\release-package.json
           APP_STORE_SCREENSHOT_DIRECTORY: ${{ runner.temp }}\app-store-screenshots\ipad-13-inch
-        run: node scripts/prepare-app-store-submission.mjs
+        run: node scripts/submit-app-store-review.mjs
 
       - name: Remove generated submission files
         if: always()

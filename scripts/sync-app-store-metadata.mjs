@@ -483,6 +483,33 @@ export function selectVersion(payload, metadata) {
   return version;
 }
 
+export function selectVersionByString(payload, metadata) {
+  if (!Array.isArray(payload?.data)) {
+    fail("App Store version response does not contain a data array.");
+  }
+  const matches = payload.data.filter((version) => (
+    version?.attributes?.platform === metadata.platform &&
+    version?.attributes?.versionString === metadata.version
+  ));
+  if (matches.length !== 1) {
+    fail(
+      `Expected one ${metadata.platform} App Store version ` +
+      `${metadata.version}; found ${matches.length}.`,
+    );
+  }
+  const version = matches[0];
+  if (
+    version?.type !== "appStoreVersions" ||
+    typeof version.id !== "string" ||
+    !version.id.trim() ||
+    typeof version.attributes?.appVersionState !== "string" ||
+    !version.attributes.appVersionState.trim()
+  ) {
+    fail("The exact App Store version response is invalid.");
+  }
+  return version;
+}
+
 async function findVersion(token, appId, metadata) {
   const payload = await apiRequest(
     token,
@@ -500,6 +527,25 @@ async function findVersion(token, appId, metadata) {
     })}`,
   );
   return selectVersion(payload, metadata);
+}
+
+export async function findVersionByString(token, appId, metadata) {
+  const payload = await apiRequest(
+    token,
+    "GET",
+    `/v1/apps/${appId}/appStoreVersions?${query({
+      "filter[platform]": metadata.platform,
+      "fields[appStoreVersions]": [
+        "platform",
+        "versionString",
+        "appVersionState",
+        "copyright",
+        "releaseType",
+      ].join(","),
+      limit: 200,
+    })}`,
+  );
+  return selectVersionByString(payload, metadata);
 }
 
 async function ensureVersion(token, appId, metadata, existingVersion) {
