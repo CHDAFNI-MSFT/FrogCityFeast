@@ -378,24 +378,32 @@ function selectActiveManualPrices(prices, currentDate) {
   );
   return prices.filter((price) => {
     const attributes = price.attributes ?? {};
-    const territory = price.relationships?.territory?.data;
     if (
       price?.type !== "appPrices" ||
       typeof price.id !== "string" ||
       !price.id.trim() ||
-      attributes.manual !== true ||
       !validDate(attributes.startDate) ||
-      !validDate(attributes.endDate) ||
+      !validDate(attributes.endDate)
+    ) {
+      fail("An app price response is invalid.");
+    }
+    const isActive = (
+      (!attributes.startDate || attributes.startDate <= currentDate) &&
+      (!attributes.endDate || attributes.endDate > currentDate)
+    );
+    if (!isActive) {
+      return false;
+    }
+    const territory = price.relationships?.territory?.data;
+    if (
+      attributes.manual !== true ||
       territory?.type !== "territories" ||
       typeof territory.id !== "string" ||
       !territory.id.trim()
     ) {
-      fail("An app price response is invalid.");
+      fail("An active app price response is invalid.");
     }
-    return (
-      (!attributes.startDate || attributes.startDate <= currentDate) &&
-      (!attributes.endDate || attributes.endDate > currentDate)
-    );
+    return true;
   });
 }
 

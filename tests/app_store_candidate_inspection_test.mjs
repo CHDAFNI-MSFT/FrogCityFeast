@@ -309,6 +309,73 @@ assert.equal(
     data: [
       {
         type: "appPrices",
+        id: "expired-sparse-price-id",
+        attributes: {
+          startDate: "2026-01-01",
+          endDate: "2026-09-02",
+        },
+      },
+      {
+        type: "appPrices",
+        id: "replacement-price-id",
+        attributes: {
+          manual: true,
+          startDate: "2026-09-02",
+          endDate: null,
+        },
+        relationships: {
+          territory: {
+            data: { type: "territories", id: "USA" },
+          },
+          appPricePoint: {
+            data: { type: "appPricePoints", id: "free-point-id" },
+          },
+        },
+      },
+    ],
+    included: [{
+      type: "appPricePoints",
+      id: "free-point-id",
+      attributes: { customerPrice: "0.00" },
+    }],
+  }, "2026-09-02").complete,
+  true,
+);
+assert.throws(
+  () => summarizePriceSchedule({
+    type: "appPriceSchedules",
+    id: "price-id",
+    relationships: {
+      baseTerritory: {
+        data: { type: "territories", id: "USA" },
+      },
+    },
+  }, {
+    data: [{
+      type: "appPrices",
+      id: "active-sparse-price-id",
+      attributes: {
+        startDate: "2026-01-01",
+        endDate: null,
+      },
+    }],
+    included: [],
+  }, "2026-09-02"),
+  /active app price response is invalid/,
+);
+assert.equal(
+  summarizePriceSchedule({
+    type: "appPriceSchedules",
+    id: "price-id",
+    relationships: {
+      baseTerritory: {
+        data: { type: "territories", id: "USA" },
+      },
+    },
+  }, {
+    data: [
+      {
+        type: "appPrices",
         id: "base-price-id",
         attributes: {
           manual: true,
