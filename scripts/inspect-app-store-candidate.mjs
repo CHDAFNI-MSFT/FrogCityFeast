@@ -436,7 +436,9 @@ async function main() {
     result: "inspected",
     version: {
       versionString: version.attributes.versionString,
+      appStoreState: version.attributes.appStoreState,
       appVersionState: version.attributes.appVersionState,
+      reviewType: version.attributes.reviewType,
       releaseType: version.attributes.releaseType,
     },
     build: {

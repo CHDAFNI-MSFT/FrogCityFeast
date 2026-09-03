@@ -177,6 +177,27 @@ function query(parameters) {
   return result.toString();
 }
 
+export function formatApiErrors(errors, fallbackStatus) {
+  if (!Array.isArray(errors)) {
+    return `HTTP ${fallbackStatus}`;
+  }
+  const format = (error) => {
+    const summary = (
+      `${error?.status ?? fallbackStatus} ${error?.code ?? "ERROR"}: ` +
+      `${error?.title ?? ""} ${error?.detail ?? ""}`.trim()
+    );
+    const associated = error?.meta?.associatedErrors;
+    if (!Array.isArray(associated) || associated.length === 0) {
+      return summary;
+    }
+    return (
+      `${summary} Associated validation errors: ` +
+      `${associated.map(format).join("; ")}`
+    );
+  };
+  return errors.map(format).join("; ");
+}
+
 async function apiRequest(
   token,
   method,
@@ -228,12 +249,7 @@ async function apiRequest(
     ? options.allowedStatuses
     : [];
   if (!response.ok && !allowedStatuses.includes(response.status)) {
-    const details = Array.isArray(payload.errors)
-      ? payload.errors.map((error) => (
-        `${error.status ?? response.status} ${error.code ?? "ERROR"}: ` +
-        `${error.title ?? ""} ${error.detail ?? ""}`.trim()
-      )).join("; ")
-      : `HTTP ${response.status}`;
+    const details = formatApiErrors(payload.errors, response.status);
     if (response.status === 403) {
       fail(
         `App Store Connect denied ${method} ${path}. The protected API ` +
@@ -519,8 +535,10 @@ async function findVersion(token, appId, metadata) {
       "fields[appStoreVersions]": [
         "platform",
         "versionString",
+        "appStoreState",
         "appVersionState",
         "copyright",
+        "reviewType",
         "releaseType",
       ].join(","),
       limit: 200,
@@ -538,8 +556,10 @@ export async function findVersionByString(token, appId, metadata) {
       "fields[appStoreVersions]": [
         "platform",
         "versionString",
+        "appStoreState",
         "appVersionState",
         "copyright",
+        "reviewType",
         "releaseType",
       ].join(","),
       limit: 200,

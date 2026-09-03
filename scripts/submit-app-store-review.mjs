@@ -354,6 +354,9 @@ function candidateBlockers(snapshot, requireSubmittableState) {
   if (snapshot.version.attributes?.releaseType !== "MANUAL") {
     blockers.push("release type is not MANUAL");
   }
+  if (snapshot.version.attributes?.reviewType !== "APP_STORE") {
+    blockers.push("review type is not APP_STORE");
+  }
   if (snapshot.selectedId !== snapshot.build.id) {
     blockers.push("the exact candidate build is not selected");
   }

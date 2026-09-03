@@ -11,6 +11,7 @@ import {
   validateExactSubmittedSubmission,
 } from "../scripts/submit-app-store-review.mjs";
 import {
+  formatApiErrors,
   selectVersionByString,
 } from "../scripts/sync-app-store-metadata.mjs";
 
@@ -51,6 +52,26 @@ assert.equal(
     { platform: "IOS", version: "0.1.0" },
   ).id,
   versionId,
+);
+assert.match(
+  formatApiErrors(
+    [{
+      status: "409",
+      code: "STATE_ERROR",
+      title: "Invalid state",
+      detail: "The version cannot be reviewed.",
+      meta: {
+        associatedErrors: [{
+          status: "409",
+          code: "MISSING_METADATA",
+          title: "Missing metadata",
+          detail: "A required declaration is incomplete.",
+        }],
+      },
+    }],
+    409,
+  ),
+  /Associated validation errors: 409 MISSING_METADATA/,
 );
 
 const expectedReview = {
