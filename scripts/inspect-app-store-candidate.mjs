@@ -295,35 +295,10 @@ export function summarizePriceSchedule(
   ) {
     fail("The app price-schedule details are invalid.");
   }
-  const validDate = (value) => (
-    value === null ||
-    value === undefined ||
-    (
-      typeof value === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(value)
-    )
+  const activeManualPrices = selectActiveManualPrices(
+    pricePayload.data,
+    currentDate,
   );
-  const activeManualPrices = pricePayload.data.filter((price) => {
-    const attributes = price.attributes ?? {};
-    const territory = price.relationships?.territory?.data;
-    if (
-      price?.type !== "appPrices" ||
-      typeof price.id !== "string" ||
-      !price.id.trim() ||
-      attributes.manual !== true ||
-      !validDate(attributes.startDate) ||
-      !validDate(attributes.endDate) ||
-      territory?.type !== "territories" ||
-      typeof territory.id !== "string" ||
-      !territory.id.trim()
-    ) {
-      fail("An app price response is invalid.");
-    }
-    return (
-      (!attributes.startDate || attributes.startDate <= currentDate) &&
-      (!attributes.endDate || attributes.endDate > currentDate)
-    );
-  });
   const activeBasePrices = activeManualPrices.filter(
     (price) => (
       price.relationships.territory.data.id === baseTerritory.id
@@ -384,6 +359,44 @@ export function summarizePriceSchedule(
       allActiveManualPricesFree
     ),
   };
+}
+
+function selectActiveManualPrices(prices, currentDate) {
+  if (
+    !Array.isArray(prices) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(currentDate)
+  ) {
+    fail("App prices or the inspection date are invalid.");
+  }
+  const validDate = (value) => (
+    value === null ||
+    value === undefined ||
+    (
+      typeof value === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(value)
+    )
+  );
+  return prices.filter((price) => {
+    const attributes = price.attributes ?? {};
+    const territory = price.relationships?.territory?.data;
+    if (
+      price?.type !== "appPrices" ||
+      typeof price.id !== "string" ||
+      !price.id.trim() ||
+      attributes.manual !== true ||
+      !validDate(attributes.startDate) ||
+      !validDate(attributes.endDate) ||
+      territory?.type !== "territories" ||
+      typeof territory.id !== "string" ||
+      !territory.id.trim()
+    ) {
+      fail("An app price response is invalid.");
+    }
+    return (
+      (!attributes.startDate || attributes.startDate <= currentDate) &&
+      (!attributes.endDate || attributes.endDate > currentDate)
+    );
+  });
 }
 
 export function summarizeAvailability(
@@ -591,9 +604,13 @@ export async function priceScheduleSummary(token, appId) {
   ) {
     fail("The app price schedule did not return every manual price.");
   }
+  const currentDate = new Date().toISOString().slice(0, 10);
+  const activePrices = selectActiveManualPrices(prices, currentDate);
   const pricePointIds = [
     ...new Set(
-      prices.map((price) => price.relationships?.appPricePoint?.data?.id),
+      activePrices.map(
+        (price) => price.relationships?.appPricePoint?.data?.id,
+      ),
     ),
   ];
   if (
@@ -617,7 +634,7 @@ export async function priceScheduleSummary(token, appId) {
   return summarizePriceSchedule(schedule, {
     data: prices,
     included: pricePoints,
-  });
+  }, currentDate);
 }
 
 export async function availabilitySummary(
