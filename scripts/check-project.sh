@@ -21,6 +21,7 @@ python3 "$repo_root/tests/ios_signing_device_set_test.py"
 python3 "$repo_root/tests/ios_profile_plist_json_test.py"
 python3 "$repo_root/tests/ios_ota_manifest_test.py"
 node "$repo_root/tests/ios_ad_hoc_provisioning_test.mjs"
+node "$repo_root/tests/app_store_candidate_inspection_test.mjs"
 
 run_checked() {
   local label="$1"

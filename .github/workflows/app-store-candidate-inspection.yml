@@ -1,0 +1,68 @@
+name: App Store candidate inspection
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: App Store marketing version (0.1.0)
+        required: true
+        type: string
+      confirm_inspection:
+        description: Inspect processing and submission prerequisites
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-store-candidate-inspection-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Approve candidate inspection
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_inspection &&
+      inputs.version == '0.1.0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment:
+      name: app-store
+
+    steps:
+      - name: Record protected inspection approval
+        run: |
+          echo "Authorized candidate build: 33770597608.1."
+          echo "Read-only candidate inspection approved for ${GITHUB_SHA}."
+          echo "No metadata write, submission, release, or artifact is authorized."
+
+  inspect:
+    name: Inspect uploaded App Store candidate
+    needs: authorize
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_inspection &&
+      inputs.version == '0.1.0' &&
+      needs.authorize.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: testflight
+    env:
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+      IOS_BUILD_NUMBER: 33770597608.1
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Inspect candidate without mutation
+        run: node scripts/inspect-app-store-candidate.mjs --wait-for-processing

@@ -177,7 +177,13 @@ function query(parameters) {
   return result.toString();
 }
 
-async function apiRequest(token, method, path, body = undefined) {
+async function apiRequest(
+  token,
+  method,
+  path,
+  body = undefined,
+  options = {},
+) {
   const response = await fetch(`${API_ORIGIN}${path}`, {
     method,
     headers: {
@@ -198,7 +204,10 @@ async function apiRequest(token, method, path, body = undefined) {
       );
     }
   }
-  if (!response.ok) {
+  const allowedStatuses = Array.isArray(options.allowedStatuses)
+    ? options.allowedStatuses
+    : [];
+  if (!response.ok && !allowedStatuses.includes(response.status)) {
     const details = Array.isArray(payload.errors)
       ? payload.errors.map((error) => (
         `${error.status ?? response.status} ${error.code ?? "ERROR"}: ` +
@@ -213,6 +222,9 @@ async function apiRequest(token, method, path, body = undefined) {
       );
     }
     fail(`App Store Connect ${method} ${path} failed: ${details}`);
+  }
+  if (options.includeStatus) {
+    return { status: response.status, payload };
   }
   return payload;
 }
@@ -756,3 +768,15 @@ if (
     process.exitCode = 1;
   });
 }
+
+export {
+  apiRequest,
+  createToken,
+  exactlyOne,
+  findApp,
+  findVersion,
+  findVersionLocalization,
+  query,
+  requiredEnvironment,
+  validateMetadata,
+};

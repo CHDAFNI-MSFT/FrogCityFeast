@@ -25,6 +25,15 @@ without copying or revealing them. The existing TestFlight workflow and
 internal group remain historical infrastructure; they are not the selected
 distribution route.
 
+The manual
+[`App Store candidate inspection`](../.github/workflows/app-store-candidate-inspection.yml)
+workflow uses the same two approvals and API credentials for read-only
+inspection after upload. It waits for the exact build to finish processing and
+reports build validity, export-compliance state, selected-build status,
+13-inch iPad screenshot completeness, and App Review contact completeness
+without printing contact values or selecting, submitting, or releasing a
+build.
+
 No signing, upload, App Store submission, publication, release, or tag is
 authorized by this decision. Public distribution remains blocked until the
 production pass, metadata, privacy disclosures, age-rating inputs, target-iPad

@@ -4,6 +4,10 @@ const WORKFLOW := "res://.github/workflows/ios-app-store.yml"
 const TESTFLIGHT_WORKFLOW := "res://.github/workflows/ios-testflight.yml"
 const METADATA_WORKFLOW := "res://.github/workflows/app-store-metadata.yml"
 const METADATA_SYNC_SCRIPT := "res://scripts/sync-app-store-metadata.mjs"
+const INSPECTION_WORKFLOW := (
+	"res://.github/workflows/app-store-candidate-inspection.yml"
+)
+const INSPECTION_SCRIPT := "res://scripts/inspect-app-store-candidate.mjs"
 const ARCHIVE_SCRIPT := "res://scripts/archive-and-upload-ios.sh"
 const CLEANUP_SCRIPT := "res://scripts/cleanup-ios-signing.sh"
 const EXPORT_OPTIONS_SCRIPT := "res://scripts/create-export-options.py"
@@ -27,6 +31,8 @@ func _run() -> void:
 	var testflight_workflow := _read(TESTFLIGHT_WORKFLOW)
 	var metadata_workflow := _read(METADATA_WORKFLOW)
 	var metadata_sync_script := _read(METADATA_SYNC_SCRIPT)
+	var inspection_workflow := _read(INSPECTION_WORKFLOW)
+	var inspection_script := _read(INSPECTION_SCRIPT)
 	var archive_script := _read(ARCHIVE_SCRIPT)
 	var cleanup_script := _read(CLEANUP_SCRIPT)
 	var export_options := _read(EXPORT_OPTIONS_SCRIPT)
@@ -228,6 +234,58 @@ func _run() -> void:
 			),
 		"A newly created App Store version is not validated or is "
 			+ "redundantly patched."
+	)
+	_check(
+		inspection_workflow.contains("on:\n  workflow_dispatch:")
+			and inspection_workflow.contains("confirm_inspection:")
+			and inspection_workflow.count(
+				"inputs.version == '0.1.0'"
+			) == 2
+			and inspection_workflow.contains(
+				"    environment:\n      name: app-store"
+			)
+			and inspection_workflow.contains(
+				"    environment:\n      name: testflight"
+			)
+			and inspection_workflow.contains(
+				"inspect-app-store-candidate.mjs --wait-for-processing"
+			)
+			and inspection_workflow.contains(
+				"IOS_BUILD_NUMBER: 33770597608.1"
+			)
+			and not inspection_workflow.contains("inputs.build_number")
+			and inspection_workflow.contains(
+				"permissions:\n  contents: read"
+			)
+			and not inspection_workflow.contains("actions/upload-artifact"),
+		"The candidate inspector is manual, version-pinned, double-gated, "
+			+ "and publishes no artifact."
+	)
+	_check(
+		inspection_script.contains('"filter[version]"')
+			and inspection_script.contains('"filter[app]"')
+			and inspection_script.contains("processingState")
+			and inspection_script.contains("usesNonExemptEncryption")
+			and inspection_script.contains(
+				"relationships/appStoreReviewDetail"
+			)
+			and inspection_script.contains("appScreenshotSets")
+			and inspection_script.contains("apiVisibleBlockers")
+			and inspection_script.contains(
+				'const EXPECTED_BUILD_NUMBER = "33770597608.1"'
+			)
+			and inspection_script.contains("failForBlockers(blockers);")
+			and not inspection_script.contains(
+				'apiRequest(token, "POST"'
+			)
+			and not inspection_script.contains(
+				'apiRequest(token, "PATCH"'
+			)
+			and not inspection_script.contains(
+				'apiRequest(token, "DELETE"'
+			),
+		"The candidate inspector is read-only and checks processing, review, "
+			+ "and screenshot prerequisites."
 	)
 
 	for variable_name in ["APPLE_TEAM_ID", "IOS_BUNDLE_ID"]:

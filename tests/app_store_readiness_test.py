@@ -12,11 +12,23 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPORT_OPTIONS_SCRIPT = REPO_ROOT / "scripts" / "create-export-options.py"
 METADATA_PATH = REPO_ROOT / "tools" / "app-store-metadata.json"
 METADATA_SYNC_SCRIPT = REPO_ROOT / "scripts" / "sync-app-store-metadata.mjs"
+CANDIDATE_INSPECTION_SCRIPT = (
+    REPO_ROOT / "scripts" / "inspect-app-store-candidate.mjs"
+)
+CANDIDATE_INSPECTION_TEST = (
+    REPO_ROOT / "tests" / "app_store_candidate_inspection_test.mjs"
+)
 METADATA_VERSION_TEST = (
     REPO_ROOT / "tests" / "app_store_metadata_version_test.mjs"
 )
 METADATA_WORKFLOW = (
     REPO_ROOT / ".github" / "workflows" / "app-store-metadata.yml"
+)
+CANDIDATE_INSPECTION_WORKFLOW = (
+    REPO_ROOT
+    / ".github"
+    / "workflows"
+    / "app-store-candidate-inspection.yml"
 )
 SUPPORT_PATH = REPO_ROOT / "docs" / "app-support.md"
 PRIVACY_PATH = REPO_ROOT / "docs" / "privacy-policy.md"
@@ -261,6 +273,12 @@ def validate_metadata_sync() -> None:
         METADATA_WORKFLOW.is_file(),
         "The protected App Store metadata workflow is missing.",
     )
+    require(
+        CANDIDATE_INSPECTION_SCRIPT.is_file()
+        and CANDIDATE_INSPECTION_TEST.is_file()
+        and CANDIDATE_INSPECTION_WORKFLOW.is_file(),
+        "The protected App Store candidate inspection path is missing.",
+    )
     result = subprocess.run(
         ["node", str(METADATA_SYNC_SCRIPT), "--print-values"],
         check=True,
@@ -280,8 +298,18 @@ def validate_metadata_sync() -> None:
         capture_output=True,
         text=True,
     )
+    subprocess.run(
+        ["node", str(CANDIDATE_INSPECTION_TEST)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     workflow = METADATA_WORKFLOW.read_text(encoding="utf-8")
     sync_script = METADATA_SYNC_SCRIPT.read_text(encoding="utf-8")
+    inspection_workflow = CANDIDATE_INSPECTION_WORKFLOW.read_text(
+        encoding="utf-8"
+    )
+    inspection_script = CANDIDATE_INSPECTION_SCRIPT.read_text(encoding="utf-8")
     require(
         "workflow_dispatch:" in workflow
         and "confirm_sync:" in workflow
@@ -352,6 +380,39 @@ def validate_metadata_sync() -> None:
         "contentRightsDeclaration:" not in sync_script
         and "primaryLocale:" not in sync_script,
         "The metadata script retries App Store fields rejected by Apple.",
+    )
+    require(
+        "workflow_dispatch:" in inspection_workflow
+        and "confirm_inspection:" in inspection_workflow
+        and inspection_workflow.count("inputs.version == '0.1.0'") == 2
+        and "IOS_BUILD_NUMBER: 33770597608.1" in inspection_workflow
+        and "inputs.build_number" not in inspection_workflow
+        and "name: app-store" in inspection_workflow
+        and "name: testflight" in inspection_workflow
+        and "--wait-for-processing" in inspection_workflow,
+        "The candidate inspector is not manual, pinned, and double-gated.",
+    )
+    require(
+        "permissions:\n  contents: read" in inspection_workflow
+        and "persist-credentials: false" in inspection_workflow
+        and "actions/upload-artifact" not in inspection_workflow
+        and all(
+            forbidden not in inspection_script
+            for forbidden in (
+                'apiRequest(token, "POST"',
+                'apiRequest(token, "PATCH"',
+                'apiRequest(token, "DELETE"',
+                "reviewSubmissions",
+                "appStoreVersionSubmissions",
+                "appStoreVersionReleaseRequests",
+            )
+        ),
+        "The candidate inspector can mutate, submit, release, or publish.",
+    )
+    require(
+        'const EXPECTED_BUILD_NUMBER = "33770597608.1"' in inspection_script
+        and "failForBlockers(blockers);" in inspection_script,
+        "The candidate inspector is not pinned or does not fail on blockers.",
     )
 
 
