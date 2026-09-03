@@ -15,6 +15,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 manifest_path="$RUNNER_TEMP/frogcityfeast-ota-manifest.plist"
 ipa_headers_path="$RUNNER_TEMP/frogcityfeast-ota-ipa.headers"
 manifest_headers_path="$RUNNER_TEMP/frogcityfeast-ota-manifest.headers"
+anonymous_headers_path="$RUNNER_TEMP/frogcityfeast-ota-anonymous.headers"
+anonymous_body_path="$RUNNER_TEMP/frogcityfeast-ota-anonymous.body"
 
 echo "::add-mask::$AZURE_OTA_UPLOAD_SAS"
 echo "::add-mask::$AZURE_OTA_INSTALL_SAS"
@@ -77,7 +79,12 @@ if [[ "$ipa_directory" != "$expected_directory" ]] ||
   exit 1
 fi
 
-rm -f -- "$manifest_path" "$ipa_headers_path" "$manifest_headers_path"
+rm -f -- \
+  "$manifest_path" \
+  "$ipa_headers_path" \
+  "$manifest_headers_path" \
+  "$anonymous_headers_path" \
+  "$anonymous_body_path"
 
 blob_prefix="frogcityfeast/$IOS_SHORT_VERSION/$IOS_BUILD_NUMBER"
 ipa_blob="$blob_prefix/FrogCityFeast.ipa"
@@ -272,16 +279,17 @@ verify_blob() {
 verify_anonymous_access_denied() {
   local anonymous_url="$1"
   local error_code
-  local headers_path="$RUNNER_TEMP/frogcityfeast-ota-anonymous.headers"
   local response_code
 
+  rm -f -- "$anonymous_headers_path" "$anonymous_body_path"
   response_code="$(
     curl \
       --silent \
       --show-error \
-      --head \
-      --dump-header "$headers_path" \
-      --output /dev/null \
+      --request GET \
+      --range "0-0" \
+      --dump-header "$anonymous_headers_path" \
+      --output "$anonymous_body_path" \
       --write-out "%{http_code}" \
       "$anonymous_url"
   )"
@@ -291,9 +299,15 @@ verify_anonymous_access_denied() {
       ;;
     409)
       error_code="$(
-        tr -d '\r' < "$headers_path" |
+        tr -d '\r' < "$anonymous_headers_path" |
           awk -F': ' 'tolower($1) == "x-ms-error-code" { print $2 }'
       )"
+      if [[ -z "$error_code" ]]; then
+        error_code="$(
+          tr -d '\r\n' < "$anonymous_body_path" |
+            sed -n 's:.*<Code>\([^<]*\)</Code>.*:\1:p'
+        )"
+      fi
       if [[ "$error_code" == "PublicAccessNotPermitted" ]]; then
         return
       fi
@@ -301,7 +315,7 @@ verify_anonymous_access_denied() {
     *)
       ;;
   esac
-  echo "A private OTA blob is accessible without authorization." >&2
+  echo "Anonymous access to a private OTA blob was not denied as expected." >&2
   exit 1
 }
 

@@ -289,10 +289,16 @@ func _run() -> void:
 				"verify_anonymous_access_denied"
 			)
 			and ota_upload_script.contains(
-				"A private OTA blob is accessible without authorization."
+				"--range \"0-0\""
 			)
 			and ota_upload_script.contains(
 				"PublicAccessNotPermitted"
+			)
+			and ota_upload_script.contains(
+				"<Code>\\([^<]*\\)</Code>"
+			)
+			and ota_upload_script.contains(
+				"Anonymous access to a private OTA blob was not denied as expected."
 			)
 			and ota_upload_script.contains(
 				"Incomplete private OTA blobs were removed."
@@ -333,6 +339,9 @@ func _run() -> void:
 			)
 			and cleanup_script.contains(
 				"frogcityfeast-ota-manifest.plist"
+			)
+			and cleanup_script.contains(
+				"frogcityfeast-ota-anonymous.body"
 			)
 			and cleanup_script.contains(
 				"ios-ad-hoc-ipa-validation"

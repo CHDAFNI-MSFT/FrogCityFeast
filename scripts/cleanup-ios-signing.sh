@@ -60,6 +60,7 @@ if [[ -n "$runner_temp" ]]; then
     "$runner_temp/frogcityfeast-ota-ipa.headers" \
     "$runner_temp/frogcityfeast-ota-manifest.headers" \
     "$runner_temp/frogcityfeast-ota-anonymous.headers" \
+    "$runner_temp/frogcityfeast-ota-anonymous.body" \
     "$runner_temp/frogcityfeast-ota-rollback.headers"; do
     remove_file "$path"
   done
