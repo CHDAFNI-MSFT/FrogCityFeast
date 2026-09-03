@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 
 import {
   failForBlockers,
+  reviewDetailIdFromResponse,
   selectCandidateBuild,
+  selectedBuildIdFromResponse,
   summarizeReviewDetail,
   summarizeScreenshots,
 } from "../scripts/inspect-app-store-candidate.mjs";
@@ -94,6 +96,26 @@ assert.doesNotThrow(() => failForBlockers([]));
 assert.throws(
   () => failForBlockers(["candidate build is not selected"]),
   /not ready for submission/,
+);
+assert.equal(selectedBuildIdFromResponse({ data: null }), null);
+assert.equal(
+  selectedBuildIdFromResponse({
+    data: { type: "builds", id: "build-id" },
+  }),
+  "build-id",
+);
+assert.throws(
+  () => selectedBuildIdFromResponse({
+    data: { type: "appStoreVersions", id: "wrong-type" },
+  }),
+  /selected-build relationship is invalid/,
+);
+assert.equal(reviewDetailIdFromResponse({ data: null }), null);
+assert.equal(
+  reviewDetailIdFromResponse({
+    data: { type: "appStoreReviewDetails", id: "review-id" },
+  }),
+  "review-id",
 );
 
 console.log("App Store candidate inspection tests passed.");

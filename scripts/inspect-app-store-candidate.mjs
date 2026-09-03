@@ -250,7 +250,14 @@ async function selectedBuildId(token, versionId) {
   if (response.status === 404) {
     return null;
   }
-  const linkage = response.payload?.data;
+  return selectedBuildIdFromResponse(response.payload);
+}
+
+export function selectedBuildIdFromResponse(payload) {
+  const linkage = payload?.data;
+  if (linkage === null) {
+    return null;
+  }
   if (
     linkage?.type !== "builds" ||
     typeof linkage.id !== "string" ||
@@ -272,18 +279,14 @@ async function reviewDetail(token, versionId) {
   if (response.status === 404) {
     return null;
   }
-  const linkage = response.payload?.data;
-  if (
-    linkage?.type !== "appStoreReviewDetails" ||
-    typeof linkage.id !== "string" ||
-    !linkage.id.trim()
-  ) {
-    fail("The App Review detail relationship is invalid.");
+  const reviewDetailId = reviewDetailIdFromResponse(response.payload);
+  if (!reviewDetailId) {
+    return null;
   }
   const payload = await apiRequest(
     token,
     "GET",
-    `/v1/appStoreReviewDetails/${linkage.id}?${query({
+    `/v1/appStoreReviewDetails/${reviewDetailId}?${query({
       "fields[appStoreReviewDetails]": [
         "contactFirstName",
         "contactLastName",
@@ -294,10 +297,25 @@ async function reviewDetail(token, versionId) {
       ].join(","),
     })}`,
   );
-  if (payload?.data?.id !== linkage.id) {
+  if (payload?.data?.id !== reviewDetailId) {
     fail("The App Review detail ID does not match its relationship.");
   }
   return payload.data;
+}
+
+export function reviewDetailIdFromResponse(payload) {
+  const linkage = payload?.data;
+  if (linkage === null) {
+    return null;
+  }
+  if (
+    linkage?.type !== "appStoreReviewDetails" ||
+    typeof linkage.id !== "string" ||
+    !linkage.id.trim()
+  ) {
+    fail("The App Review detail relationship is invalid.");
+  }
+  return linkage.id;
 }
 
 async function screenshotSummary(token, localizationId) {
