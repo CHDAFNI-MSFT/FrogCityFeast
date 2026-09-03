@@ -280,7 +280,7 @@ func _run() -> void:
 				"rollback_incomplete_upload"
 			)
 			and ota_upload_script.contains(
-				"x-ms-meta-frogcityfeast-build"
+				"x-ms-meta-frogcityfeast_build"
 			)
 			and ota_upload_script.contains(
 				"require_blob_absent"

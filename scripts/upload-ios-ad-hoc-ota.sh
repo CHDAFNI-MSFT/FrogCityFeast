@@ -134,11 +134,11 @@ rollback_incomplete_upload() {
       )"
       remote_build="$(
         tr -d '\r' < "$RUNNER_TEMP/frogcityfeast-ota-rollback.headers" |
-          awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast-build" { print $2 }'
+          awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast_build" { print $2 }'
       )"
       remote_kind="$(
         tr -d '\r' < "$RUNNER_TEMP/frogcityfeast-ota-rollback.headers" |
-          awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast-kind" { print $2 }'
+          awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast_kind" { print $2 }'
       )"
       if [[ "$remote_md5" != "${rollback_md5_values[$index]}" ]] ||
         [[ "$remote_build" != "$IOS_BUILD_NUMBER" ]] ||
@@ -219,8 +219,8 @@ upload_blob() {
     --header "x-ms-blob-type: BlockBlob" \
     --header "Content-Type: $content_type" \
     --header "Content-MD5: $content_md5" \
-    --header "x-ms-meta-frogcityfeast-build: $IOS_BUILD_NUMBER" \
-    --header "x-ms-meta-frogcityfeast-kind: $content_kind" \
+    --header "x-ms-meta-frogcityfeast_build: $IOS_BUILD_NUMBER" \
+    --header "x-ms-meta-frogcityfeast_kind: $content_kind" \
     --header "If-None-Match: *" \
     --data-binary "@$source_path" \
     "$destination_url" \
@@ -251,11 +251,11 @@ verify_blob() {
   )"
   remote_build="$(
     tr -d '\r' < "$headers_path" |
-      awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast-build" { print $2 }'
+      awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast_build" { print $2 }'
   )"
   remote_kind="$(
     tr -d '\r' < "$headers_path" |
-      awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast-kind" { print $2 }'
+      awk -F': ' 'tolower($1) == "x-ms-meta-frogcityfeast_kind" { print $2 }'
   )"
   if [[ "$remote_md5" != "$source_md5" ]] ||
     [[ "$remote_build" != "$IOS_BUILD_NUMBER" ]] ||
