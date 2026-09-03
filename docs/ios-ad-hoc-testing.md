@@ -165,6 +165,11 @@ level. Two revocable stored access policies are configured:
   roll back its own blobs; and
 - `device-install` is read-only for the IPA and manifest installation URLs.
 
+Both policies have a December 31, 2099 safety horizon because Azure rejects a
+stored-policy SAS when neither the policy nor token defines an expiry. Normal
+retention remains "until deleted": delete the blobs or revoke/change the
+stored policy when access should end rather than relying on that horizon.
+
 Their SAS values are protected `testflight` environment secrets. The account
 and container names are protected environment variables. The workflow masks
 both SAS values, never prints or commits an installation URL, verifies the
