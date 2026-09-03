@@ -332,6 +332,7 @@ func _run() -> void:
 	)
 	_check(
 		screenshot_script.find("--import") >= 0
+			and screenshot_script.find("--audio-driver Dummy") >= 0
 			and screenshot_script.find(
 				"--script res://tools/app_store_screenshot_harness.gd"
 			) >= 0

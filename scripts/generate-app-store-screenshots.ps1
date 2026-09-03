@@ -152,7 +152,7 @@ if ($importOutput -match $errorPattern) {
 }
 
 $godotArguments = (
-    '--path "{0}" --resolution 2752x2064 ' +
+    '--path "{0}" --audio-driver Dummy --resolution 2752x2064 ' +
     '--script res://tools/app_store_screenshot_harness.gd -- ' +
     '--app-store-screenshot-harness --output "{1}"'
 ) -f @(
