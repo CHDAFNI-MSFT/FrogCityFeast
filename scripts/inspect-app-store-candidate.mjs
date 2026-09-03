@@ -45,6 +45,23 @@ function collection(payload, label) {
   return payload.data;
 }
 
+export function appleApiPath(url, label, parameters = {}) {
+  if (typeof url !== "string" || !url.trim()) {
+    fail(`${label} URL is invalid.`);
+  }
+  const parsed = new URL(
+    url,
+    "https://api.appstoreconnect.apple.com",
+  );
+  if (parsed.origin !== "https://api.appstoreconnect.apple.com") {
+    fail(`${label} URL left Apple API.`);
+  }
+  for (const [name, value] of Object.entries(parameters)) {
+    parsed.searchParams.set(name, String(value));
+  }
+  return `${parsed.pathname}${parsed.search}`;
+}
+
 async function paginatedCollection(token, initialPath, label) {
   const data = [];
   const included = [];
@@ -78,14 +95,7 @@ async function paginatedCollection(token, initialPath, label) {
     if (nextUrl === null || nextUrl === undefined) {
       nextPath = null;
     } else if (typeof nextUrl === "string") {
-      const parsed = new URL(
-        nextUrl,
-        "https://api.appstoreconnect.apple.com",
-      );
-      if (parsed.origin !== "https://api.appstoreconnect.apple.com") {
-        fail(`${label} pagination left Apple API.`);
-      }
-      nextPath = `${parsed.pathname}${parsed.search}`;
+      nextPath = appleApiPath(nextUrl, `${label} pagination`);
     } else {
       fail(`${label} next-page link is invalid.`);
     }
@@ -609,11 +619,35 @@ export async function priceScheduleSummary(token, appId) {
   ) {
     fail("The app price-schedule response is invalid.");
   }
-  const prices = (response.payload.included ?? []).filter(
+  const includedPrices = (response.payload.included ?? []).filter(
     (entry) => entry?.type === "appPrices",
   );
-  const manualPriceTotal = schedule.relationships?.manualPrices
-    ?.meta?.paging?.total;
+  const manualPriceRelationship = schedule.relationships?.manualPrices;
+  const manualPriceLinkages = manualPriceRelationship?.data;
+  if (
+    !Array.isArray(manualPriceLinkages) ||
+    manualPriceLinkages.some(
+      (linkage) => (
+        linkage?.type !== "appPrices" ||
+        typeof linkage.id !== "string" ||
+        !linkage.id.trim()
+      ),
+    ) ||
+    new Set(manualPriceLinkages.map((linkage) => linkage.id)).size !==
+      manualPriceLinkages.length
+  ) {
+    fail("The app price schedule manual-price linkage is invalid.");
+  }
+  const prices = manualPriceLinkages.map((linkage) => {
+    const matches = includedPrices.filter(
+      (price) => price.id === linkage.id,
+    );
+    if (matches.length !== 1) {
+      fail("The app price schedule manual-price inclusion is invalid.");
+    }
+    return matches[0];
+  });
+  const manualPriceTotal = manualPriceRelationship?.meta?.paging?.total;
   const totalIsPresent = (
     manualPriceTotal !== undefined &&
     manualPriceTotal !== null
@@ -633,9 +667,51 @@ export async function priceScheduleSummary(token, appId) {
   }
   const currentDate = new Date().toISOString().slice(0, 10);
   const activePrices = selectActiveManualPrices(prices, currentDate);
+  const detailedActivePrices = [];
+  for (const activePrice of activePrices) {
+    const appPricePoint = activePrice.relationships?.appPricePoint?.data;
+    const territory = activePrice.relationships?.territory?.data;
+    if (
+      appPricePoint?.type === "appPricePoints" &&
+      typeof appPricePoint.id === "string" &&
+      appPricePoint.id.trim() &&
+      territory?.type === "territories" &&
+      typeof territory.id === "string" &&
+      territory.id.trim()
+    ) {
+      detailedActivePrices.push(activePrice);
+      continue;
+    }
+    const selfPath = appleApiPath(
+      activePrice.links?.self,
+      "App price",
+      {
+        "fields[appPrices]":
+          "manual,startDate,endDate,appPricePoint,territory",
+        "fields[appPricePoints]": "customerPrice,territory",
+        include: "appPricePoint,territory",
+      },
+    );
+    if (!/^\/v\d+\/appPrices\/[^/]+(?:\?|$)/.test(selfPath)) {
+      fail("The App price URL path is invalid.");
+    }
+    const payload = await apiRequest(
+      token,
+      "GET",
+      selfPath,
+    );
+    if (
+      payload.data?.type !== "appPrices" ||
+      payload.data.id !== activePrice.id ||
+      selectActiveManualPrices([payload.data], currentDate).length !== 1
+    ) {
+      fail("The detailed active app price is invalid.");
+    }
+    detailedActivePrices.push(payload.data);
+  }
   const pricePointIds = [
     ...new Set(
-      activePrices.map(
+      detailedActivePrices.map(
         (price) => price.relationships?.appPricePoint?.data?.id,
       ),
     ),
@@ -652,7 +728,7 @@ export async function priceScheduleSummary(token, appId) {
     const payload = await apiRequest(
       token,
       "GET",
-      `/v3/appPricePoints/${pricePointId}?${query({
+      `/v3/appPricePoints/${encodeURIComponent(pricePointId)}?${query({
         "fields[appPricePoints]": "customerPrice,territory",
         include: "territory",
       })}`,
@@ -660,7 +736,7 @@ export async function priceScheduleSummary(token, appId) {
     pricePoints.push(payload.data);
   }
   return summarizePriceSchedule(schedule, {
-    data: prices,
+    data: detailedActivePrices,
     included: pricePoints,
   }, currentDate);
 }
