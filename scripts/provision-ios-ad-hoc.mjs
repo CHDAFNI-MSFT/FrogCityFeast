@@ -23,9 +23,10 @@ import {
   resolve,
 } from "node:path";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const API_ORIGIN = "https://api.appstoreconnect.apple.com";
+const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEVICE_ENV_NAMES = [
   "IOS_AD_HOC_DEVICE_UDID_1",
   "IOS_AD_HOC_DEVICE_UDID_2",
@@ -817,8 +818,8 @@ async function parseMobileProvision(profilePath, plistPath) {
   let json;
   try {
     json = execFileSync(
-      "plutil",
-      ["-convert", "json", "-o", "-", plistPath],
+      "python3",
+      [join(SCRIPT_DIRECTORY, "convert-ios-profile-plist.py"), plistPath],
       {
         encoding: "utf8",
         maxBuffer: 16 * 1024 * 1024,
@@ -827,7 +828,7 @@ async function parseMobileProvision(profilePath, plistPath) {
     );
     return JSON.parse(json);
   } catch {
-    fail("The API provisioning profile does not contain a valid plist.");
+    fail("The API provisioning profile could not be parsed as a plist.");
   }
 }
 

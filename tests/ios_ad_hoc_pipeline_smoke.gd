@@ -120,6 +120,9 @@ func _run() -> void:
 			)
 			and not provisioning_script.contains("activated")
 			and provisioning_script.contains(
+				"convert-ios-profile-plist.py"
+			)
+			and provisioning_script.contains(
 				"requireCompleteCollection"
 			)
 			and provisioning_script.contains(

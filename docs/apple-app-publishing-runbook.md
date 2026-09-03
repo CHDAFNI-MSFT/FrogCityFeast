@@ -147,6 +147,12 @@ require exact DER fingerprint, serial, Team ID, subject, type, and expiration
 agreement. Treat successful profile creation plus independent validation of
 the downloaded profile as the authoritative eligibility result.
 
+After `security cms` decodes a provisioning profile, do not use
+`plutil -convert json`: profile dates and certificate data have no direct JSON
+representation and can make that conversion fail. Parse the plist with a
+property-list library, normalize dates to UTC strings and data to Base64, then
+perform the API UUID, expiration, certificate, bundle, and device-set checks.
+
 ## 4. Preflight the complete App Store state before writing
 
 A metadata workflow should read and validate all required resources before its
