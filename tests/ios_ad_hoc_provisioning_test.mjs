@@ -284,7 +284,7 @@ const expectedProfile = {
       },
     ).resource,
     certificateResource,
-    "Fingerprint and normalized serial should select one active certificate.",
+    "Fingerprint and normalized serial should select one certificate.",
   );
   assert.throws(
     () => selectMatchingCertificate(
@@ -296,7 +296,7 @@ const expectedProfile = {
         parseCertificate,
       },
     ),
-    /exactly one matching active certificate/,
+    /exactly one matching certificate/,
   );
   assert.throws(
     () => selectMatchingCertificate(
@@ -313,16 +313,17 @@ const expectedProfile = {
     ),
     /not a modern Apple Distribution certificate/,
   );
-  assert.throws(
-    () => selectMatchingCertificate(
+  const inactiveCertificate = {
+    ...certificateResource,
+    attributes: {
+      ...certificateResource.attributes,
+      activated: false,
+    },
+  };
+  assert.equal(
+    selectMatchingCertificate(
       {
-        data: [{
-          ...certificateResource,
-          attributes: {
-            ...certificateResource.attributes,
-            activated: false,
-          },
-        }],
+        data: [inactiveCertificate],
       },
       localIdentity,
       {
@@ -330,8 +331,9 @@ const expectedProfile = {
         nowMs: NOW,
         parseCertificate,
       },
-    ),
-    /not active/,
+    ).resource,
+    inactiveCertificate,
+    "Distribution certificate activation is not a validity signal.",
   );
   assert.equal(
     selectMatchingCertificate(
@@ -370,18 +372,20 @@ const expectedProfile = {
       },
     ).resource,
     certificateResource,
-    "An unrelated inactive certificate must not block the active exact match.",
+    "An unrelated certificate must not block the exact identity match.",
   );
-  assert.throws(
-    () => selectMatchingCertificate(
+  const {
+    activated: _activated,
+    ...attributesWithoutActivation
+  } = certificateResource.attributes;
+  const certificateWithoutActivation = {
+    ...certificateResource,
+    attributes: attributesWithoutActivation,
+  };
+  assert.equal(
+    selectMatchingCertificate(
       {
-        data: [{
-          ...certificateResource,
-          attributes: {
-            ...certificateResource.attributes,
-            activated: undefined,
-          },
-        }],
+        data: [certificateWithoutActivation],
       },
       localIdentity,
       {
@@ -389,8 +393,9 @@ const expectedProfile = {
         nowMs: NOW,
         parseCertificate,
       },
-    ),
-    /not active/,
+    ).resource,
+    certificateWithoutActivation,
+    "An omitted optional activation field should not override the exact certificate match.",
   );
   assert.throws(
     () => selectMatchingCertificate(

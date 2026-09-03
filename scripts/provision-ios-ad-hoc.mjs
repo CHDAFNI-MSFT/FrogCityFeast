@@ -463,9 +463,6 @@ export function selectMatchingCertificate(
       apiSerial === localSerial
     ) {
       validateDistributionIdentity(identity, teamId, "matching certificate");
-      if (attributes.activated !== true) {
-        fail("The matching Apple Distribution certificate is not active.");
-      }
       if (
         apiExpiration <= nowMs + minimumValidityMs ||
         identity.validToMs <= nowMs + minimumValidityMs
@@ -476,7 +473,7 @@ export function selectMatchingCertificate(
     }
   }
   if (matches.length !== 1) {
-    fail(`Expected exactly one matching active certificate; found ${matches.length}.`);
+    fail(`Expected exactly one matching certificate; found ${matches.length}.`);
   }
   return matches[0];
 }
@@ -1062,7 +1059,7 @@ async function main() {
       "filter[certificateType]": "DISTRIBUTION",
       "fields[certificates]":
         "name,certificateType,displayName,serialNumber,platform," +
-        "expirationDate,certificateContent,activated",
+        "expirationDate,certificateContent",
       limit: 200,
     })}`,
     "certificate lookup",
@@ -1096,7 +1093,7 @@ async function main() {
         "fields[bundleIds]": "name,platform,identifier",
         "fields[devices]": "name,platform,udid,status",
         "fields[certificates]":
-          "certificateType,serialNumber,expirationDate,activated",
+          "certificateType,serialNumber,expirationDate",
         include: "bundleId,certificates,devices",
         "limit[devices]": 50,
         "limit[certificates]": 50,
@@ -1141,7 +1138,7 @@ async function main() {
       "fields[bundleIds]": "name,platform,identifier",
       "fields[devices]": "name,platform,udid,status",
       "fields[certificates]":
-        "certificateType,serialNumber,expirationDate,activated",
+        "certificateType,serialNumber,expirationDate",
       include: "bundleId,certificates,devices",
       "limit[devices]": 50,
       "limit[certificates]": 50,

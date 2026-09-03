@@ -118,9 +118,7 @@ func _run() -> void:
 			and provisioning_script.contains(
 				'certificateType]": "DISTRIBUTION"'
 			)
-			and provisioning_script.contains(
-				"The matching Apple Distribution certificate is not active."
-			)
+			and not provisioning_script.contains("activated")
 			and provisioning_script.contains(
 				"requireCompleteCollection"
 			)

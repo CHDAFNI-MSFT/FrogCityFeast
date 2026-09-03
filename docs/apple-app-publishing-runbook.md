@@ -138,6 +138,15 @@ Use the least role that performs the operation:
 Do not infer role sufficiency from JWT creation, authentication, read-only
 preflight, or a successful build upload.
 
+Apple API 4.4.1 exposes `Certificate.attributes.activated` as an optional
+response field, but Apple documents its activation semantics for Payment
+Processing certificates rather than `DISTRIBUTION` certificates. Ignore the
+field when resolving an Apple Distribution certificate: neither `true`,
+`false`, nor omission proves profile eligibility or revocation. Continue to
+require exact DER fingerprint, serial, Team ID, subject, type, and expiration
+agreement. Treat successful profile creation plus independent validation of
+the downloaded profile as the authoritative eligibility result.
+
 ## 4. Preflight the complete App Store state before writing
 
 A metadata workflow should read and validate all required resources before its
