@@ -7,6 +7,7 @@ import {
   loadScreenshotPackage,
   readUploadPart,
   reviewAttributes,
+  screenshotVerificationMismatches,
   validateUploadOperations,
 } from "../scripts/prepare-app-store-submission.mjs";
 import { apiRequest } from "../scripts/sync-app-store-metadata.mjs";
@@ -63,6 +64,52 @@ assert.deepEqual(
     length: 8,
   }),
   sourceBytes.subarray(3, 11),
+);
+
+const screenshotImage = {
+  filename: "01-city-overview.png",
+  size: 1234,
+  md5: "0123456789abcdef0123456789abcdef",
+};
+assert.deepEqual(
+  screenshotVerificationMismatches(
+    {
+      attributes: {
+        fileName: screenshotImage.filename,
+        fileSize: String(screenshotImage.size),
+        sourceFileChecksum: null,
+      },
+    },
+    screenshotImage,
+    { allowMissingChecksum: true },
+  ),
+  [],
+);
+assert.deepEqual(
+  screenshotVerificationMismatches(
+    {
+      attributes: {
+        fileName: screenshotImage.filename,
+        fileSize: screenshotImage.size,
+        sourceFileChecksum: null,
+      },
+    },
+    screenshotImage,
+  ),
+  ["source checksum"],
+);
+assert.deepEqual(
+  screenshotVerificationMismatches(
+    {
+      attributes: {
+        fileName: screenshotImage.filename,
+        fileSize: screenshotImage.size,
+        sourceFileChecksum: "ffffffffffffffffffffffffffffffff",
+      },
+    },
+    screenshotImage,
+  ),
+  ["source checksum"],
 );
 await assert.rejects(
   readUploadPart(fakeFile, {

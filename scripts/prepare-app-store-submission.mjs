@@ -323,14 +323,41 @@ function existingScreenshotsMatch(existing, images) {
     return false;
   }
   return existing.every((screenshot, index) => {
-    const attributes = screenshot.attributes ?? {};
     return (
-      attributes.fileName === images[index].filename &&
-      attributes.fileSize === images[index].size &&
-      attributes.sourceFileChecksum?.toLowerCase() === images[index].md5 &&
-      attributes.assetDeliveryState?.state === "COMPLETE"
+      screenshot.attributes?.assetDeliveryState?.state === "COMPLETE" &&
+      screenshotVerificationMismatches(screenshot, images[index]).length === 0
     );
   });
+}
+
+export function screenshotVerificationMismatches(
+  screenshot,
+  image,
+  options = {},
+) {
+  const attributes = screenshot.attributes ?? {};
+  const allowMissingChecksum = options.allowMissingChecksum ?? false;
+  const mismatches = [];
+  if (attributes.fileName !== image.filename) {
+    mismatches.push("file name");
+  }
+  const fileSize = Number(attributes.fileSize);
+  if (!Number.isSafeInteger(fileSize) || fileSize !== image.size) {
+    mismatches.push("file size");
+  }
+  const checksum = attributes.sourceFileChecksum;
+  // Apple may omit this optional field after accepting the committed checksum.
+  if (checksum === undefined || checksum === null) {
+    if (!allowMissingChecksum) {
+      mismatches.push("source checksum");
+    }
+  } else if (
+      typeof checksum !== "string" ||
+      checksum.toLowerCase() !== image.md5
+  ) {
+    mismatches.push("source checksum");
+  }
+  return mismatches;
 }
 
 async function reserveScreenshot(token, screenshotSetId, image) {
@@ -497,12 +524,16 @@ async function waitForScreenshots(token, pendingScreenshots) {
       );
       if (screenshot.attributes.assetDeliveryState.state === "COMPLETE") {
         const image = pendingScreenshot.image;
-        if (
-          screenshot.attributes?.fileName !== image.filename ||
-          screenshot.attributes?.fileSize !== image.size ||
-          screenshot.attributes?.sourceFileChecksum?.toLowerCase() !== image.md5
-        ) {
-          fail(`Processed screenshot ${image.filename} failed verification.`);
+        const mismatches = screenshotVerificationMismatches(
+          screenshot,
+          image,
+          { allowMissingChecksum: true },
+        );
+        if (mismatches.length > 0) {
+          fail(
+            `Processed screenshot ${image.filename} failed verification: ` +
+            `${mismatches.join(", ")}.`,
+          );
         }
       } else {
         nextPending.push(pendingScreenshot);
