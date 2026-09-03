@@ -545,8 +545,11 @@ export async function priceScheduleSummary(token, appId) {
     token,
     "GET",
     `/v1/apps/${appId}/appPriceSchedule?${query({
-      "fields[appPriceSchedules]": "baseTerritory",
-      include: "baseTerritory",
+      "fields[appPriceSchedules]": "baseTerritory,manualPrices",
+      "fields[appPrices]":
+        "manual,startDate,endDate,appPricePoint,territory",
+      include: "baseTerritory,manualPrices",
+      "limit[manualPrices]": 50,
     })}`,
     undefined,
     { allowedStatuses: [404], includeStatus: true },
@@ -566,18 +569,55 @@ export async function priceScheduleSummary(token, appId) {
   ) {
     fail("The app price-schedule response is invalid.");
   }
-  const prices = await paginatedCollection(
-    token,
-    `/v1/appPriceSchedules/${schedule.id}/manualPrices?${query({
-      "fields[appPrices]":
-        "manual,startDate,endDate,appPricePoint,territory",
-      "fields[appPricePoints]": "customerPrice",
-      include: "appPricePoint",
-      limit: 50,
-    })}`,
-    "App price",
+  const prices = (response.payload.included ?? []).filter(
+    (entry) => entry?.type === "appPrices",
   );
-  return summarizePriceSchedule(schedule, prices);
+  const manualPriceTotal = schedule.relationships?.manualPrices
+    ?.meta?.paging?.total;
+  const totalIsPresent = (
+    manualPriceTotal !== undefined &&
+    manualPriceTotal !== null
+  );
+  if (
+    !Array.isArray(response.payload.included) ||
+    (
+      totalIsPresent &&
+      (
+        !Number.isInteger(manualPriceTotal) ||
+        manualPriceTotal !== prices.length
+      )
+    ) ||
+    (!totalIsPresent && prices.length === 50)
+  ) {
+    fail("The app price schedule did not return every manual price.");
+  }
+  const pricePointIds = [
+    ...new Set(
+      prices.map((price) => price.relationships?.appPricePoint?.data?.id),
+    ),
+  ];
+  if (
+    pricePointIds.some(
+      (id) => typeof id !== "string" || !id.trim(),
+    )
+  ) {
+    fail("An app price-point relationship is invalid.");
+  }
+  const pricePoints = [];
+  for (const pricePointId of pricePointIds) {
+    const payload = await apiRequest(
+      token,
+      "GET",
+      `/v3/appPricePoints/${pricePointId}?${query({
+        "fields[appPricePoints]": "customerPrice",
+      })}`,
+    );
+    pricePoints.push(payload.data);
+  }
+  return summarizePriceSchedule(schedule, {
+    data: prices,
+    included: pricePoints,
+  });
 }
 
 export async function availabilitySummary(
