@@ -299,6 +299,12 @@ func _run() -> void:
 				"relationships/appStoreReviewDetail"
 			)
 			and inspection_script.contains("appScreenshotSets")
+			and inspection_script.contains("ageRatingDeclaration")
+			and inspection_script.contains("appPriceSchedule")
+			and inspection_script.contains("appAvailabilityV2")
+			and inspection_script.contains(
+				"contentRightsDeclarationMatches"
+			)
 			and inspection_script.contains("apiVisibleBlockers")
 			and inspection_script.contains(
 				'const EXPECTED_BUILD_NUMBER = "33770597608.1"'
@@ -314,7 +320,7 @@ func _run() -> void:
 				'apiRequest(token, "DELETE"'
 			),
 		"The candidate inspector is read-only and checks processing, review, "
-			+ "and screenshot prerequisites."
+			+ "metadata, pricing, availability, and screenshot prerequisites."
 	)
 	_check(
 		prep_workflow.contains("on:\n  workflow_dispatch:")

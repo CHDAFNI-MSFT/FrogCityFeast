@@ -463,6 +463,13 @@ def validate_metadata_sync() -> None:
         "The candidate inspector is not pinned or does not fail on blockers.",
     )
     require(
+        "ageRatingDeclaration" in inspection_script
+        and "appPriceSchedule" in inspection_script
+        and "appAvailabilityV2" in inspection_script
+        and "contentRightsDeclarationMatches" in inspection_script,
+        "The candidate inspector does not cover App Store prerequisites.",
+    )
+    require(
         "workflow_dispatch:" in prep_workflow
         and "PREPARE_APP_REVIEW" in prep_workflow
         and prep_workflow.count("inputs.version == '0.1.0'") == 2

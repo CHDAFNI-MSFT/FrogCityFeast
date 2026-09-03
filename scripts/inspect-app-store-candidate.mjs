@@ -23,6 +23,16 @@ const EXPECTED_SCREENSHOT_TYPE = "APP_IPAD_PRO_3GEN_129";
 const EXPECTED_SCREENSHOT_COUNT = 7;
 const MAX_PROCESSING_ATTEMPTS = 45;
 const PROCESSING_DELAY_MS = 20_000;
+const EDITABLE_INFO_STATES = new Set([
+  "DEVELOPER_REJECTED",
+  "PREPARE_FOR_SUBMISSION",
+  "READY_FOR_REVIEW",
+  "REJECTED",
+]);
+const READY_AVAILABILITY_STATUSES = new Set([
+  "AVAILABLE",
+  "AVAILABLE_FOR_SALE_UNRELEASED_APP",
+]);
 
 function fail(message) {
   throw new Error(message);
@@ -33,6 +43,61 @@ function collection(payload, label) {
     fail(`${label} response does not contain a data array.`);
   }
   return payload.data;
+}
+
+async function paginatedCollection(token, initialPath, label) {
+  const data = [];
+  const included = [];
+  let totalCount = null;
+  let nextPath = initialPath;
+  const visitedPaths = new Set();
+  while (nextPath) {
+    if (visitedPaths.has(nextPath) || visitedPaths.size >= 20) {
+      fail(`${label} pagination is invalid.`);
+    }
+    visitedPaths.add(nextPath);
+    const payload = await apiRequest(token, "GET", nextPath);
+    data.push(...collection(payload, label));
+    if (payload.included !== undefined) {
+      if (!Array.isArray(payload.included)) {
+        fail(`${label} included resources are invalid.`);
+      }
+      included.push(...payload.included);
+    }
+    const pageTotal = payload.meta?.paging?.total;
+    if (pageTotal !== undefined && pageTotal !== null) {
+      if (!Number.isInteger(pageTotal) || pageTotal < data.length) {
+        fail(`${label} pagination metadata is invalid.`);
+      }
+      if (totalCount !== null && totalCount !== pageTotal) {
+        fail(`${label} total changed during inspection.`);
+      }
+      totalCount = pageTotal;
+    }
+    const nextUrl = payload.links?.next;
+    if (nextUrl === null || nextUrl === undefined) {
+      nextPath = null;
+    } else if (typeof nextUrl === "string") {
+      const parsed = new URL(
+        nextUrl,
+        "https://api.appstoreconnect.apple.com",
+      );
+      if (parsed.origin !== "https://api.appstoreconnect.apple.com") {
+        fail(`${label} pagination left Apple API.`);
+      }
+      nextPath = `${parsed.pathname}${parsed.search}`;
+    } else {
+      fail(`${label} next-page link is invalid.`);
+    }
+  }
+  if (totalCount !== null && data.length !== totalCount) {
+    fail(`${label} pagination did not return every resource.`);
+  }
+  return {
+    data,
+    included,
+    totalCount: totalCount ?? data.length,
+  };
 }
 
 export function selectCandidateBuild(payload, expectedBuildNumber) {
@@ -161,6 +226,278 @@ export function failForBlockers(blockers) {
   }
 }
 
+export function summarizeAgeRating(declaration, expectedAttributes) {
+  if (
+    declaration?.type !== "ageRatingDeclarations" ||
+    typeof declaration.id !== "string" ||
+    !declaration.id.trim()
+  ) {
+    fail("The age-rating declaration response is invalid.");
+  }
+  const attributes = declaration.attributes ?? {};
+  const expected = {
+    ...expectedAttributes,
+    kidsAgeBand: [null],
+    ageRatingOverride: [null, "NONE"],
+    ageRatingOverrideV2: [null, "NONE"],
+    koreaAgeRatingOverride: [null, "NONE"],
+    developerAgeRatingInfoUrl: [null],
+  };
+  const mismatchedFields = Object.entries(expected)
+    .filter(([name, value]) => {
+      const accepted = Array.isArray(value) ? value : [value];
+      return !accepted.includes(attributes[name] ?? null);
+    })
+    .map(([name]) => name)
+    .sort();
+  return {
+    declarationExists: true,
+    expectedFieldCount: Object.keys(expected).length,
+    mismatchedFields,
+    complete: mismatchedFields.length === 0,
+  };
+}
+
+export function summarizePriceSchedule(
+  schedule,
+  pricePayload,
+  currentDate = new Date().toISOString().slice(0, 10),
+) {
+  if (!schedule) {
+    return {
+      exists: false,
+      baseTerritoryPresent: false,
+      activeBasePricePresent: false,
+      activeBasePriceFree: false,
+      activeManualPriceCount: 0,
+      allActiveManualPricesFree: false,
+      complete: false,
+    };
+  }
+  if (
+    schedule.type !== "appPriceSchedules" ||
+    typeof schedule.id !== "string" ||
+    !schedule.id.trim()
+  ) {
+    fail("The app price-schedule response is invalid.");
+  }
+  const baseTerritory = schedule.relationships?.baseTerritory?.data;
+  const baseTerritoryPresent = (
+    baseTerritory?.type === "territories" &&
+    typeof baseTerritory.id === "string" &&
+    baseTerritory.id.trim().length > 0
+  );
+  if (
+    !baseTerritoryPresent ||
+    !Array.isArray(pricePayload?.data) ||
+    !Array.isArray(pricePayload?.included) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(currentDate)
+  ) {
+    fail("The app price-schedule details are invalid.");
+  }
+  const validDate = (value) => (
+    value === null ||
+    value === undefined ||
+    (
+      typeof value === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(value)
+    )
+  );
+  const activeManualPrices = pricePayload.data.filter((price) => {
+    const attributes = price.attributes ?? {};
+    const territory = price.relationships?.territory?.data;
+    if (
+      price?.type !== "appPrices" ||
+      typeof price.id !== "string" ||
+      !price.id.trim() ||
+      attributes.manual !== true ||
+      !validDate(attributes.startDate) ||
+      !validDate(attributes.endDate) ||
+      territory?.type !== "territories" ||
+      typeof territory.id !== "string" ||
+      !territory.id.trim()
+    ) {
+      fail("An app price response is invalid.");
+    }
+    return (
+      (!attributes.startDate || attributes.startDate <= currentDate) &&
+      (!attributes.endDate || attributes.endDate > currentDate)
+    );
+  });
+  const activeBasePrices = activeManualPrices.filter(
+    (price) => (
+      price.relationships.territory.data.id === baseTerritory.id
+    ),
+  );
+  const activeBasePricePresent = activeBasePrices.length === 1;
+  const customerPrice = (price) => {
+    const pricePoint = price.relationships?.appPricePoint?.data;
+    if (
+      pricePoint?.type !== "appPricePoints" ||
+      typeof pricePoint.id !== "string" ||
+      !pricePoint.id.trim()
+    ) {
+      fail("The active app price-point relationship is invalid.");
+    }
+    const matchingPoints = pricePayload.included.filter(
+      (entry) => (
+        entry?.type === "appPricePoints" &&
+        entry.id === pricePoint.id
+      ),
+    );
+    const matchingPrices = new Set(
+      matchingPoints.map((entry) => entry.attributes?.customerPrice),
+    );
+    if (
+      matchingPoints.length < 1 ||
+      matchingPrices.size !== 1 ||
+      typeof matchingPoints[0].attributes?.customerPrice !== "string"
+    ) {
+      fail("The active app price point is invalid.");
+    }
+    const value = Number(
+      matchingPoints[0].attributes.customerPrice,
+    );
+    if (!Number.isFinite(value)) {
+      fail("The active app price point is not numeric.");
+    }
+    return value;
+  };
+  const activeBasePriceFree = (
+    activeBasePricePresent &&
+    customerPrice(activeBasePrices[0]) === 0
+  );
+  const allActiveManualPricesFree = (
+    activeManualPrices.length > 0 &&
+    activeManualPrices.every((price) => customerPrice(price) === 0)
+  );
+  return {
+    exists: true,
+    baseTerritoryPresent,
+    activeBasePricePresent,
+    activeBasePriceFree,
+    activeManualPriceCount: activeManualPrices.length,
+    allActiveManualPricesFree,
+    complete: (
+      baseTerritoryPresent &&
+      activeBasePriceFree &&
+      allActiveManualPricesFree
+    ),
+  };
+}
+
+export function summarizeAvailability(
+  availability,
+  expectedStorefronts,
+  catalogTerritoryIds,
+) {
+  if (!availability) {
+    return {
+      exists: false,
+      availableTerritoryCount: 0,
+      unavailableTerritoryCount: 0,
+      nonReadyContentStatuses: [],
+      chinaMainlandAvailable: null,
+      availableInNewTerritories: null,
+      complete: false,
+    };
+  }
+  if (
+    availability.data?.type !== "appAvailabilities" ||
+    typeof availability.data.id !== "string" ||
+    !availability.data.id.trim() ||
+    !Array.isArray(availability.territories) ||
+    !Number.isInteger(availability.totalCount) ||
+    availability.totalCount < 1 ||
+    availability.territories.length !== availability.totalCount ||
+    !Array.isArray(catalogTerritoryIds) ||
+    catalogTerritoryIds.length < 2
+  ) {
+    fail("The app availability response is invalid.");
+  }
+  const territories = availability.territories.map((entry) => {
+    const territory = entry.relationships?.territory?.data;
+    if (
+      entry?.type !== "territoryAvailabilities" ||
+      typeof entry.id !== "string" ||
+      !entry.id.trim() ||
+      typeof entry.attributes?.available !== "boolean" ||
+      !Array.isArray(entry.attributes?.contentStatuses) ||
+      entry.attributes.contentStatuses.some(
+        (status) => typeof status !== "string",
+      ) ||
+      territory?.type !== "territories" ||
+      typeof territory.id !== "string" ||
+      !territory.id.trim()
+    ) {
+      fail("A territory availability response is invalid.");
+    }
+    return {
+      id: territory.id,
+      available: entry.attributes.available,
+      contentStatuses: entry.attributes.contentStatuses,
+    };
+  });
+  if (new Set(territories.map((entry) => entry.id)).size !== territories.length) {
+    fail("The territory availability response contains duplicate territories.");
+  }
+  const catalogIds = new Set(catalogTerritoryIds);
+  if (
+    catalogIds.size !== catalogTerritoryIds.length ||
+    catalogTerritoryIds.some(
+      (id) => typeof id !== "string" || !id.trim(),
+    )
+  ) {
+    fail("The App Store territory catalog is invalid.");
+  }
+  const returnedIds = new Set(territories.map((entry) => entry.id));
+  const fullCatalogReturned = (
+    returnedIds.size === catalogIds.size &&
+    [...catalogIds].every((id) => returnedIds.has(id))
+  );
+  const nonReadyContentStatuses = [
+    ...new Set(
+      territories.filter((entry) => entry.id !== "CHN")
+        .flatMap((entry) => entry.contentStatuses)
+        .filter((status) => !READY_AVAILABILITY_STATUSES.has(status)),
+    ),
+  ].sort();
+  const china = territories.find((entry) => entry.id === "CHN");
+  const availableTerritoryCount = territories.filter(
+    (entry) => entry.available,
+  ).length;
+  const unavailableTerritoryCount = territories.length -
+    availableTerritoryCount;
+  const chinaMainlandAvailable = china?.available ?? null;
+  const availableInNewTerritories =
+    availability.data.attributes?.availableInNewTerritories ?? null;
+  const readyStatusesPresent = territories.every((entry) => (
+    entry.id === "CHN" || entry.contentStatuses.length > 0
+  ));
+  const storefrontsMatch = (
+    expectedStorefronts === "all_except_china_mainland" &&
+    chinaMainlandAvailable === false &&
+    availableInNewTerritories === true &&
+    fullCatalogReturned &&
+    territories.every((entry) => (
+      entry.id === "CHN" || entry.available
+    ))
+  );
+  return {
+    exists: true,
+    availableTerritoryCount,
+    unavailableTerritoryCount,
+    nonReadyContentStatuses,
+    chinaMainlandAvailable,
+    availableInNewTerritories,
+    complete: (
+      storefrontsMatch &&
+      readyStatusesPresent &&
+      nonReadyContentStatuses.length === 0
+    ),
+  };
+}
+
 export function tokenFromEnvironment() {
   const keyId = requiredEnvironment("APP_STORE_CONNECT_KEY_ID");
   const issuerId = requiredEnvironment("APP_STORE_CONNECT_ISSUER_ID");
@@ -175,6 +512,133 @@ export function tokenFromEnvironment() {
     fail("APP_STORE_CONNECT_PRIVATE_KEY_BASE64 is not a private key.");
   }
   return createToken(keyId, issuerId, privateKeyPem);
+}
+
+export async function ageRatingSummary(token, appId, metadata) {
+  const appInfosPayload = await apiRequest(
+    token,
+    "GET",
+    `/v1/apps/${appId}/appInfos?${query({
+      "fields[appInfos]": "state",
+      limit: 10,
+    })}`,
+  );
+  const appInfos = collection(appInfosPayload, "App info");
+  const editable = appInfos.filter((entry) => (
+    EDITABLE_INFO_STATES.has(entry.attributes?.state)
+  ));
+  if (editable.length !== 1) {
+    fail(
+      `Expected one editable app info; found ${editable.length}.`,
+    );
+  }
+  const payload = await apiRequest(
+    token,
+    "GET",
+    `/v1/appInfos/${editable[0].id}/ageRatingDeclaration`,
+  );
+  return summarizeAgeRating(payload.data, metadata.age_rating);
+}
+
+export async function priceScheduleSummary(token, appId) {
+  const response = await apiRequest(
+    token,
+    "GET",
+    `/v1/apps/${appId}/appPriceSchedule?${query({
+      "fields[appPriceSchedules]": "baseTerritory",
+      include: "baseTerritory",
+    })}`,
+    undefined,
+    { allowedStatuses: [404], includeStatus: true },
+  );
+  if (response.status === 404) {
+    return summarizePriceSchedule(null);
+  }
+  const schedule = response.payload.data;
+  const baseTerritory = schedule?.relationships?.baseTerritory?.data;
+  if (
+    schedule?.type !== "appPriceSchedules" ||
+    typeof schedule.id !== "string" ||
+    !schedule.id.trim() ||
+    baseTerritory?.type !== "territories" ||
+    typeof baseTerritory.id !== "string" ||
+    !baseTerritory.id.trim()
+  ) {
+    fail("The app price-schedule response is invalid.");
+  }
+  const prices = await paginatedCollection(
+    token,
+    `/v1/appPriceSchedules/${schedule.id}/manualPrices?${query({
+      "fields[appPrices]":
+        "manual,startDate,endDate,appPricePoint,territory",
+      "fields[appPricePoints]": "customerPrice",
+      include: "appPricePoint",
+      limit: 50,
+    })}`,
+    "App price",
+  );
+  return summarizePriceSchedule(schedule, prices);
+}
+
+export async function availabilitySummary(
+  token,
+  appId,
+  expectedStorefronts,
+) {
+  const response = await apiRequest(
+    token,
+    "GET",
+    `/v1/apps/${appId}/appAvailabilityV2?${query({
+      "fields[appAvailabilities]": "availableInNewTerritories",
+    })}`,
+    undefined,
+    { allowedStatuses: [404], includeStatus: true },
+  );
+  if (response.status === 404) {
+    return summarizeAvailability(null, expectedStorefronts, []);
+  }
+  const availability = response.payload.data;
+  if (
+    availability?.type !== "appAvailabilities" ||
+    typeof availability.id !== "string" ||
+    !availability.id.trim()
+  ) {
+    fail("The app availability response is invalid.");
+  }
+  const catalog = await paginatedCollection(
+    token,
+    `/v1/territories?${query({ limit: 50 })}`,
+    "App Store territory",
+  );
+  const catalogTerritoryIds = catalog.data.map((territory) => {
+    if (
+      territory?.type !== "territories" ||
+      typeof territory.id !== "string" ||
+      !territory.id.trim()
+    ) {
+      fail("An App Store territory response is invalid.");
+    }
+    return territory.id;
+  });
+  const territoryAvailability = await paginatedCollection(
+    token,
+    `/v2/appAvailabilities/${availability.id}` +
+      `/territoryAvailabilities?${query({
+      "fields[territoryAvailabilities]":
+        "available,contentStatuses,territory",
+      limit: 50,
+      })}`,
+    "Territory availability",
+  );
+  return summarizeAvailability(
+    {
+      data: availability,
+      territories: territoryAvailability.data,
+      totalCount: territoryAvailability.totalCount,
+    },
+    expectedStorefronts,
+    catalogTerritoryIds,
+  );
 }
 
 export async function findCandidateBuild(
@@ -412,6 +876,13 @@ async function main() {
   const review = summarizeReviewDetail(
     await reviewDetail(token, version.id),
   );
+  const ageRating = await ageRatingSummary(token, app.id, metadata);
+  const priceSchedule = await priceScheduleSummary(token, app.id);
+  const availability = await availabilitySummary(
+    token,
+    app.id,
+    metadata.storefronts,
+  );
   const blockers = [];
   if (build.attributes?.expired !== false) {
     blockers.push("candidate build is expired or expiration is unresolved");
@@ -430,6 +901,26 @@ async function main() {
   }
   if (!review.complete) {
     blockers.push("App Review contact or notes are incomplete");
+  }
+  if (
+    app.attributes?.contentRightsDeclaration !==
+      metadata.content_rights_declaration
+  ) {
+    blockers.push("content-rights declaration does not match metadata");
+  }
+  if (!ageRating.complete) {
+    blockers.push(
+      `age-rating declaration differs for: ` +
+      `${ageRating.mismatchedFields.join(", ")}`,
+    );
+  }
+  if (!priceSchedule.complete) {
+    blockers.push("free app price schedule is incomplete");
+  }
+  if (!availability.complete) {
+    blockers.push(
+      "storefront availability or its content statuses are incomplete",
+    );
   }
 
   const report = {
@@ -454,12 +945,19 @@ async function main() {
     },
     screenshots,
     appReview: review,
+    submissionPrerequisites: {
+      contentRightsDeclarationMatches: (
+        app.attributes?.contentRightsDeclaration ===
+        metadata.content_rights_declaration
+      ),
+      ageRating,
+      priceSchedule,
+      availability,
+    },
     apiVisibleBlockers: blockers,
     manualConfirmationsStillRequired: [
-      "App Privacy questionnaire",
-      "content-rights declaration",
-      "free pricing and storefront availability",
-      "EU Digital Services Act status",
+      "App Privacy questionnaire publication state",
+      "EU Digital Services Act account declaration",
       "physical iPad acceptance",
     ],
   };
