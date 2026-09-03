@@ -27,6 +27,7 @@ authorizes or proves the next stage.
 | Godot import and iOS icon generation are different steps | Godot imports the source icon, while the iOS export generates the platform AppIcon catalog. | Keep a committed 1024-by-1024 full-bleed source icon, validate its import, and inspect the generated AppIcon catalog during iOS export. |
 | Generated screenshots must identify their source | Store screenshots can silently become stale after later release changes. | Generate them from a clean exact commit, record dimensions and hashes, and regenerate after the final publication commit. |
 | An unsigned build is not device acceptance | The generic-device Xcode compile proved the export pipeline but not signing, installation, frame rate, thermals, touch behavior, or safe areas. | Require a signed physical-device acceptance pass before submission. Clearly mark measurements that still require hardware. |
+| Provisioning creates have no idempotency key | A device or profile POST can complete even when the client receives a conflict or network failure. | Query first, POST at most once, then use bounded exact re-reads. Never blindly retry, patch, delete, disable, re-enable, or replace an ambiguous resource. |
 
 ## 1. Decide distribution before creating workflows
 
@@ -91,7 +92,7 @@ historical environment name:
 | `app-store-upload` | Approval for one exact candidate upload |
 | `app-store-signing` | Distribution certificate, password, provisioning profile, and upload API credentials |
 | `ad-hoc-authorization` | Approval for a registered-device validation build |
-| `ad-hoc-signing` | Distribution certificate, device UDID, and device-specific Ad Hoc profile |
+| `ad-hoc-signing` | Distribution certificate, exactly scoped device UDIDs, and a separate provisioning key when API reconciliation is approved |
 | `app-store-release` | Submission and release authorization, if automated later |
 
 Restrict each environment to the intended release branch, require an
@@ -108,8 +109,13 @@ Keep these values only as protected environment secrets:
 
 - Distribution certificate encoded from its `.p12`.
 - Certificate export password.
-- App-specific provisioning profile.
-- Registered-device UDIDs and Ad Hoc profiles, when that route is selected.
+- App-specific App Store provisioning profile when the normal signing path
+  consumes a pre-created profile secret. An API-created Ad Hoc profile should
+  remain an ephemeral runner file instead.
+- Registered-device UDIDs when that route is selected.
+- A separately named Admin Team API Key ID and Base64 private key only when
+  automated device/profile provisioning is explicitly approved. Reuse the
+  existing issuer but do not replace App Manager metadata credentials.
 - App Store Connect API Key ID.
 - App Store Connect API Issuer ID.
 - App Store Connect API `.p8` private key encoded as Base64.
@@ -125,7 +131,9 @@ Use the least role that performs the operation:
 - Developer access can authenticate and may upload builds, but it did not have
   permission to update this app's listing metadata.
 - App Manager access performed the accepted metadata writes.
-- Admin access is unnecessary solely to enter metadata.
+- Admin access is unnecessary solely to enter metadata. If Certificates,
+  Identifiers & Profiles automation needs Admin access, isolate that key to the
+  provisioning step and retain it only when the owner explicitly requests it.
 
 Do not infer role sufficiency from JWT creation, authentication, read-only
 preflight, or a successful build upload.
@@ -270,9 +278,10 @@ Use this order:
 2. Run ordinary Linux CI on the exact commit.
 3. Run a credential-free macOS Godot export and unsigned generic-device Xcode
    compile.
-4. If TestFlight is unavailable, register the target UDID, create an Ad Hoc
-   profile, and validate a signed `release-testing` export without publishing
-   it.
+4. If TestFlight is unavailable, register the exact approved devices and
+   create an exact-membership Ad Hoc profile manually or through separately
+   approved fail-closed API automation, then validate a signed
+   `release-testing` export without publishing it.
 5. Deliver the Ad Hoc package only through a separately approved private
    route, then run the physical-device acceptance plan.
 6. Obtain explicit authorization for one exact candidate upload.
@@ -295,9 +304,13 @@ The physical-device pass should cover:
 Do not treat a desktop playtest, simulator run, unsigned compile, or uploaded
 candidate as a substitute for target-device acceptance.
 
-For an Ad Hoc route, keep the UDID and profile protected, reject profiles that
-omit the intended device, and delete the IPA after validation unless a private
-delivery mechanism has been explicitly approved. Public artifacts and public
+For an Ad Hoc route, keep every UDID and downloaded profile protected, reject
+profiles that do not contain the exact approved device set, and delete the IPA
+after validation unless a private delivery mechanism has been explicitly
+approved. API automation should resolve exactly one existing bundle and
+certificate, use a deterministic profile name without raw UDIDs, create each
+missing resource only once, validate CMS/plist content, and pass only a
+constrained temporary profile path to signing. Public artifacts and public
 GitHub Pages are not private distribution. Obtain explicit approval before
 creating paid HTTPS hosting or other cloud infrastructure.
 
@@ -342,8 +355,10 @@ has not bundled that action into the release decision.
 - [ ] Generate exact-commit screenshots and record their hashes.
 - [ ] Run local checks, Linux CI, and unsigned macOS iOS build on the exact
       release commit.
-- [ ] If using Ad Hoc, register the exact device, create its matching profile,
-      and run protected signing validation without publishing the IPA.
+- [ ] If using Ad Hoc, register the exact approved devices, create or reconcile
+      the exact-membership profile, and run protected signing validation
+      without publishing the IPA. Do not require a manual profile download
+      when protected API provisioning is already configured.
 - [ ] Obtain separate approval before creating private Ad Hoc hosting or
       retaining a signed package for delivery.
 - [ ] Complete signed physical-device and final visual acceptance.

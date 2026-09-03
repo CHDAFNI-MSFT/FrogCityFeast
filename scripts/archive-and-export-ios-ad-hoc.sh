@@ -63,20 +63,24 @@ xcodebuild \
   -exportPath "$export_path"
 
 ipa_paths=()
+ipa_path_count=0
 while IFS= read -r -d '' candidate; do
   ipa_paths+=("$candidate")
+  ipa_path_count=$((ipa_path_count + 1))
 done < <(
   find "$export_path" -maxdepth 1 -type f -name "*.ipa" -print0
 )
-if (( ${#ipa_paths[@]} != 1 )); then
-  echo "Expected exactly one Ad Hoc IPA; found ${#ipa_paths[@]}." >&2
+if (( ipa_path_count != 1 )); then
+  echo "Expected exactly one Ad Hoc IPA; found $ipa_path_count." >&2
   exit 1
 fi
 ipa_path="${ipa_paths[0]}"
 
 app_paths=()
+app_path_count=0
 while IFS= read -r -d '' candidate; do
   app_paths+=("$candidate")
+  app_path_count=$((app_path_count + 1))
 done < <(
   find "$archive_path/Products/Applications" \
     -maxdepth 1 \
@@ -84,8 +88,8 @@ done < <(
     -name "*.app" \
     -print0
 )
-if (( ${#app_paths[@]} != 1 )); then
-  echo "Expected exactly one archived app; found ${#app_paths[@]}." >&2
+if (( app_path_count != 1 )); then
+  echo "Expected exactly one archived app; found $app_path_count." >&2
   exit 1
 fi
 codesign --verify --deep --strict "${app_paths[0]}"

@@ -97,7 +97,7 @@ generated-project validator fails if those declarations drift.
 |---|---|---|---|
 | `Godot CI` | Push, pull request, manual | None | Import, start, and run deterministic project checks on Linux |
 | `iOS unsigned smoke build` | Manual | None | Export through Godot and compile an unsigned generic iOS device target |
-| `iOS Ad Hoc registered-device validation` | Manual from `main` with explicit confirmation | Protected `ad-hoc` authorization followed by protected `testflight` certificate and Ad Hoc profile secrets | Sign and validate a registered-iPad package without retaining or publishing the IPA |
+| `iOS Ad Hoc registered-device validation` | Manual from `main` with explicit confirmation | Protected `ad-hoc` authorization followed by protected `testflight` certificate, three device secrets, and provisioning-only Admin API key | Automatically reconcile the exact devices/profile, then sign and validate without retaining or publishing the IPA |
 | `iOS App Store candidate upload` | Manual from `main` with explicit confirmation | Protected `app-store` authorization followed by protected `testflight` signing credentials | Archive, sign, and upload a normal App Store candidate without submitting it for review |
 | `iOS TestFlight release` | Manual from `main` or a `v*` tag | Protected `testflight` environment | Historical internal-only upload path; not usable by the target under-13 account |
 
@@ -116,10 +116,12 @@ scope and 4:3 presentation. Supporting iPhone later requires a separately
 reviewed layout, device-testing, and export-preset change.
 
 The Ad Hoc path is documented in
-[`ios-ad-hoc-testing.md`](ios-ad-hoc-testing.md). It remains blocked until the
-physical A16 iPad UDID is registered and a matching Ad Hoc profile is placed in
-the protected environment. It intentionally retains no signed artifact and
-does not create private OTA hosting without separate approval.
+[`ios-ad-hoc-testing.md`](ios-ad-hoc-testing.md). Its three device secrets and
+separate provisioning-only Admin key are configured. The protected workflow
+now registers missing devices and creates or reuses the exact matching profile
+through Apple's API; no manual profile download is needed. It intentionally
+retains no signed artifact and does not create private OTA hosting without
+separate approval.
 
 ## Apple account prerequisites
 
@@ -148,7 +150,7 @@ Current prerequisite status:
 | App Store Connect app record | Created for **Frog City Feast** with primary locale `en-US`, bundle ID `com.chdafni.frogcityfeast`, and SKU `FROGCITYFEAST-IOS-001`. |
 | Apple Distribution certificate | Created and valid through August 30, 2027. Its private key and randomly generated `.p12` password exist only in the protected GitHub environment secret set. |
 | App Store provisioning profile | Created for the exact App ID and certificate, validated, and valid through August 30, 2027. |
-| App Store Connect API key | An App Manager-role team key is configured in the protected `testflight` environment. After two partial runs exposed Apple's initial-version and first-release `whatsNew` constraints, run `33661855538` successfully applied the reviewed app-information localization, Games categories, editable version `0.1.0`, version localization, copyright, manual-release mode, and age-rating declaration. The previous Developer key lacked metadata write permission; the previous Admin key was confirmed revoked and its local file was deleted. |
+| App Store Connect API keys | An App Manager-role team key remains configured for metadata and upload work. A separate Admin Team API key is configured only for protected device/profile provisioning and is retained for future provisioning per the repository owner's request. Both use the existing issuer; their Key IDs and private-key secrets remain distinct. No local `.p8` file is retained. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
 | Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing data now covers the live support/privacy URLs, rating, category, review notes, marketing copy, pricing choice, storefront choice, and DSA choice. App Review contact remains pending through a protected process. |
 
@@ -179,12 +181,13 @@ then completed the metadata sync, including version localization and the age
 rating. Pricing, storefronts, App Privacy, content rights, DSA status,
 screenshots, and App Review contact still require direct confirmation.
 
-The provisioning profile must use the same Team ID and exact bundle identifier
-configured in GitHub. The workflow rejects development, Ad Hoc, enterprise,
-expired, wildcard, or mismatched profiles before importing the signing
-certificate. It also verifies that the profile includes the supplied,
-unexpired Apple Distribution certificate and that the certificate Team ID is
-`CV7JQ487YU`.
+Every provisioning profile must use the same Team ID and exact bundle
+identifier configured in GitHub. The normal App Store path rejects development,
+Ad Hoc, enterprise, expired, wildcard, or mismatched profiles. The separate Ad
+Hoc path requires `IOS_APP_ADHOC`, exactly three protected devices, and no
+enterprise/debug entitlement. Both verify that the profile includes the
+supplied, unexpired Apple Distribution certificate and that the certificate
+Team ID is `CV7JQ487YU`.
 
 ## Protected GitHub environments
 
@@ -205,8 +208,10 @@ workflow remains unavailable to the target under-13 account.
 The registered-device workflow uses the same two-stage boundary. Its `ad-hoc`
 authorization environment allows only `main`, requires `CHDAFNI-MSFT`, has
 administrator bypass disabled, and stores no variables or secrets. Only after
-that approval does the job enter `testflight` for the certificate, protected
-UDID, and device-specific profile.
+that approval does the job enter `testflight` for the certificate, three
+protected UDIDs, and provisioning-only Admin key. The Admin credentials are
+passed only to the automatic device/profile provisioning step and are not
+available to signing, archiving, upload, or metadata mutation steps.
 
 Add these environment variables:
 
@@ -219,14 +224,13 @@ Configure both variables in `app-store` as reviewable identifiers. Keep the
 same values in `testflight`, where the signed job reads them. Never use
 repository-level variables or secrets for this workflow.
 
-The six required values already exist in the protected historical `testflight`
-environment and passed certificate, profile, and authenticated App Store
-Connect validation. The approved route leaves them there and keeps `app-store`
-free of signing secrets. No local copy of the certificate private key, `.p12`,
-password, CSR, certificate, profile, or API private key is retained.
-
-The previous Admin API key is no longer stored in GitHub, was confirmed revoked
-by Apple, and its local `.p8` file was deleted.
+The normal App Store signing and App Manager values remain in the protected
+historical `testflight` environment and passed certificate, profile, and
+authenticated App Store Connect validation. The approved route leaves them
+there and keeps `app-store` free of signing secrets. The separate Admin Team
+key is retained only for future protected provisioning as requested by the
+owner. No local copy of the certificate private key, `.p12`, password, CSR,
+certificate, profile, or API private key is retained.
 
 The signed job reads these existing `testflight` environment secrets:
 
@@ -239,23 +243,26 @@ The signed job reads these existing `testflight` environment secrets:
 | `APP_STORE_CONNECT_ISSUER_ID` | App Store Connect API Issuer ID |
 | `APP_STORE_CONNECT_PRIVATE_KEY_BASE64` | Base64-encoded App Store Connect `.p8` |
 
-Registered-device testing later adds these separate secrets without replacing
-the App Store profile:
+Registered-device testing uses these configured separate secrets without
+replacing the App Store profile or App Manager credentials:
 
 | Secret | Content |
 |---|---|
 | `IOS_AD_HOC_DEVICE_UDID_1` through `_3` | Three independently masked protected iPad UDIDs |
-| `APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64` | Base64-encoded Ad Hoc profile containing exactly those devices, the App ID, and the certificate |
+| `APPLE_PROVISIONING_KEY_ID` | Key ID for the provisioning-only Admin Team API key |
+| `APPLE_PROVISIONING_PRIVATE_KEY_BASE64` | Base64-encoded private key for that provisioning-only Admin key |
 
-The three device-identifier secrets are configured. The Ad Hoc profile secret
-remains pending until an authorized Apple Developer account operator registers
-the devices and creates the exact matching profile.
+The existing `APP_STORE_CONNECT_ISSUER_ID`, distribution certificate, and
+certificate password are reused by the provisioning step. The device and Admin
+key secrets are configured. No Ad Hoc profile secret is required: the workflow
+registers only missing exact devices, creates or reuses the deterministic
+exact-membership profile, validates its API content, and hands its protected
+`RUNNER_TEMP` path to signing.
 
 On macOS, encode each binary or key file without adding line wrapping:
 
 ```bash
 base64 -i Distribution.p12 | pbcopy
-base64 -i FrogCityFeast.mobileprovision | pbcopy
 base64 -i AuthKey_KEYID.p8 | pbcopy
 ```
 
@@ -267,11 +274,12 @@ On Windows PowerShell:
 ) | Set-Clipboard
 ```
 
-Repeat the PowerShell command for the provisioning profile and API private key.
-Keep all source files outside the repository, enter the encoded values directly
-in GitHub, clear the clipboard, and delete local copies when they are no longer
-needed. Never place certificate, profile, private-key, or password files inside
-the repository.
+Repeat the PowerShell command for an API private key. Keep all source files
+outside the repository, enter the encoded values directly in GitHub, clear the
+clipboard, and delete local copies when they are no longer needed. The retained
+provisioning key exists only as a protected secret; no manual Ad Hoc profile
+download is needed. Never place certificate, profile, private-key, or password
+files inside the repository.
 
 ## Authorized public release sequence
 

@@ -24,6 +24,11 @@ of signing secrets.
   iPad. It publishes no signed artifact and creates no private hosting.
 - [x] Store the three supplied iPad identifiers as separate masked secrets in
   the protected signing environment without recording their values in Git.
+- [x] Configure the separate Admin Team API key for protected provisioning
+  only, retain it for future provisioning per owner request, and keep the App
+  Manager metadata secrets unchanged.
+- [x] Automate exact device/profile reconciliation so no manually downloaded
+  Ad Hoc profile or profile secret is required.
 
 ## Uploaded candidate record
 
@@ -66,9 +71,9 @@ of signing secrets.
 - [x] Complete Godot CI on that source commit: run `33662838762`.
 - [x] Manually run the unsigned iOS smoke build on that source commit: run
   `33664214769`.
-- [ ] Register the three supplied iPad UDIDs and create one matching Ad Hoc
-  provisioning profile containing exactly those devices as documented in
-  `docs/ios-ad-hoc-testing.md`.
+- [ ] Let the protected Ad Hoc workflow register only missing exact iPad
+  records and create or reuse one matching profile containing exactly the
+  three configured devices as documented in `docs/ios-ad-hoc-testing.md`.
 - [ ] Run the protected Ad Hoc validation workflow. It must retain no signed
   IPA until a private delivery method is separately approved.
 - [ ] Physical A16 iPad acceptance: signed Release build sustains at least
@@ -138,6 +143,11 @@ of signing secrets.
   ID.
 - [ ] Confirm the protected `testflight` environment retains the six validated
   signing and App Store Connect secrets and requires its own approval.
+- [ ] Confirm the three device secrets and separate
+  `APPLE_PROVISIONING_KEY_ID` /
+  `APPLE_PROVISIONING_PRIVATE_KEY_BASE64` Admin credentials remain configured,
+  are used only by the provisioning step, and require the same protected
+  approval.
 - [ ] Confirm the public workflow consumes those secrets in place and that the
   `app-store` environment contains no signing secrets.
 - [ ] Confirm no signing value exists at repository scope or in a workflow,

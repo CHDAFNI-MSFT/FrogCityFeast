@@ -93,6 +93,18 @@ jobs:
       - name: Run release preflight
         run: bash scripts/ios-preflight.sh release
 
+      - name: Provision protected Ad Hoc profile
+        env:
+          APPLE_PROVISIONING_KEY_ID: ${{ secrets.APPLE_PROVISIONING_KEY_ID }}
+          APPLE_PROVISIONING_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_PROVISIONING_PRIVATE_KEY_BASE64 }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          IOS_AD_HOC_DEVICE_UDID_1: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_1 }}
+          IOS_AD_HOC_DEVICE_UDID_2: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_2 }}
+          IOS_AD_HOC_DEVICE_UDID_3: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_3 }}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: node scripts/provision-ios-ad-hoc.mjs --apply
+
       - name: Prepare protected Ad Hoc signing
         env:
           IOS_SIGNING_DISTRIBUTION: ad-hoc
@@ -101,7 +113,6 @@ jobs:
           IOS_AD_HOC_DEVICE_UDID_3: ${{ secrets.IOS_AD_HOC_DEVICE_UDID_3 }}
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_AD_HOC_PROVISIONING_PROFILE_BASE64 }}
         run: bash scripts/prepare-ios-signing.sh
 
       - name: Export signed Xcode project

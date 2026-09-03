@@ -40,7 +40,9 @@ signing, and App Store candidate work.
 - `iOS unsigned smoke build` manually validates the Godot-to-Xcode pipeline
   without Apple credentials.
 - `iOS Ad Hoc registered-device validation` is a manual, double-gated path
-  that validates signing for one registered iPad and then deletes the IPA.
+  that automatically reconciles exactly three protected registered iPads and
+  their Ad Hoc profile through a provisioning-only Admin key, validates
+  signing, and then deletes the IPA. No manual profile download is required.
 - `iOS App Store candidate upload` is a manual, protected, main-only path for
   an explicitly authorized normal App Store candidate. It requires separate
   public-upload and signing-credential environment approvals.

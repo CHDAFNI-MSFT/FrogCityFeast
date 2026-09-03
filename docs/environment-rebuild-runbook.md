@@ -129,6 +129,7 @@ These files have different responsibilities:
 | `scripts/archive-and-upload-ios.sh` | Signed Xcode archive and direct App Store Connect upload | Copy and rename archive path |
 | `scripts/archive-and-export-ios-ad-hoc.sh` | Registered-device archive, release-testing export, and embedded-profile validation | Copy and rename archive path |
 | `scripts/cleanup-ios-signing.sh` | Always-run cleanup of decoded signing material | Copy and rename temporary files |
+| `scripts/provision-ios-ad-hoc.mjs` | Fail-closed Apple API device registration, certificate matching, exact Ad Hoc profile reconciliation, and constrained path handoff | Copy and replace product identity/generation token |
 | `scripts/sync-app-store-metadata.mjs` | Fail-closed metadata preflight and idempotent listing updates | Copy and replace approved app identity and metadata values |
 | `tools/app-store-metadata.json` | Reviewed machine-readable App Store values and rating answers | Copy and replace every app-specific value |
 | `.github/workflows/godot-ci.yml` | Routine Linux CI | Copy |
@@ -137,6 +138,7 @@ These files have different responsibilities:
 | `.github/workflows/ios-ad-hoc.yml` | Protected registered-device validation without artifact publication | Copy and replace the authorized version |
 | `.github/workflows/app-store-metadata.yml` | Manual protected metadata-only sync | Copy and replace the authorized version |
 | `tests/app_store_metadata_version_test.mjs` | Initial-version and malformed-response regression coverage | Copy |
+| `tests/ios_ad_hoc_provisioning_test.mjs` | Synthetic device, bundle, certificate, profile-name, relationship, and Base64 regression coverage | Copy |
 | `tests/ios_ad_hoc_pipeline_smoke.gd` | Ad Hoc workflow, profile, IPA, cleanup, and no-publication checks | Copy |
 | `tests/ios_signing_device_set_test.py` | Exact Ad Hoc device-set validation, including duplicate and extra-device rejection | Copy |
 | `.gitignore` | Excludes editor state, tools, builds, generated presets, and signing files | Copy or merge carefully |
@@ -679,8 +681,10 @@ Each new app requires:
 - Its own provisioning profile matching that exact bundle identifier.
 - GitHub environment variables `APPLE_TEAM_ID` and `IOS_BUNDLE_ID`.
 - The six environment secrets documented in `docs/ios-release.md`.
-- If Ad Hoc is selected, its own protected device UDID and device-specific
-  Ad Hoc profile.
+- If Ad Hoc is selected, exactly scoped protected device UDID secrets and,
+  when API provisioning is approved, its own separately named Admin Team Key
+  ID/private-key secrets. Reuse the issuer only when it belongs to the same
+  team; do not replace the App Manager metadata key.
 
 An Apple Distribution certificate can sign more than one app when Apple permits
 it, and an App Store Connect API key can cover more than one app depending on
@@ -703,25 +707,32 @@ The signed Apple workflows and signing scripts are designed so that:
 4. Only an Apple Distribution identity is accepted.
 5. Manual signing is used consistently during archive and export.
 6. Upload uses App Store Connect API-key authentication.
-7. Ad Hoc validation verifies the exported IPA's embedded application
-   identifier and device list without retaining or publishing the package.
-8. No signed IPA or Xcode archive is uploaded to the repository.
-9. Cleanup runs with `if: always()` and removes the keychain, profile copies,
-   private key, decoded certificate, archive, and export output.
+7. Ad Hoc API provisioning queries before writing, never patches or deletes
+   Apple resources, creates a missing device/profile at most once, and
+   reconciles ambiguous completion through bounded exact re-reads.
+8. Ad Hoc validation verifies API profile CMS/plist content and the exported
+   IPA's embedded application identifier and exact device list without
+   retaining or publishing the package.
+9. No signed IPA or Xcode archive is uploaded to the repository.
+10. Cleanup runs with `if: always()` and removes the keychain, API and signing
+    profile copies/plists, decoded certificates, archive, and export output.
 
 Godot 4.7.2 has a release provisioning-profile environment-variable quirk. The
 current signing setup exports both the debug and release UUID overrides while
 the release profile specifier still uses the release value. Preserve that
 workaround until a deliberate Godot upgrade confirms it is no longer needed.
 
-FrogCityFeast now has its app-specific Apple records and protected App Store
-credentials configured. Its Ad Hoc route still requires the physical iPad
-UDID and matching profile. Those account resources and secrets do not transfer
-when this runbook is used for another repository. The successful unsigned
-smoke build validates Godot export and Xcode compilation only. Treat each new
-repository's first signed run as the integration test for certificate import,
-provisioning, archive export, device membership, API authentication, or App
-Store Connect processing as applicable.
+FrogCityFeast now has its app-specific Apple records, three protected device
+secrets, protected App Store credentials, and separate provisioning-only Admin
+key configured. The owner requested that the Admin key remain retained for
+future protected provisioning. The Ad Hoc workflow creates or reuses the exact
+profile automatically, so no manual profile download is required. Those
+account resources and secrets do not transfer when this runbook is used for
+another repository. The successful unsigned smoke build validates Godot export
+and Xcode compilation only. Treat each new repository's first signed run as the
+integration test for certificate import, provisioning, archive export, exact
+device membership, API authentication, or App Store Connect processing as
+applicable.
 
 ## 15. Items that cannot be copied from FrogCityFeast
 
@@ -735,6 +746,7 @@ Do not expect source files to recreate:
 - Certificate export password.
 - App-specific provisioning profile.
 - App Store Connect API private key.
+- Registered-device identifiers and any provisioning-only Admin Team key.
 - GitHub environment variables or secrets.
 - GitHub environment reviewers and branch/tag policies.
 - GitHub Actions caches.
@@ -804,6 +816,9 @@ The environment is recreated only when all applicable items are true:
 - [ ] The new app has a unique explicit production bundle identifier.
 - [ ] The App Store Connect app record exists.
 - [ ] The provisioning profile matches the bundle ID and Team ID.
+- [ ] If API Ad Hoc provisioning is enabled, exactly three protected device
+      secrets and separate provisioning Key ID/private-key secrets are
+      configured; no manually downloaded Ad Hoc profile secret is required.
 - [ ] The repository has its own protected `testflight` environment.
 - [ ] Environment policies permit only `main` and `v*`.
 - [ ] Required variables and secrets are configured without logging them.

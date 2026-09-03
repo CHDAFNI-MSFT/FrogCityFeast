@@ -44,6 +44,11 @@ if [[ -n "$runner_temp" ]]; then
   for path in \
     "$runner_temp/frogcityfeast-distribution.p12" \
     "$runner_temp/frogcityfeast-distribution.pem" \
+    "$runner_temp/frogcityfeast-signing-identity.pem" \
+    "$runner_temp/frogcityfeast-api-distribution.p12" \
+    "$runner_temp/frogcityfeast-api-distribution.pem" \
+    "$runner_temp/frogcityfeast-api-provisioning.mobileprovision" \
+    "$runner_temp/frogcityfeast-api-profile.plist" \
     "$runner_temp/frogcityfeast-provisioning.mobileprovision" \
     "$runner_temp/frogcityfeast-profile.plist" \
     "$runner_temp/TestFlightExportOptions.plist" \
