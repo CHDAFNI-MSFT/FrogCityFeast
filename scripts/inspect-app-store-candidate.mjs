@@ -837,6 +837,7 @@ export async function availabilitySummary(
       `/territoryAvailabilities?${query({
       "fields[territoryAvailabilities]":
         "available,contentStatuses,territory",
+      include: "territory",
       limit: 50,
       })}`,
     "Territory availability",

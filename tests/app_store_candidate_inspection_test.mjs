@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   appleApiPath,
+  availabilitySummary,
   completeAppPriceRelationships,
   failForBlockers,
   priceScheduleSummary,
@@ -852,6 +853,91 @@ try {
           `/v3/appPricePoints/${encodeURIComponent(freePricePointId)}`
       ),
     ),
+  );
+} finally {
+  globalThis.fetch = originalFetch;
+}
+
+const availabilityRequests = [];
+try {
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(url);
+    availabilityRequests.push(parsed);
+    let payload;
+    if (parsed.pathname === "/v1/apps/app-id/appAvailabilityV2") {
+      payload = {
+        data: {
+          type: "appAvailabilities",
+          id: "availability-id",
+          attributes: { availableInNewTerritories: true },
+        },
+      };
+    } else if (parsed.pathname === "/v1/territories") {
+      payload = {
+        data: [
+          { type: "territories", id: "USA" },
+          { type: "territories", id: "CHN" },
+        ],
+      };
+    } else if (
+      parsed.pathname ===
+        "/v2/appAvailabilities/availability-id/territoryAvailabilities"
+    ) {
+      payload = {
+        data: [
+          {
+            type: "territoryAvailabilities",
+            id: "usa-availability",
+            attributes: {
+              available: true,
+              contentStatuses: ["AVAILABLE_FOR_SALE_UNRELEASED_APP"],
+            },
+            relationships: {
+              territory: {
+                data: { type: "territories", id: "USA" },
+              },
+            },
+          },
+          {
+            type: "territoryAvailabilities",
+            id: "chn-availability",
+            attributes: {
+              available: false,
+              contentStatuses: [],
+            },
+            relationships: {
+              territory: {
+                data: { type: "territories", id: "CHN" },
+              },
+            },
+          },
+        ],
+      };
+    } else {
+      throw new Error(`Unexpected App Store request: ${parsed.pathname}`);
+    }
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(payload),
+    };
+  };
+  const liveAvailabilitySummary = await availabilitySummary(
+    "test-token",
+    "app-id",
+    "all_except_china_mainland",
+  );
+  assert.equal(liveAvailabilitySummary.complete, true);
+  const territoryRequest = availabilityRequests.find(
+    (request) => (
+      request.pathname ===
+        "/v2/appAvailabilities/availability-id/territoryAvailabilities"
+    ),
+  );
+  assert.ok(territoryRequest);
+  assert.deepEqual(
+    territoryRequest.searchParams.getAll("include"),
+    ["territory"],
   );
 } finally {
   globalThis.fetch = originalFetch;
