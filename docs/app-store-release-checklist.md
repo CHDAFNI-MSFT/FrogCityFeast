@@ -200,21 +200,23 @@ Current replacement candidate:
 - [x] Complete the Apple account's EU Digital Services Act declaration as
   non-trader. Run `33825382288` confirmed that Apple no longer reports
   `TRADER_STATUS_NOT_PROVIDED`.
-- [ ] Rerun the protected candidate inspection and require all non-China
-  storefront statuses to be ready.
+- [x] Rerun the protected candidate inspection after the DSA declaration and
+  App Privacy publication. Apple cleared the DSA-specific status but continued
+  returning generic `CANNOT_SELL` for the unreleased storefronts; the
+  authoritative review-submission request subsequently succeeded.
 - [x] **Explicit submission authorization:** authorize selection of the
   processed build and submission to App Review. Upload authorization alone is
   not submission authorization.
-- [ ] Run the separately protected exact-build App Review submission workflow
+- [x] Run the separately protected exact-build App Review submission workflow
   and confirm Apple acknowledges the submission.
   Run `33826716016` was rejected while adding the exact version with Apple's
   generic `409 STATE_ERROR.ENTITY_STATE_INVALID` and no associated validation
-  errors. App Privacy was then confirmed published, but retry `33827587415`
-  produced the identical rejection. Use the App Store Connect web UI's **Add
-  for Review** action to obtain Apple's missing-field dialog without clicking
-  **Submit for Review**. If it succeeds, leave the item in the draft for the
-  protected workflow; if it fails without useful details, contact Apple
-  Developer Support with the exact version, build, timestamp, and run ID.
+  errors. The no-data App Privacy response was then prepared, but retry
+  `33827587415` produced the identical rejection because the final **Publish**
+  confirmation had not completed. Run `33828163019` recreated the deleted
+  review draft, submitted exact version `0.1.0` and build `33770597608.1`, and
+  Apple returned `WAITING_FOR_REVIEW` with `releaseType: MANUAL` and
+  `releasePerformed: false`.
 - [ ] Resolve only accurate App Review questions; do not change age, privacy,
   content, or account answers to evade a restriction.
 - [ ] **Explicit release authorization:** after approval, authorize manual

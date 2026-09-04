@@ -421,14 +421,16 @@ These runs document the concrete failures behind this runbook:
   API-visible listing prerequisites and DSA complete, confirm that the App
   Privacy answers were explicitly **published**, not only saved, before
   escalating the opaque rejection to Apple Developer Support.
-- `33827587415`: after the owner confirmed the no-data App Privacy response was
-  explicitly published, the exact protected submission produced the identical
-  generic `409` with no associated errors. At this point, use the App Store
-  Connect web UI's **Add for Review** validation to obtain the missing field or
-  account prerequisite. If the UI also withholds details, contact Apple
-  Developer Support with the app version, build, timestamp, and run ID. Do not
-  upload a replacement build merely to work around an unexplained backend
-  state.
+- `33827587415`: after the no-data App Privacy response was prepared but the
+  final publication confirmation had not completed, the exact protected
+  submission produced the identical generic `409` with no associated errors.
+  This demonstrated that saving the questionnaire and opening its confirmation
+  dialog were not equivalent to publishing the response.
+- `33828163019`: after the owner completed the pending App Privacy **Publish**
+  confirmation, the protected workflow recreated the deleted review draft,
+  added exact version `0.1.0`, and submitted build `33770597608.1`. Apple
+  returned `WAITING_FOR_REVIEW`; `releaseType` remained `MANUAL`, and no release
+  was requested.
 
 For the current app's exact values and live release state, use
 [`app-store-metadata.md`](app-store-metadata.md),

@@ -51,11 +51,12 @@ creates or safely resumes one iOS review submission, adds only version `0.1.0`,
 and submits it to App Review. It cannot request release, create a tag, publish
 a GitHub release, or change the version from manual release.
 
-No signing, upload, App Store submission, publication, release, or tag is
-authorized by this decision. Public distribution remains blocked until the
-production pass, metadata, privacy disclosures, age-rating inputs, target-iPad
-measurements, and release checklist are complete and the repository owner gives
-explicit release authorization.
+The distribution decision alone did not authorize signing, upload, submission,
+publication, release, or tagging. Signing, upload, and App Review submission
+were performed only after their later explicit authorizations. Publication,
+manual release, and tag or GitHub release creation remain unauthorized until
+Apple approves the version, the remaining release checklist is complete, and
+the repository owner gives separate explicit release authorization.
 
 ## Unsigned pipeline verification
 
@@ -189,7 +190,7 @@ Current prerequisite status:
 | App Store Connect API keys | An App Manager-role team key remains configured for metadata and upload work. A separate Admin Team API key is configured only for protected device/profile provisioning and is retained for future provisioning per the repository owner's request. Both use the existing issuer; their Key IDs and private-key secrets remain distinct. Neither private key is committed or retained on a GitHub runner. |
 | Ad Hoc registered-device path | Validated successfully in protected run `33703681354` for the exact three configured devices and matching profile. The signed IPA was validated, not uploaded or published, and removed during verified cleanup. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
-| Apple agreements and compliance | The account holder confirmed MFA, current legal agreements, EU DSA non-trader status, and publication of the no-data App Privacy response. Protected run `33825382288` confirmed that `TRADER_STATUS_NOT_PROVIDED` cleared. All selected storefronts still report generic `CANNOT_SELL`, and submission retries `33826716016` and `33827587415` both received Apple's opaque `409` with no associated errors. |
+| Apple agreements and compliance | The account holder confirmed MFA, current legal agreements, EU DSA non-trader status, and publication of the no-data App Privacy response. Protected run `33825382288` confirmed that `TRADER_STATUS_NOT_PROVIDED` cleared. After the final App Privacy **Publish** confirmation, submission run `33828163019` succeeded. |
 
 The signing identity, App Store app record, and exact replacement build
 `33770597608.1` exist. Protected run
@@ -197,18 +198,13 @@ The signing identity, App Store app record, and exact replacement build
 confirmed the build is valid and selected, the seven final screenshots and
 App Review detail are complete, content rights and age rating match, free
 pricing is active, China mainland is unavailable, and release remains manual.
-The Account Holder completed the EU DSA non-trader declaration, and Apple no
-longer reports the DSA-specific status. Protected submission run
-[33826716016](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33826716016)
-still failed when adding the exact version to the review draft with generic
-`409 STATE_ERROR.ENTITY_STATE_INVALID` and no associated errors. The owner then
-confirmed the no-data App Privacy response was explicitly published, but retry
-[33827587415](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33827587415)
-returned the same opaque rejection. App Store Connect's web UI must now expose
-the missing version or account prerequisite through **Add for Review**, or
-Apple Developer Support must inspect the backend state. Physical A16 acceptance
-remains separately tracked. Complete those remaining items and the
-authorization gates in
+The Account Holder completed the EU DSA non-trader declaration and published
+the no-data App Privacy response. Protected submission run
+[33828163019](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33828163019)
+recreated the deleted review draft, added exact version `0.1.0`, and submitted
+build `33770597608.1`. Apple returned `WAITING_FOR_REVIEW`; release remains
+manual and no release was requested. Physical A16 acceptance remains
+separately tracked. Complete the remaining review and release gates in
 [`app-store-release-checklist.md`](app-store-release-checklist.md). Build
 selection, App Review submission, and release remain separate App Store
 Connect actions regardless of the API key's role.
@@ -231,8 +227,9 @@ then completed the metadata sync, including version localization and the age
 rating. The owner directly saved content rights, free pricing, and every
 storefront except China mainland. The protected inspector now verifies those
 resources, screenshots, and App Review contact. The EU DSA declaration is now
-complete. App Privacy publication still requires direct confirmation because
-Apple exposes no supported API for the questionnaire's publication state.
+complete, and the no-data App Privacy response is published. Apple exposes no
+supported API for independently inspecting the questionnaire's publication
+state, so the successful review submission is the authoritative confirmation.
 
 Every provisioning profile must use the same Team ID and exact bundle
 identifier configured in GitHub. The normal App Store path rejects development,
