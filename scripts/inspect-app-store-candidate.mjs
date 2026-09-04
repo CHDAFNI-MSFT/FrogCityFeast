@@ -45,7 +45,7 @@ function collection(payload, label) {
   return payload.data;
 }
 
-export function appleApiPath(url, label, parameters = {}) {
+export function appleApiPath(url, label) {
   if (typeof url !== "string" || !url.trim()) {
     fail(`${label} URL is invalid.`);
   }
@@ -55,9 +55,6 @@ export function appleApiPath(url, label, parameters = {}) {
   );
   if (parsed.origin !== "https://api.appstoreconnect.apple.com") {
     fail(`${label} URL left Apple API.`);
-  }
-  for (const [name, value] of Object.entries(parameters)) {
-    parsed.searchParams.set(name, String(value));
   }
   return `${parsed.pathname}${parsed.search}`;
 }
@@ -436,6 +433,101 @@ function selectActiveManualPrices(prices, currentDate) {
   });
 }
 
+export function completeAppPriceRelationships(price, scheduleId) {
+  const existingPricePoint = price.relationships?.appPricePoint?.data;
+  const existingTerritory = price.relationships?.territory?.data;
+  if (
+    existingPricePoint?.type === "appPricePoints" &&
+    typeof existingPricePoint.id === "string" &&
+    existingPricePoint.id.trim() &&
+    existingTerritory?.type === "territories" &&
+    typeof existingTerritory.id === "string" &&
+    existingTerritory.id.trim()
+  ) {
+    return price;
+  }
+  if (
+    typeof price.id !== "string" ||
+    !/^[A-Za-z0-9_-]+$/.test(price.id) ||
+    typeof scheduleId !== "string" ||
+    !scheduleId.trim()
+  ) {
+    fail("The sparse app price identity is invalid.");
+  }
+  let identity;
+  try {
+    const decoded = Buffer.from(price.id, "base64url").toString("utf8");
+    if (Buffer.from(decoded, "utf8").toString("base64url") !== price.id) {
+      fail("The sparse app price identity is invalid.");
+    }
+    identity = JSON.parse(decoded);
+  } catch {
+    fail("The sparse app price identity is invalid.");
+  }
+  if (
+    identity === null ||
+    typeof identity !== "object" ||
+    Array.isArray(identity) ||
+    identity.s !== scheduleId ||
+    typeof identity.t !== "string" ||
+    !/^[A-Z]{3}$/.test(identity.t) ||
+    typeof identity.p !== "string" ||
+    !/^\d+$/.test(identity.p) ||
+    typeof identity.sd !== "number" ||
+    !Number.isFinite(identity.sd) ||
+    typeof identity.ed !== "number" ||
+    !Number.isFinite(identity.ed)
+  ) {
+    fail("The sparse app price identity is invalid.");
+  }
+  const pricePointId = Buffer.from(
+    JSON.stringify({
+      s: identity.s,
+      t: identity.t,
+      p: identity.p,
+    }),
+    "utf8",
+  ).toString("base64url");
+  if (
+    (
+      existingPricePoint !== undefined &&
+      existingPricePoint !== null &&
+      (
+        existingPricePoint?.type !== "appPricePoints" ||
+        existingPricePoint.id !== pricePointId
+      )
+    ) ||
+    (
+      existingTerritory !== undefined &&
+      existingTerritory !== null &&
+      (
+        existingTerritory?.type !== "territories" ||
+        existingTerritory.id !== identity.t
+      )
+    )
+  ) {
+    fail("The sparse app price relationships are inconsistent.");
+  }
+  return {
+    ...price,
+    relationships: {
+      ...(price.relationships ?? {}),
+      appPricePoint: {
+        data: {
+          type: "appPricePoints",
+          id: pricePointId,
+        },
+      },
+      territory: {
+        data: {
+          type: "territories",
+          id: identity.t,
+        },
+      },
+    },
+  };
+}
+
 export function summarizeAvailability(
   availability,
   expectedStorefronts,
@@ -666,52 +758,11 @@ export async function priceScheduleSummary(token, appId) {
     fail("The app price schedule did not return every manual price.");
   }
   const currentDate = new Date().toISOString().slice(0, 10);
-  const activePrices = selectActiveManualPrices(prices, currentDate);
-  const detailedActivePrices = [];
-  for (const activePrice of activePrices) {
-    const appPricePoint = activePrice.relationships?.appPricePoint?.data;
-    const territory = activePrice.relationships?.territory?.data;
-    if (
-      appPricePoint?.type === "appPricePoints" &&
-      typeof appPricePoint.id === "string" &&
-      appPricePoint.id.trim() &&
-      territory?.type === "territories" &&
-      typeof territory.id === "string" &&
-      territory.id.trim()
-    ) {
-      detailedActivePrices.push(activePrice);
-      continue;
-    }
-    const selfPath = appleApiPath(
-      activePrice.links?.self,
-      "App price",
-      {
-        "fields[appPrices]":
-          "manual,startDate,endDate,appPricePoint,territory",
-        "fields[appPricePoints]": "customerPrice,territory",
-        include: "appPricePoint,territory",
-      },
-    );
-    if (!/^\/v\d+\/appPrices\/[^/]+(?:\?|$)/.test(selfPath)) {
-      fail("The App price URL path is invalid.");
-    }
-    const payload = await apiRequest(
-      token,
-      "GET",
-      selfPath,
-    );
-    if (
-      payload.data?.type !== "appPrices" ||
-      payload.data.id !== activePrice.id ||
-      selectActiveManualPrices([payload.data], currentDate).length !== 1
-    ) {
-      fail("The detailed active app price is invalid.");
-    }
-    detailedActivePrices.push(payload.data);
-  }
+  const activePrices = selectActiveManualPrices(prices, currentDate)
+    .map((price) => completeAppPriceRelationships(price, schedule.id));
   const pricePointIds = [
     ...new Set(
-      detailedActivePrices.map(
+      activePrices.map(
         (price) => price.relationships?.appPricePoint?.data?.id,
       ),
     ),
@@ -729,14 +780,13 @@ export async function priceScheduleSummary(token, appId) {
       token,
       "GET",
       `/v3/appPricePoints/${encodeURIComponent(pricePointId)}?${query({
-        "fields[appPricePoints]": "customerPrice,territory",
-        include: "territory",
+        "fields[appPricePoints]": "customerPrice",
       })}`,
     );
     pricePoints.push(payload.data);
   }
   return summarizePriceSchedule(schedule, {
-    data: detailedActivePrices,
+    data: activePrices,
     included: pricePoints,
   }, currentDate);
 }

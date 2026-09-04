@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   appleApiPath,
+  completeAppPriceRelationships,
   failForBlockers,
   priceScheduleSummary,
   reviewDetailIdFromResponse,
@@ -28,18 +29,70 @@ assert.throws(
   ),
   /left Apple API/,
 );
-assert.equal(
-  appleApiPath(
-    "https://api.appstoreconnect.apple.com/v2/appPrices/opaque-id" +
-      "?include=territory",
-    "App price",
-    {
-      include: "appPricePoint,territory",
-      "fields[appPrices]": "manual,startDate",
+const sparsePriceId = Buffer.from(
+  JSON.stringify({
+    s: "schedule-id",
+    t: "USA",
+    p: "10000",
+    sd: 0,
+    ed: 0,
+  }),
+).toString("base64url");
+const freePricePointId = Buffer.from(
+  JSON.stringify({
+    s: "schedule-id",
+    t: "USA",
+    p: "10000",
+  }),
+).toString("base64url");
+assert.deepEqual(
+  completeAppPriceRelationships({
+    type: "appPrices",
+    id: sparsePriceId,
+    attributes: {
+      manual: true,
+      startDate: null,
+      endDate: null,
     },
-  ),
-  "/v2/appPrices/opaque-id?include=appPricePoint%2Cterritory&" +
-    "fields%5BappPrices%5D=manual%2CstartDate",
+  }, "schedule-id").relationships,
+  {
+    appPricePoint: {
+      data: {
+        type: "appPricePoints",
+        id: freePricePointId,
+      },
+    },
+    territory: {
+      data: {
+        type: "territories",
+        id: "USA",
+      },
+    },
+  },
+);
+assert.equal(
+  completeAppPriceRelationships({
+    type: "appPrices",
+    id:
+      "eyJzIjoiNjQ0NzQwMjE5MiIsInQiOiJVU0EiLCJwIjoiMTAwMDciLCJzZCI6" +
+      "MC4wLCJlZCI6MTY3NzU3MTIwMC4wMDAwMDAwMDB9",
+  }, "6447402192").relationships.appPricePoint.data.id,
+  "eyJzIjoiNjQ0NzQwMjE5MiIsInQiOiJVU0EiLCJwIjoiMTAwMDcifQ",
+);
+assert.throws(
+  () => completeAppPriceRelationships({
+    type: "appPrices",
+    id: Buffer.from(
+      JSON.stringify({
+        s: "other-schedule",
+        t: "USA",
+        p: "10000",
+        sd: 0,
+        ed: 0,
+      }),
+    ).toString("base64url"),
+  }, "schedule-id"),
+  /sparse app price identity is invalid/,
 );
 
 const validBuild = {
@@ -739,7 +792,7 @@ try {
               meta: { paging: { total: 1 } },
               data: [{
                 type: "appPrices",
-                id: "active-price-id",
+                id: sparsePriceId,
               }],
             },
           },
@@ -747,16 +800,11 @@ try {
         included: [
           {
             type: "appPrices",
-            id: "active-price-id",
+            id: sparsePriceId,
             attributes: {
               manual: true,
               startDate: null,
               endDate: null,
-            },
-            links: {
-              self:
-                "https://api.appstoreconnect.apple.com/v2/appPrices/" +
-                "active-price-id?include=territory",
             },
           },
           {
@@ -770,44 +818,15 @@ try {
           },
         ],
       };
-    } else if (parsed.pathname === "/v2/appPrices/active-price-id") {
-      payload = {
-        data: {
-          type: "appPrices",
-          id: "active-price-id",
-          attributes: {
-            manual: true,
-            startDate: null,
-            endDate: null,
-          },
-          relationships: {
-            territory: {
-              data: { type: "territories", id: "USA" },
-            },
-            appPricePoint: {
-              data: {
-                type: "appPricePoints",
-                id: "free-point-id",
-              },
-            },
-          },
-        },
-        included: [{
-          type: "appPricePoints",
-          id: "free-point-id",
-        }],
-      };
-    } else if (parsed.pathname === "/v3/appPricePoints/free-point-id") {
+    } else if (
+      parsed.pathname ===
+        `/v3/appPricePoints/${encodeURIComponent(freePricePointId)}`
+    ) {
       payload = {
         data: {
           type: "appPricePoints",
-          id: "free-point-id",
+          id: freePricePointId,
           attributes: { customerPrice: "0.00" },
-          relationships: {
-            territory: {
-              data: { type: "territories", id: "USA" },
-            },
-          },
         },
       };
     } else {
@@ -825,22 +844,12 @@ try {
   );
   assert.equal(hydratedPriceSummary.complete, true);
   assert.equal(hydratedPriceSummary.activeManualPriceCount, 1);
-  const hydrationRequest = priceRequests.find(
-    (request) => request.pathname === "/v2/appPrices/active-price-id",
-  );
-  assert.ok(hydrationRequest);
-  assert.deepEqual(
-    hydrationRequest.searchParams.getAll("include"),
-    ["appPricePoint,territory"],
-  );
-  assert.deepEqual(
-    hydrationRequest.searchParams.getAll("fields[appPrices]"),
-    ["manual,startDate,endDate,appPricePoint,territory"],
-  );
+  assert.equal(priceRequests.length, 2);
   assert.ok(
     priceRequests.some(
       (request) => (
-        request.pathname === "/v3/appPricePoints/free-point-id"
+        request.pathname ===
+          `/v3/appPricePoints/${encodeURIComponent(freePricePointId)}`
       ),
     ),
   );
