@@ -189,13 +189,18 @@ Current prerequisite status:
 | App Store Connect API keys | An App Manager-role team key remains configured for metadata and upload work. A separate Admin Team API key is configured only for protected device/profile provisioning and is retained for future provisioning per the repository owner's request. Both use the existing issuer; their Key IDs and private-key secrets remain distinct. Neither private key is committed or retained on a GitHub runner. |
 | Ad Hoc registered-device path | Validated successfully in protected run `33703681354` for the exact three configured devices and matching profile. The signed IPA was validated, not uploaded or published, and removed during verified cleanup. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
-| Apple agreements | The account holder confirmed that MFA and current legal agreements are complete. Versioned public-listing data now covers the live support/privacy URLs, rating, category, review notes, marketing copy, pricing choice, storefront choice, and DSA choice. App Review contact remains pending through a protected process. |
+| Apple agreements and compliance | The account holder confirmed MFA and current legal agreements. The protected inspector confirms the live support/privacy URLs, rating, category, review notes, marketing copy, content rights, free pricing, storefront selection, screenshots, and App Review contact. Apple still reports `TRADER_STATUS_NOT_PROVIDED` and `CANNOT_SELL`; the Account Holder or Admin must complete the EU DSA declaration before submission can continue. |
 
-The signing identity and App Store app record exist, but public distribution
-remains blocked. Complete the live support and privacy URLs, owner-specific
-metadata, pricing, storefront selection, current age-rating questionnaire,
-screenshots, exact-commit CI and unsigned build, physical A16 acceptance, and
-all authorization gates in
+The signing identity, App Store app record, and exact replacement build
+`33770597608.1` exist. Protected run
+[33823901657](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33823901657)
+confirmed the build is valid and selected, the seven final screenshots and
+App Review detail are complete, content rights and age rating match, free
+pricing is active, China mainland is unavailable, and release remains manual.
+App Review submission is now blocked by the account-level EU DSA trader
+declaration, plus the separately tracked App Privacy publication state and
+physical A16 acceptance. Complete those remaining items and the authorization
+gates in
 [`app-store-release-checklist.md`](app-store-release-checklist.md). Build
 selection, App Review submission, and release remain separate App Store
 Connect actions regardless of the API key's role.
@@ -215,8 +220,11 @@ and
 exposed and partially applied the initial-version path. Run
 [33661855538](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33661855538)
 then completed the metadata sync, including version localization and the age
-rating. Pricing, storefronts, App Privacy, content rights, DSA status,
-screenshots, and App Review contact still require direct confirmation.
+rating. The owner directly saved content rights, free pricing, and every
+storefront except China mainland. The protected inspector now verifies those
+resources, screenshots, and App Review contact. App Privacy still requires
+direct confirmation, and Apple will not mark the selected storefronts ready
+until the Account Holder or Admin completes the EU DSA trader declaration.
 
 Every provisioning profile must use the same Team ID and exact bundle
 identifier configured in GitHub. The normal App Store path rejects development,

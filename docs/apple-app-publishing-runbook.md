@@ -28,6 +28,9 @@ authorizes or proves the next stage.
 | Generated screenshots must identify their source | Store screenshots can silently become stale after later release changes. | Generate them from a clean exact commit, record dimensions and hashes, and regenerate after the final publication commit. |
 | An unsigned build is not device acceptance | The generic-device Xcode compile proved the export pipeline but not signing, installation, frame rate, thermals, touch behavior, or safe areas. | Require a signed physical-device acceptance pass before submission. Clearly mark measurements that still require hardware. |
 | Provisioning creates have no idempotency key | A device or profile POST can complete even when the client receives a conflict or network failure. | Query first, POST at most once, then use bounded exact re-reads. Never blindly retry, patch, delete, disable, re-enable, or replace an ambiguous resource. |
+| App pricing resources are sparse and partly unreadable | The live service returned embedded `appPrices` without relationships, rejected the documented related-price route with `404`, and rejected the advertised price `self` URL with `403`. The opaque Apple-issued price identity contained the schedule, territory, and price-point identity needed to use the supported v3 price-point read. | Validate the schedule linkage, decode only canonical Apple base64url price identities, bind them to the exact schedule, derive the price-point identity, and verify `customerPrice` through `/v3/appPricePoints/{id}`. Never infer free pricing from the existence of a schedule alone. |
+| Availability relationships require an explicit include | Requesting `territory` as a sparse field did not populate the relationship data, so otherwise valid territory availability records failed closed. | Use `include=territory`, compare the result with the complete `/v1/territories` catalog, and reject missing, duplicate, unknown, transitional, restricted, or empty non-China content statuses. |
+| Storefront selection does not complete DSA compliance | The app was configured for every current storefront except China mainland, but Apple reported `TRADER_STATUS_NOT_PROVIDED` and `CANNOT_SELL`. | The Account Holder or Admin must complete the account-level EU Digital Services Act trader declaration under **Business > Agreements > Compliance**, then confirm the app-specific selection under **App Information > App Store Regulations and Permits**. Do not guess the legal status or automate it from repository metadata. |
 
 ## 1. Decide distribution before creating workflows
 
@@ -403,6 +406,11 @@ These runs document the concrete failures behind this runbook:
   successfully, including version localization and age-rating answers.
 - `33576432175`: candidate upload succeeded, but later changes superseded its
   source commit before submission.
+- `33823901657`: the replacement candidate passed build processing, selection,
+  export compliance, screenshots, App Review contact, content rights, age
+  rating, free pricing, and the complete territory catalog. Submission remained
+  blocked only because the Apple account had not completed its EU DSA trader
+  declaration; the app remained on manual release and was not submitted.
 
 For the current app's exact values and live release state, use
 [`app-store-metadata.md`](app-store-metadata.md),

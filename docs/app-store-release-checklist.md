@@ -50,6 +50,20 @@ of signing secrets.
 - This candidate is superseded by later gameplay and release-preparation
   changes and must not be submitted.
 
+Current replacement candidate:
+
+- Version: `0.1.0`
+- Build: `33770597608.1`
+- Source commit: `cab65511405f5c6b17865d2283d4a636a59da8be`
+- Workflow run:
+  [iOS App Store candidate upload 33770597608](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33770597608)
+- Apple processing state: `VALID`; the build is selected for version `0.1.0`,
+  is not expired, and declares no non-exempt encryption.
+- Seven final 13-inch iPad screenshots and the protected App Review contact are
+  complete.
+- Release type remains `MANUAL`. The candidate has not been submitted or
+  released.
+
 ## Required owner-supplied listing fields
 
 - [x] Replace every `REQUIRED_BEFORE_SUBMISSION` value in
@@ -177,8 +191,17 @@ of signing secrets.
   downloadable signed artifact.
 - [x] Wait for Apple processing and inspect export compliance, minimum OS,
   exact build selection, screenshots, review detail, and build metadata.
-  Read-only run `33784856453` reported a valid build and no API-visible
-  blockers.
+  Read-only run `33823901657` confirmed the exact valid build, seven
+  screenshots, App Review detail, content rights, age rating, free pricing,
+  every current territory except China mainland, and manual release.
+- [ ] Complete the Apple account's EU Digital Services Act trader declaration.
+  Apple currently reports `TRADER_STATUS_NOT_PROVIDED` and `CANNOT_SELL`.
+  The Account Holder or Admin must use **Business > Agreements > Compliance >
+  Digital Services Act**, truthfully choose trader or non-trader, finish any
+  required verification, then confirm the app-specific selection under **App
+  Information > App Store Regulations and Permits > Digital Services Act**.
+- [ ] Rerun the protected candidate inspection and require all non-China
+  storefront statuses to be ready.
 - [x] **Explicit submission authorization:** authorize selection of the
   processed build and submission to App Review. Upload authorization alone is
   not submission authorization.
