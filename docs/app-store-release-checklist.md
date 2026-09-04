@@ -136,7 +136,7 @@ Current replacement candidate:
 - [x] Set Games > Casual with Adventure as the secondary Games subcategory.
 - [x] Confirm content rights using the repository asset provenance ledgers.
 - [x] Answer App Privacy with **No, we do not collect data from this app**.
-- [ ] Confirm the App Privacy response is **published**, not only saved. In
+- [x] Confirm the App Privacy response is **published**, not only saved. In
   **Apps > Frog City Feast > App Privacy**, verify the no-data answer, click
   **Publish**, and accept Apple's accuracy confirmation.
 - [x] Enter the live privacy policy URL.
@@ -209,8 +209,12 @@ Current replacement candidate:
   and confirm Apple acknowledges the submission.
   Run `33826716016` was rejected while adding the exact version with Apple's
   generic `409 STATE_ERROR.ENTITY_STATE_INVALID` and no associated validation
-  errors. Confirm App Privacy publication, then retry the same protected
-  workflow before contacting Apple Developer Support.
+  errors. App Privacy was then confirmed published, but retry `33827587415`
+  produced the identical rejection. Use the App Store Connect web UI's **Add
+  for Review** action to obtain Apple's missing-field dialog without clicking
+  **Submit for Review**. If it succeeds, leave the item in the draft for the
+  protected workflow; if it fails without useful details, contact Apple
+  Developer Support with the exact version, build, timestamp, and run ID.
 - [ ] Resolve only accurate App Review questions; do not change age, privacy,
   content, or account answers to evade a restriction.
 - [ ] **Explicit release authorization:** after approval, authorize manual
