@@ -189,7 +189,7 @@ Current prerequisite status:
 | App Store Connect API keys | An App Manager-role team key remains configured for metadata and upload work. A separate Admin Team API key is configured only for protected device/profile provisioning and is retained for future provisioning per the repository owner's request. Both use the existing issuer; their Key IDs and private-key secrets remain distinct. Neither private key is committed or retained on a GitHub runner. |
 | Ad Hoc registered-device path | Validated successfully in protected run `33703681354` for the exact three configured devices and matching profile. The signed IPA was validated, not uploaded or published, and removed during verified cleanup. |
 | Internal TestFlight group | **Frog City Feast Internal** exists as an internal group with the sole App Store Connect user added. Automatic access to all builds is disabled and no public link is enabled. The tester remains `NOT_INVITED` until a build is assigned. |
-| Apple agreements and compliance | The account holder confirmed MFA and current legal agreements. The protected inspector confirms the live support/privacy URLs, rating, category, review notes, marketing copy, content rights, free pricing, storefront selection, screenshots, and App Review contact. Apple still reports `TRADER_STATUS_NOT_PROVIDED` and `CANNOT_SELL`; the Account Holder or Admin must complete the EU DSA declaration before submission can continue. |
+| Apple agreements and compliance | The account holder confirmed MFA, current legal agreements, and EU DSA non-trader status. Protected run `33825382288` confirmed that `TRADER_STATUS_NOT_PROVIDED` cleared. All selected storefronts still report generic `CANNOT_SELL`, and Apple rejected the exact review item with an opaque `409`; App Privacy publication remains the next direct confirmation. |
 
 The signing identity, App Store app record, and exact replacement build
 `33770597608.1` exist. Protected run
@@ -197,10 +197,14 @@ The signing identity, App Store app record, and exact replacement build
 confirmed the build is valid and selected, the seven final screenshots and
 App Review detail are complete, content rights and age rating match, free
 pricing is active, China mainland is unavailable, and release remains manual.
-App Review submission is now blocked by the account-level EU DSA trader
-declaration, plus the separately tracked App Privacy publication state and
-physical A16 acceptance. Complete those remaining items and the authorization
-gates in
+The Account Holder completed the EU DSA non-trader declaration, and Apple no
+longer reports the DSA-specific status. Protected submission run
+[33826716016](https://github.com/CHDAFNI-MSFT/FrogCityFeast/actions/runs/33826716016)
+still failed when adding the exact version to the review draft with generic
+`409 STATE_ERROR.ENTITY_STATE_INVALID` and no associated errors. Confirm that
+the no-data App Privacy response was explicitly published, not only saved;
+physical A16 acceptance remains separately tracked. Complete those remaining
+items and the authorization gates in
 [`app-store-release-checklist.md`](app-store-release-checklist.md). Build
 selection, App Review submission, and release remain separate App Store
 Connect actions regardless of the API key's role.
@@ -222,9 +226,9 @@ exposed and partially applied the initial-version path. Run
 then completed the metadata sync, including version localization and the age
 rating. The owner directly saved content rights, free pricing, and every
 storefront except China mainland. The protected inspector now verifies those
-resources, screenshots, and App Review contact. App Privacy still requires
-direct confirmation, and Apple will not mark the selected storefronts ready
-until the Account Holder or Admin completes the EU DSA trader declaration.
+resources, screenshots, and App Review contact. The EU DSA declaration is now
+complete. App Privacy publication still requires direct confirmation because
+Apple exposes no supported API for the questionnaire's publication state.
 
 Every provisioning profile must use the same Team ID and exact bundle
 identifier configured in GitHub. The normal App Store path rejects development,

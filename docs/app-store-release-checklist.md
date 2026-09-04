@@ -136,6 +136,9 @@ Current replacement candidate:
 - [x] Set Games > Casual with Adventure as the secondary Games subcategory.
 - [x] Confirm content rights using the repository asset provenance ledgers.
 - [x] Answer App Privacy with **No, we do not collect data from this app**.
+- [ ] Confirm the App Privacy response is **published**, not only saved. In
+  **Apps > Frog City Feast > App Privacy**, verify the no-data answer, click
+  **Publish**, and accept Apple's accuracy confirmation.
 - [x] Enter the live privacy policy URL.
 - [x] Complete the current age-rating questionnaire with the inputs in
   `docs/app-store-metadata.md`, including **Frequent** cartoon or fantasy
@@ -194,12 +197,9 @@ Current replacement candidate:
   Read-only run `33823901657` confirmed the exact valid build, seven
   screenshots, App Review detail, content rights, age rating, free pricing,
   every current territory except China mainland, and manual release.
-- [ ] Complete the Apple account's EU Digital Services Act trader declaration.
-  Apple currently reports `TRADER_STATUS_NOT_PROVIDED` and `CANNOT_SELL`.
-  The Account Holder or Admin must use **Business > Agreements > Compliance >
-  Digital Services Act**, truthfully choose trader or non-trader, finish any
-  required verification, then confirm the app-specific selection under **App
-  Information > App Store Regulations and Permits > Digital Services Act**.
+- [x] Complete the Apple account's EU Digital Services Act declaration as
+  non-trader. Run `33825382288` confirmed that Apple no longer reports
+  `TRADER_STATUS_NOT_PROVIDED`.
 - [ ] Rerun the protected candidate inspection and require all non-China
   storefront statuses to be ready.
 - [x] **Explicit submission authorization:** authorize selection of the
@@ -207,6 +207,10 @@ Current replacement candidate:
   not submission authorization.
 - [ ] Run the separately protected exact-build App Review submission workflow
   and confirm Apple acknowledges the submission.
+  Run `33826716016` was rejected while adding the exact version with Apple's
+  generic `409 STATE_ERROR.ENTITY_STATE_INVALID` and no associated validation
+  errors. Confirm App Privacy publication, then retry the same protected
+  workflow before contacting Apple Developer Support.
 - [ ] Resolve only accurate App Review questions; do not change age, privacy,
   content, or account answers to evade a restriction.
 - [ ] **Explicit release authorization:** after approval, authorize manual

@@ -411,6 +411,16 @@ These runs document the concrete failures behind this runbook:
   rating, free pricing, and the complete territory catalog. Submission remained
   blocked only because the Apple account had not completed its EU DSA trader
   declaration; the app remained on manual release and was not submitted.
+- `33825382288`: after the Account Holder declared non-trader status, Apple no
+  longer returned `TRADER_STATUS_NOT_PROVIDED`; all selected storefronts still
+  returned the generic `CANNOT_SELL` status.
+- `33826716016`: the exact review-submission workflow revalidated and
+  regenerated the candidate package, but Apple again rejected adding version
+  `0.1.0` to the review draft with generic
+  `409 STATE_ERROR.ENTITY_STATE_INVALID` and no associated errors. With all
+  API-visible listing prerequisites and DSA complete, confirm that the App
+  Privacy answers were explicitly **published**, not only saved, before
+  escalating the opaque rejection to Apple Developer Support.
 
 For the current app's exact values and live release state, use
 [`app-store-metadata.md`](app-store-metadata.md),
