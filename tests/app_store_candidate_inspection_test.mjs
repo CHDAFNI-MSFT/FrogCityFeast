@@ -690,6 +690,7 @@ const completeAvailability = summarizeAvailability({
 }, "all_except_china_mainland", ["USA", "CHN"]);
 assert.equal(completeAvailability.complete, true);
 assert.equal(completeAvailability.availableTerritoryCount, 1);
+assert.deepEqual(completeAvailability.nonReadyTerritories, []);
 assert.deepEqual(
   summarizeAvailability({
     data: {
@@ -725,6 +726,42 @@ assert.deepEqual(
   }, "all_except_china_mainland", ["USA", "CHN"])
     .nonReadyContentStatuses,
   ["MISSING_RATING"],
+);
+assert.deepEqual(
+  summarizeAvailability({
+    data: {
+      type: "appAvailabilities",
+      id: "availability-id",
+      attributes: { availableInNewTerritories: true },
+    },
+    totalCount: 2,
+    territories: [
+      {
+        type: "territoryAvailabilities",
+        id: "usa-availability",
+        attributes: {
+          available: true,
+          contentStatuses: ["MISSING_RATING", "AVAILABLE"],
+        },
+        relationships: {
+          territory: { data: { type: "territories", id: "USA" } },
+        },
+      },
+      {
+        type: "territoryAvailabilities",
+        id: "chn-availability",
+        attributes: {
+          available: false,
+          contentStatuses: [],
+        },
+        relationships: {
+          territory: { data: { type: "territories", id: "CHN" } },
+        },
+      },
+    ],
+  }, "all_except_china_mainland", ["USA", "CHN"])
+    .nonReadyTerritories,
+  [{ id: "USA", statuses: ["MISSING_RATING"] }],
 );
 assert.equal(
   summarizeAvailability({

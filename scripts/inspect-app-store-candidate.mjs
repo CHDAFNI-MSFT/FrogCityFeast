@@ -539,6 +539,7 @@ export function summarizeAvailability(
       availableTerritoryCount: 0,
       unavailableTerritoryCount: 0,
       nonReadyContentStatuses: [],
+      nonReadyTerritories: [],
       chinaMainlandAvailable: null,
       availableInNewTerritories: null,
       complete: false,
@@ -597,11 +598,19 @@ export function summarizeAvailability(
     returnedIds.size === catalogIds.size &&
     [...catalogIds].every((id) => returnedIds.has(id))
   );
+  const nonReadyTerritories = territories
+    .filter((entry) => entry.id !== "CHN")
+    .map((entry) => ({
+      id: entry.id,
+      statuses: entry.contentStatuses
+        .filter((status) => !READY_AVAILABILITY_STATUSES.has(status))
+        .sort(),
+    }))
+    .filter((entry) => entry.statuses.length > 0)
+    .sort((left, right) => left.id.localeCompare(right.id));
   const nonReadyContentStatuses = [
     ...new Set(
-      territories.filter((entry) => entry.id !== "CHN")
-        .flatMap((entry) => entry.contentStatuses)
-        .filter((status) => !READY_AVAILABILITY_STATUSES.has(status)),
+      nonReadyTerritories.flatMap((entry) => entry.statuses),
     ),
   ].sort();
   const china = territories.find((entry) => entry.id === "CHN");
@@ -630,6 +639,7 @@ export function summarizeAvailability(
     availableTerritoryCount,
     unavailableTerritoryCount,
     nonReadyContentStatuses,
+    nonReadyTerritories,
     chinaMainlandAvailable,
     availableInNewTerritories,
     complete: (
